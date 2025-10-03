@@ -894,7 +894,9 @@ export async function startCatalogServer(
 
   const server = await new Promise<Server>((resolve) => {
     const listener = app.listen(port, () => {
-      console.log(`Catalog server listening on http://localhost:${port}`);
+      console.log(
+        `Catalog server listening on http://localhost:${port} (node ${process.version}, abi ${process.versions.modules})`,
+      );
       resolve(listener);
     });
   });

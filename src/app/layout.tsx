@@ -32,7 +32,7 @@ export default function RootLayout({
       <head>
         <ColorSchemeScript defaultColorScheme="light" />
       </head>
-      <body className="bg-background text-foreground font-sans antialiased">
+      <body className="bg-background text-foreground antialiased" style={{ fontFamily: 'var(--font-geist-mono)' }}>
         <MantineProvider defaultColorScheme="light">
           <AppWarmup />
           <AppLayout>{children}</AppLayout>

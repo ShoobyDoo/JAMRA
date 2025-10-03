@@ -4,7 +4,7 @@ import { fetchExtensions, type ExtensionListOptions } from "@/lib/api";
 type PageSearchParams = Record<string, string | string[] | undefined>;
 
 interface ExtensionsPageProps {
-  searchParams?: PageSearchParams | Promise<PageSearchParams>;
+  searchParams: Promise<PageSearchParams>;
 }
 
 export const dynamic = "force-dynamic";
@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 export default async function ExtensionsPage({
   searchParams,
 }: ExtensionsPageProps) {
-  const resolvedParams = await Promise.resolve(searchParams ?? {});
+  const resolvedParams = await searchParams;
   const initialQuery: ExtensionListOptions = {};
 
   const readParam = (key: string) => {

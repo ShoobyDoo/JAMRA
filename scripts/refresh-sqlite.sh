@@ -279,7 +279,7 @@ maybe_rebuild_for_electron() {
   fi
 
   local electron_rebuild_pkg
-  electron_rebuild_pkg="$(node -p "require.resolve('@electron/rebuild/package.json')" 2>/dev/null || true)"
+  electron_rebuild_pkg="$(node -p "(() => { const path = require('path'); try { return require.resolve('@electron/rebuild/package.json'); } catch (error) { try { const entry = require.resolve('@electron/rebuild'); return path.join(path.dirname(entry), 'package.json'); } catch { return ''; } } })()" 2>/dev/null || true)"
   if [[ -z "$electron_rebuild_pkg" ]]; then
     echo "warning: @electron/rebuild is not installed; skipping Electron rebuild." >&2
     echo "         Install it with 'pnpm add -D @electron/rebuild' and re-run with --electron." >&2
@@ -297,13 +297,32 @@ maybe_rebuild_for_electron() {
   electron_version="$(TAIL_VALUE node -p "require('electron/package.json').version")"
   local electron_abi=""
   if [[ -n "$electron_version" ]]; then
-    electron_abi="$(TAIL_VALUE node -p "(require('node-abi').getAbi('${electron_version}', 'electron'))")"
+    electron_abi="$(ELECTRON_VERSION="$electron_version" run_with_node node -e "const nodeAbi = require('node-abi'); const version = process.env.ELECTRON_VERSION; if (version) process.stdout.write(nodeAbi.getAbi(version, 'electron'));" 2>/dev/null || true)"
+    electron_abi="$(printf '%s\n' "$electron_abi" | tail -n 1 | tr -d '\r')"
+  fi
+
+  if [[ -z "$electron_abi" ]]; then
+    electron_abi="$(run_with_node node -e "const electronPath = require('electron'); const { spawnSync } = require('node:child_process'); const env = { ...process.env, ELECTRON_RUN_AS_NODE: '1' }; const result = spawnSync(electronPath, ['-p', 'process.versions.modules'], { encoding: 'utf8', env }); if (result.status === 0 && result.stdout) { process.stdout.write(result.stdout.trim()); }" 2>/dev/null || true)"
+    electron_abi="$(printf '%s\n' "$electron_abi" | tail -n 1 | tr -d '\r')"
+  fi
+
+  if [[ -n "$electron_abi" ]] && [[ -n "$electron_version" ]]; then
+    echo ">> Electron ABI ${electron_abi} (${electron_version})"
+  elif [[ -n "$electron_version" ]]; then
+    echo "warning: unable to determine Electron ABI for version ${electron_version}; skipping dedicated binding copy." >&2
+  else
+    echo "warning: unable to determine Electron version; skipping dedicated binding copy." >&2
   fi
 
   if [[ -n "$electron_abi" && -f "$MODULE_DIR/build/Release/better_sqlite3.node" ]]; then
     local dest="$MODULE_DIR/lib/binding/electron-v${electron_abi}-${platform}-${arch}"
     mkdir -p "$dest"
     cp "$MODULE_DIR/build/Release/better_sqlite3.node" "$dest/better_sqlite3.node"
+
+    # Also copy to node-v{ABI} location since better-sqlite3 looks there when running in Electron
+    local node_dest="$MODULE_DIR/lib/binding/node-v${electron_abi}-${platform}-${arch}"
+    mkdir -p "$node_dest"
+    cp "$MODULE_DIR/build/Release/better_sqlite3.node" "$node_dest/better_sqlite3.node"
   fi
 
   restore_node_binding "$node_binding_backup"

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { routes } from "@/lib/routes";
 import { useUIStore } from "@/store/ui";
 import { cn } from "@/lib/utils";
+import { SIDEBAR_WIDTH } from "@/lib/constants";
 import { User, Settings, LogOut, LogIn } from "lucide-react";
 import { Box, Button, Divider, Menu, Stack } from "@mantine/core";
 import { usePathname } from "next/navigation";
@@ -13,10 +14,12 @@ export function Sidebar() {
   const { collapsed } = useUIStore();
   const pathname = usePathname();
 
-  const sidebarWidth = collapsed ? "w-[72px]" : "w-[200px]";
+  const sidebarWidth = collapsed
+    ? `w-[${SIDEBAR_WIDTH.COLLAPSED}px]`
+    : `w-[${SIDEBAR_WIDTH.EXPANDED}px]`;
   const sidebarRoutes = useMemo(
     () => routes.filter((route) => route.inSidebar),
-    [],
+    []
   );
   const isRouteActive = (path: string) =>
     path === "/" ? pathname === "/" : pathname.startsWith(path) && path !== "/";
@@ -56,7 +59,7 @@ export function Sidebar() {
       component="aside"
       className={cn(
         "flex h-full min-h-0 flex-shrink-0 flex-col border-r border-border bg-card text-card-foreground transition-[width] duration-300",
-        sidebarWidth,
+        sidebarWidth
       )}
       aria-label="Primary navigation"
     >
@@ -73,33 +76,28 @@ export function Sidebar() {
                   variant={isActive ? "filled" : "default"}
                   radius="md"
                   fullWidth
+                  p={collapsed ? 0 : undefined}
                   justify={collapsed ? "center" : "flex-start"}
                   className={cn(
                     "flex items-center overflow-hidden transition-all duration-300",
-                    collapsed ? "px-0" : "pl-2 pr-2",
+                    collapsed ? "px-0" : "pl-3 pr-3"
                   )}
                   aria-label={label}
                 >
                   {Icon && (
-                    <span
-                      className={cn(
-                        "flex items-center justify-center transition-all duration-300",
-                        collapsed ? "h-10 w-10" : "h-6 w-7",
-                      )}
-                    >
-                      <Icon
-                        className="h-full w-full"
-                        strokeWidth={2}
-                        aria-hidden
-                      />
-                    </span>
+                    <Icon
+                      size={18}
+                      strokeWidth={2}
+                      aria-hidden
+                      className="flex-shrink-0"
+                    />
                   )}
                   <span
                     className={cn(
                       "whitespace-nowrap transition-[max-width,opacity,margin] duration-300",
                       collapsed
                         ? "max-w-0 opacity-0"
-                        : "ml-2 max-w-[140px] opacity-100",
+                        : "ml-2 max-w-[140px] opacity-100"
                     )}
                   >
                     {label}
@@ -120,27 +118,26 @@ export function Sidebar() {
               variant="default"
               radius="md"
               fullWidth
+              p={collapsed ? 0 : undefined}
               justify={collapsed ? "center" : "flex-start"}
               className={cn(
                 "flex items-center overflow-hidden transition-all duration-300",
-                collapsed ? "h-10 w-10 px-0" : "pl-3 pr-2",
+                collapsed ? "px-0" : "pl-3 pr-3"
               )}
               aria-label="Account"
             >
-              <span
-                className={cn(
-                  "flex items-center justify-center transition-all duration-300",
-                  collapsed ? "h-10 w-10" : "h-6 w-7",
-                )}
-              >
-                <User className="h-full w-full" strokeWidth={2} aria-hidden />
-              </span>
+              <User
+                size={18}
+                strokeWidth={2}
+                aria-hidden
+                className="flex-shrink-0"
+              />
               <span
                 className={cn(
                   "whitespace-nowrap transition-[max-width,opacity,margin] duration-300",
                   collapsed
                     ? "max-w-0 opacity-0"
-                    : "ml-2 max-w-[120px] opacity-100",
+                    : "ml-3 max-w-[120px] opacity-100"
                 )}
               >
                 Account

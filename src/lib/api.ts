@@ -4,11 +4,12 @@ import type {
   ExtensionRegistryPublisher,
   ExtensionRegistryVersion,
 } from "@jamra/extension-registry";
+import { API_CONFIG } from "./constants";
 
 const API_BASE =
   process.env.NEXT_PUBLIC_JAMRA_API_URL ??
   process.env.JAMRA_API_URL ??
-  "http://localhost:4545/api";
+  `${API_CONFIG.DEFAULT_URL}/api`;
 
 function sanitizeErrorDetail(detail?: string | null): string | undefined {
   if (!detail) return undefined;

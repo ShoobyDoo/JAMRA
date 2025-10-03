@@ -17,7 +17,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsc -p ."
+    "build": "tsc -p . && node ../../scripts/copy-catalog-assets.mjs"
   },
   "dependencies": {
     "@jamra/catalog-db": "workspace:*",

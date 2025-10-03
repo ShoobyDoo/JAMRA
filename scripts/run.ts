@@ -229,7 +229,7 @@ async function main(): Promise<void> {
           await runCommand({
             cmd: "pnpm",
             args: ["exec", "electron", "electron/dist/main.cjs"],
-            env: { ELECTRON_RUN_AS_NODE: undefined },
+            env: { ...process.env, ELECTRON_RUN_AS_NODE: undefined },
           });
           break;
         default:

@@ -5,20 +5,24 @@ import { AppShell } from "@mantine/core";
 import { Sidebar } from "@/components/nav/sidebar";
 import { Topbar } from "@/components/topbar/topbar";
 import { useUIStore } from "@/store/ui";
+import {
+  SIDEBAR_WIDTH,
+  HEADER_HEIGHT,
+  CONTENT_MAX_WIDTH,
+} from "@/lib/constants";
 
-export function AppLayout({ children }: PropsWithChildren): JSX.Element {
+export function AppLayout({ children }: PropsWithChildren) {
   const collapsed = useUIStore((state) => state.collapsed);
-  const navbarWidth = collapsed ? 72 : 200;
+  const navbarWidth = collapsed ? SIDEBAR_WIDTH.COLLAPSED : SIDEBAR_WIDTH.EXPANDED;
 
   return (
     <AppShell
-      header={{ height: 56 }}
+      header={{ height: HEADER_HEIGHT }}
       navbar={{
         width: navbarWidth,
         breakpoint: "sm",
         collapsed: { mobile: false, desktop: false },
       }}
-      navbarOffsetBreakpoint="sm"
       padding={0}
       styles={{
         header: {
@@ -35,14 +39,16 @@ export function AppLayout({ children }: PropsWithChildren): JSX.Element {
         },
       }}
     >
-      <AppShell.Header px="md">
+      <AppShell.Header px={0}>
         <Topbar />
       </AppShell.Header>
       <AppShell.Navbar p={0}>
         <Sidebar />
       </AppShell.Navbar>
       <AppShell.Main className="overflow-y-auto">
-        <div className="mx-auto w-full max-w-6xl px-4 py-6">{children}</div>
+        <div className={`mx-auto w-full ${CONTENT_MAX_WIDTH} px-4 py-6`}>
+          {children}
+        </div>
       </AppShell.Main>
     </AppShell>
   );

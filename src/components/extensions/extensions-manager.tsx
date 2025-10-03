@@ -39,7 +39,13 @@ import {
   updateExtensionSettings,
 } from "@/lib/api";
 import { compareVersions } from "@jamra/extension-registry";
-import { AlertTriangle, ArrowDownToLine, RefreshCcw } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowDownToLine,
+  ArrowDown,
+  ArrowUp,
+  RefreshCcw,
+} from "lucide-react";
 
 const TRUST_WARNING = "Only install extensions that you trust.";
 
@@ -551,7 +557,8 @@ export function ExtensionsManager({
 
         <Tabs.Panel value="installed" pt="md">
           <Stack gap="lg">
-            <Stack gap="sm" component={Card} withBorder p="lg">
+            <Card withBorder p="lg">
+              <Stack gap="sm">
               <Title order={3}>Install from file</Title>
               <Text size="sm" c="dimmed">
                 Provide the absolute path to the compiled extension entry file.
@@ -579,15 +586,11 @@ export function ExtensionsManager({
                 </Button>
               </Group>
               {installError ? <Alert color="red">{installError}</Alert> : null}
-            </Stack>
+              </Stack>
+            </Card>
 
-            <Stack gap="sm" component={Card} withBorder p="lg">
-              <Group
-                justify="space-between"
-                align="flex-end"
-                wrap="wrap"
-                gap="md"
-              >
+            <Card withBorder p="lg">
+              <Stack gap="sm">
                 <div>
                   <Title order={3}>Installed Extensions</Title>
                   <Text size="sm" c="dimmed">
@@ -596,23 +599,23 @@ export function ExtensionsManager({
                       : `${statusSummary.enabled} enabled · ${statusSummary.disabled} disabled`}
                   </Text>
                 </div>
-                <Group gap="md" align="flex-end" wrap="wrap">
+                <Group gap="md" align="center" wrap="nowrap">
                   <TextInput
-                    label="Search"
                     placeholder="Search by name or author"
                     value={search}
                     onChange={(event) => setSearch(event.currentTarget.value)}
+                    className="flex-1"
                   />
-                  <SegmentedControl
-                    value={statusFilter}
-                    onChange={(value: StatusFilter) => setStatusFilter(value)}
-                    data={[
-                      { label: "All", value: "all" },
-                      { label: "Enabled", value: "enabled" },
-                      { label: "Disabled", value: "disabled" },
-                    ]}
-                  />
-                  <Group gap="xs">
+                  <Group gap="xs" align="center" wrap="nowrap">
+                    <SegmentedControl
+                      value={statusFilter}
+                      onChange={(value) => setStatusFilter(value as StatusFilter)}
+                      data={[
+                        { label: "All", value: "all" },
+                        { label: "Enabled", value: "enabled" },
+                        { label: "Disabled", value: "disabled" },
+                      ]}
+                    />
                     <SegmentedControl
                       value={sort}
                       onChange={(value) => setSort(value as typeof sort)}
@@ -623,17 +626,23 @@ export function ExtensionsManager({
                         { label: "Language", value: "language" },
                       ]}
                     />
-                    <SegmentedControl
-                      value={order}
-                      onChange={(value) => setOrder(value as typeof order)}
-                      data={[
-                        { label: "ASC", value: "asc" },
-                        { label: "DESC", value: "desc" },
-                      ]}
-                    />
+                    <Tooltip label={order === "asc" ? "Ascending" : "Descending"}>
+                      <ActionIcon
+                        variant="light"
+                        size="input-sm"
+                        onClick={() => setOrder(order === "asc" ? "desc" : "asc")}
+                      >
+                        {order === "asc" ? (
+                          <ArrowUp size={16} />
+                        ) : (
+                          <ArrowDown size={16} />
+                        )}
+                      </ActionIcon>
+                    </Tooltip>
                     <Tooltip label="Refresh">
                       <ActionIcon
                         variant="light"
+                        size="input-sm"
                         onClick={() => void refreshExtensions()}
                       >
                         <RefreshCcw size={16} />
@@ -641,17 +650,16 @@ export function ExtensionsManager({
                     </Tooltip>
                   </Group>
                 </Group>
-              </Group>
-              {error ? <Alert color="red">{error}</Alert> : null}
-              {loading ? (
-                <Group justify="center" py="xl">
-                  <Loader />
-                </Group>
-              ) : extensions.length === 0 ? (
-                <Text c="dimmed">No extensions match the current filters.</Text>
-              ) : (
-                <Stack gap="sm">
-                  {extensions.map((extension) => {
+                {error ? <Alert color="red">{error}</Alert> : null}
+                {loading ? (
+                  <Group justify="center" py="xl">
+                    <Loader />
+                  </Group>
+                ) : extensions.length === 0 ? (
+                  <Text c="dimmed">No extensions match the current filters.</Text>
+                ) : (
+                  <Stack gap="sm">
+                    {extensions.map((extension) => {
                     const hasErrors = extension.errors.length > 0;
                     const latest = extension.updateState?.latest;
                     const supportsUpdates = Boolean(
@@ -840,16 +848,18 @@ export function ExtensionsManager({
                         </Stack>
                       </Card>
                     );
-                  })}
-                </Stack>
-              )}
-            </Stack>
+                    })}
+                  </Stack>
+                )}
+              </Stack>
+            </Card>
           </Stack>
         </Tabs.Panel>
 
         <Tabs.Panel value="marketplace" pt="md">
           <Stack gap="lg">
-            <Stack gap="sm" component={Card} withBorder p="lg">
+            <Card withBorder p="lg">
+              <Stack gap="sm">
               <Group justify="space-between" align="center">
                 <div>
                   <Title order={3}>Marketplace</Title>
@@ -969,7 +979,8 @@ export function ExtensionsManager({
                   No extensions were published in the configured registries.
                 </Text>
               )}
-            </Stack>
+              </Stack>
+            </Card>
           </Stack>
         </Tabs.Panel>
       </Tabs>

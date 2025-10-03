@@ -2,7 +2,7 @@ import defaultTheme from "tailwindcss/defaultTheme";
 import type { Config } from "tailwindcss";
 
 const config: Config = {
-  darkMode: ["class"],
+  darkMode: "class",
   content: [
     "./src/app/**/*.{ts,tsx}",
     "./src/components/**/*.{ts,tsx}",
@@ -52,7 +52,7 @@ const config: Config = {
       },
       fontFamily: {
         sans: ["var(--font-geist-sans)", ...defaultTheme.fontFamily.sans],
-        mono: ["var(--font-geist-mono)", ...defaultTheme.fontFamily.mono],
+        mono: [...defaultTheme.fontFamily.mono],
       },
       keyframes: {
         "accordion-down": {

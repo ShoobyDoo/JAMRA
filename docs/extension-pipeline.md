@@ -28,7 +28,7 @@ Follow these steps to validate that the SDK, host, and sample extension all wire
    The console logs should confirm the extension manifest was loaded and list catalogue items, manga details, chapter counts, and page counts returned from the mock handlers.
 
 5. **SQLite prerequisites**
-   - See `docs/sqlite-setup.md` for build guidance. After switching to Node 24 (or any non-LTS build), run `pnpm sqlite:refresh` (pass `-- --electron` if you rebuilt the desktop shell) so the native addon is compiled for every runtime before persistence kicks in.
+   - See `docs/sqlite-setup.md` for build guidance. After switching to Node 22 (or any other runtime), run `pnpm sqlite:refresh` (add `--electron` if you rebuilt the desktop shell) so the native addon is compiled for every environment before persistence kicks in.
    - Set `JAMRA_DISABLE_SQLITE=1` to temporarily skip SQLite. The demo script detects the flag (or missing native module) and switches to the in-memory cache automatically.
 
 6. **Next steps**

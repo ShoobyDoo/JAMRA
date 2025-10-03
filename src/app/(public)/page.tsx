@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { fetchCataloguePage } from "@/lib/api";
+import { API_CONFIG } from "@/lib/constants";
 
 export default async function HomePage() {
   let catalogue;
@@ -12,7 +13,7 @@ export default async function HomePage() {
         <h1 className="text-2xl font-semibold">Home</h1>
         <p className="text-destructive">
           Failed to load catalogue data. Ensure the catalog server is running on
-          <code className="ml-1">http://localhost:4545</code>.
+          <code className="ml-1">{API_CONFIG.DEFAULT_URL}</code>.
         </p>
       </div>
     );

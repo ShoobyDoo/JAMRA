@@ -1,8 +1,9 @@
 "use client";
 
 import { Breadcrumb } from "@/components/ui/breadcrumb";
-import { ActionIcon, Group, Text, TextInput } from "@mantine/core";
+import { ActionIcon, Text, TextInput } from "@mantine/core";
 import { useUIStore } from "@/store/ui";
+import { SIDEBAR_WIDTH, HEADER_HEIGHT } from "@/lib/constants";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 export function Topbar() {
@@ -10,42 +11,54 @@ export function Topbar() {
   const toggleCollapsed = useUIStore((state) => state.toggleCollapsed);
 
   return (
-    <div className="flex h-14 items-center justify-between px-4">
-      <Group className="w-[200px] justify-between" align="center">
-        <Text fw={600} size="lg">
-          JAMRA
-        </Text>
+    <div className="flex items-center" style={{ height: HEADER_HEIGHT }}>
+      <div
+        className="flex items-center justify-between px-3"
+        style={{ width: SIDEBAR_WIDTH.EXPANDED }}
+      >
+        <div className="flex flex-col">
+          <Text fw={700} size="xl" lts={2}>
+            JAMRA
+          </Text>
+          <Text size="11px" c="dimmed" className="leading-none !-mt-1">
+            just another manga reader app
+          </Text>
+        </div>
         <ActionIcon
           variant="default"
           radius="md"
+          size="md"
           aria-label="Toggle sidebar"
           onClick={toggleCollapsed}
         >
           {collapsed ? (
-            <ChevronRight size={18} aria-hidden />
+            <ChevronRight size={16} aria-hidden />
           ) : (
-            <ChevronLeft size={18} aria-hidden />
+            <ChevronLeft size={16} aria-hidden />
           )}
         </ActionIcon>
-      </Group>
-      <Breadcrumb />
+      </div>
 
-      <form
-        action="/search"
-        method="GET"
-        className="hidden md:block"
-        role="search"
-      >
-        <TextInput
-          type="search"
-          name="q"
-          aria-label="Search manga"
-          placeholder="Search manga…"
-          className="w-64"
-          radius="md"
-          variant="filled"
-        />
-      </form>
+      <div className="mx-2 flex flex-1 items-center">
+        <Breadcrumb />
+
+        <form
+          action="/search"
+          method="GET"
+          className="ml-auto hidden md:block"
+          role="search"
+        >
+          <TextInput
+            type="search"
+            name="q"
+            aria-label="Search manga"
+            placeholder="Search manga…"
+            className="w-72"
+            size="sm"
+            radius="md"
+          />
+        </form>
+      </div>
     </div>
   );
 }

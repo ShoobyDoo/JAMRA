@@ -3,11 +3,12 @@ import Link from "next/link";
 import { fetchCataloguePage } from "@/lib/api";
 
 interface SearchPageProps {
-  searchParams: { q?: string };
+  searchParams: Promise<{ q?: string }>;
 }
 
 export default async function SearchPage({ searchParams }: SearchPageProps) {
-  const query = searchParams.q?.trim();
+  const { q } = await searchParams;
+  const query = q?.trim();
 
   if (!query) {
     return (

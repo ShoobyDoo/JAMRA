@@ -26,4 +26,4 @@ Follow Conventional Commits (`feat:`, `fix:`, `chore:`) as seen in the history, 
 
 ## Environment & Tooling Tips
 
-Use pnpm 8+ and Node 20 to stay aligned with Next.js 15 defaults. When adding packages that require native extensions, update `pnpm-workspace.yaml` if they must be built. Document any new environment variables in an `.env.example` and avoid hardcoding secrets in `src` or `public`.
+Use pnpm 8+ and Node 22 to stay aligned with the Electron/Next.js toolchains. When adding packages that require native extensions, update `pnpm-workspace.yaml` if they must be built. Document any new environment variables in an `.env.example` and avoid hardcoding secrets in `src` or `public`.

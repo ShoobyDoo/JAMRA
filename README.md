@@ -14,9 +14,9 @@ Monorepo powering the JAMRA manga reader with extension-driven content, a shared
 
 ## Requirements
 
-- Node.js 20.x (16/18 may lack required features; Node 24 needs manual native builds, see below).
+- Node.js 24.x (the Electron shell and native rebuild scripts target this runtime).
 - pnpm 8.x or newer.
-- For SQLite persistence on Node 24+, install a native build toolchain and follow [`docs/sqlite-setup.md`](docs/sqlite-setup.md).
+- For alternative Node releases, install a native build toolchain and follow [`docs/sqlite-setup.md`](docs/sqlite-setup.md) to rebuild SQLite bindings.
 
 ## Workspace Commands
 

@@ -4,11 +4,12 @@ import { notFound } from "next/navigation";
 import { fetchMangaDetails } from "@/lib/api";
 
 interface MangaPageProps {
-  params: { slug: string };
+  params: Promise<{ slug: string }>;
 }
 
 export default async function MangaPage({ params }: MangaPageProps) {
-  const slug = decodeURIComponent(params.slug ?? "");
+  const { slug: rawSlug } = await params;
+  const slug = decodeURIComponent(rawSlug ?? "");
 
   if (!slug) return notFound();
 

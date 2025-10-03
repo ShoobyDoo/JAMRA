@@ -1,0 +1,43 @@
+{
+  "registry": {
+    "id": "jamra-official",
+    "name": "JAMRA Official Registry",
+    "description": "Curated extensions maintained by the JAMRA core team.",
+    "homepage": "https://github.com/jamra-app/jamra",
+    "supportUrl": "https://github.com/jamra-app/jamra/issues",
+    "maintainers": [
+      {
+        "name": "JAMRA Core Team",
+        "url": "https://github.com/jamra-app"
+      }
+    ]
+  },
+  "generatedAt": "2025-01-01T00:00:00.000Z",
+  "extensions": [
+    {
+      "id": "com.jamra.example",
+      "name": "Example Catalogue",
+      "summary": "Demo provider bundled with JAMRA for development and testing.",
+      "description": "Reference implementation of the JAMRA extension SDK that ships with the repository.",
+      "homepage": "https://github.com/jamra-app/jamra/tree/main/packages/example-extension",
+      "repository": "https://github.com/jamra-app/jamra/tree/main/packages/example-extension",
+      "tags": ["official", "demo"],
+      "author": {
+        "name": "JAMRA Core Team",
+        "url": "https://github.com/jamra-app"
+      },
+      "versions": [
+        {
+          "version": "1.0.0",
+          "downloadUrl": "./packages/example-extension/dist/index.js",
+          "checksum": {
+            "algorithm": "sha256",
+            "value": "d14849393c0fa4789db70a881f5d26277cdd40668366a022d1af92d422ffdaeb"
+          },
+          "releaseNotes": "Initial release of the example provider bundled with JAMRA.",
+          "publishedAt": "2025-01-01T00:00:00.000Z"
+        }
+      ]
+    }
+  ]
+}

@@ -3,12 +3,13 @@ import { notFound } from "next/navigation";
 import { fetchChapterPages } from "@/lib/api";
 
 interface ReaderPageProps {
-  params: { slug: string; number: string };
+  params: Promise<{ slug: string; number: string }>;
 }
 
 export default async function ReaderPage({ params }: ReaderPageProps) {
-  const slug = decodeURIComponent(params.slug ?? "");
-  const chapterId = decodeURIComponent(params.number ?? "");
+  const { slug: rawSlug, number: rawNumber } = await params;
+  const slug = decodeURIComponent(rawSlug ?? "");
+  const chapterId = decodeURIComponent(rawNumber ?? "");
 
   if (!slug || !chapterId) return notFound();
 
