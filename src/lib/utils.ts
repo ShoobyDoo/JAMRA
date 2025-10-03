@@ -1,13 +1,33 @@
-import { clsx } from "clsx";
-import { twMerge } from "tailwind-merge";
+type ClassValue =
+  | string
+  | number
+  | null
+  | false
+  | undefined
+  | ClassValue[]
+  | { [key: string]: boolean | undefined | null };
 
-/**
- * Utility to conditionally join class names
- * with Tailwind-aware merging.
- *
- * Example:
- *   cn("p-2", isActive && "bg-red-500")
- */
-export function cn(...inputs: any[]) {
-  return twMerge(clsx(inputs));
+export function cn(...inputs: ClassValue[]): string {
+  const classes: string[] = [];
+
+  const process = (value: ClassValue) => {
+    if (!value) return;
+    if (typeof value === "string" || typeof value === "number") {
+      classes.push(String(value));
+      return;
+    }
+    if (Array.isArray(value)) {
+      value.forEach(process);
+      return;
+    }
+    if (typeof value === "object") {
+      Object.entries(value).forEach(([key, val]) => {
+        if (val) classes.push(key);
+      });
+    }
+  };
+
+  inputs.forEach(process);
+
+  return classes.join(" ");
 }

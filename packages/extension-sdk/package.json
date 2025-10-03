@@ -1,0 +1,23 @@
+{
+  "name": "@jamra/extension-sdk",
+  "version": "0.1.0",
+  "description": "Core contracts and helpers for JAMRA manga source extensions.",
+  "type": "module",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p ."
+  },
+  "license": "MIT"
+}

@@ -1,0 +1,1 @@
+{"version":3,"file":"extension.d.ts","sourceRoot":"","sources":["../src/extension.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,iBAAiB,EAAE,MAAM,SAAS,CAAC;AAC5C,OAAO,EAAE,iBAAiB,EAAE,MAAM,YAAY,CAAC;AAE/C,MAAM,WAAW,eAAe;IAC9B,QAAQ,EAAE,iBAAiB,CAAC;IAC5B,QAAQ,EAAE,iBAAiB,CAAC;CAC7B;AAED,MAAM,MAAM,gBAAgB,GAAG,MAAM,eAAe,GAAG,OAAO,CAAC,eAAe,CAAC,CAAC"}

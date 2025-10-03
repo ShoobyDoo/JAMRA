@@ -1,122 +1,184 @@
 "use client";
 
+import { useMemo } from "react";
 import Link from "next/link";
 import { routes } from "@/lib/routes";
 import { useUIStore } from "@/store/ui";
 import { cn } from "@/lib/utils";
 import { User, Settings, LogOut, LogIn } from "lucide-react";
+import { Box, Button, Divider, Menu, Stack } from "@mantine/core";
+import { usePathname } from "next/navigation";
 
 export function Sidebar() {
-  const { collapsed, toggleCollapsed } = useUIStore();
+  const { collapsed } = useUIStore();
+  const pathname = usePathname();
 
-  const sidebarWidth = collapsed ? "w-[72px]" : "w-[280px]";
+  const sidebarWidth = collapsed ? "w-[72px]" : "w-[200px]";
+  const sidebarRoutes = useMemo(
+    () => routes.filter((route) => route.inSidebar),
+    [],
+  );
+  const isRouteActive = (path: string) =>
+    path === "/" ? pathname === "/" : pathname.startsWith(path) && path !== "/";
+
+  // Replace with real auth state once available
+  const isSignedIn = false;
+
+  const handleSignOut = () => {
+    // TODO: integrate sign-out flow
+  };
+
+  const accountMenuItems = [
+    { type: "link" as const, href: "/profile", label: "Profile", icon: User },
+    {
+      type: "link" as const,
+      href: "/settings",
+      label: "Settings",
+      icon: Settings,
+    },
+    isSignedIn
+      ? {
+          type: "action" as const,
+          label: "Sign out",
+          icon: LogOut,
+          onClick: handleSignOut,
+        }
+      : {
+          type: "link" as const,
+          href: "/sign-in",
+          label: "Sign in",
+          icon: LogIn,
+        },
+  ];
 
   return (
-    <aside
+    <Box
+      component="aside"
       className={cn(
-        "bg-nav text-primary h-screen flex flex-col transition-all duration-300 border-r border-slate-800",
-        sidebarWidth
+        "flex h-full min-h-0 flex-shrink-0 flex-col border-r border-border bg-card text-card-foreground transition-[width] duration-300",
+        sidebarWidth,
       )}
+      aria-label="Primary navigation"
     >
-      {/* Header */}
-      <div className="flex items-center justify-between h-14 px-4 border-b border-slate-800">
-        <span className={cn("font-bold text-lg", collapsed && "hidden")}>
-          MangaReader
-        </span>
-        <button
-          onClick={toggleCollapsed}
-          className="p-2 rounded-md hover:bg-slate-800"
-          aria-label="Toggle sidebar"
-        >
-          {collapsed ? "»" : "«"}
-        </button>
-      </div>
+      <Box className="flex flex-1 min-h-0 flex-col overflow-hidden">
+        <Box className="flex-1 overflow-y-auto">
+          <Stack gap="xs" px="xs" py="md">
+            {sidebarRoutes.map(({ path, label, icon: Icon }) => {
+              const isActive = isRouteActive(path);
+              return (
+                <Button
+                  key={path}
+                  component={Link}
+                  href={path}
+                  variant={isActive ? "filled" : "default"}
+                  radius="md"
+                  fullWidth
+                  justify={collapsed ? "center" : "flex-start"}
+                  className={cn(
+                    "flex items-center overflow-hidden transition-all duration-300",
+                    collapsed ? "px-0" : "pl-2 pr-2",
+                  )}
+                  aria-label={label}
+                >
+                  {Icon && (
+                    <span
+                      className={cn(
+                        "flex items-center justify-center transition-all duration-300",
+                        collapsed ? "h-10 w-10" : "h-6 w-7",
+                      )}
+                    >
+                      <Icon
+                        className="h-full w-full"
+                        strokeWidth={2}
+                        aria-hidden
+                      />
+                    </span>
+                  )}
+                  <span
+                    className={cn(
+                      "whitespace-nowrap transition-[max-width,opacity,margin] duration-300",
+                      collapsed
+                        ? "max-w-0 opacity-0"
+                        : "ml-2 max-w-[140px] opacity-100",
+                    )}
+                  >
+                    {label}
+                  </span>
+                </Button>
+              );
+            })}
+          </Stack>
+        </Box>
+      </Box>
 
-      {/* Nav items */}
-      <nav className="flex-1 overflow-y-auto py-2">
-        {routes
-          .filter((r) => r.inSidebar)
-          .map(({ path, label, icon: Icon }) => (
-            <Link
-              key={path}
-              href={path}
+      <Divider className="flex-shrink-0" />
+
+      <Box px="xs" py="md" className="flex flex-shrink-0 w-full">
+        <Menu withinPortal>
+          <Menu.Target>
+            <Button
+              variant="default"
+              radius="md"
+              fullWidth
+              justify={collapsed ? "center" : "flex-start"}
               className={cn(
-                "flex items-center gap-3 mx-2 px-3 py-2 rounded-md hover:bg-slate-800 transition-colors",
-                "text-slate-300 hover:text-indigo-400"
+                "flex items-center overflow-hidden transition-all duration-300",
+                collapsed ? "h-10 w-10 px-0" : "pl-3 pr-2",
               )}
+              aria-label="Account"
             >
-              {Icon && <Icon className="w-5 h-5 shrink-0" />}
-              {!collapsed && <span>{label}</span>}
-            </Link>
-          ))}
-      </nav>
+              <span
+                className={cn(
+                  "flex items-center justify-center transition-all duration-300",
+                  collapsed ? "h-10 w-10" : "h-6 w-7",
+                )}
+              >
+                <User className="h-full w-full" strokeWidth={2} aria-hidden />
+              </span>
+              <span
+                className={cn(
+                  "whitespace-nowrap transition-[max-width,opacity,margin] duration-300",
+                  collapsed
+                    ? "max-w-0 opacity-0"
+                    : "ml-2 max-w-[120px] opacity-100",
+                )}
+              >
+                Account
+              </span>
+            </Button>
+          </Menu.Target>
 
-      {/* Account area at bottom */}
-      <div className="mt-auto border-t border-slate-800 p-2 relative">
-        <details className="group relative">
-          <summary
-            className={cn(
-              "list-none cursor-pointer flex items-center gap-3 rounded-md hover:bg-slate-800 transition-colors",
-              collapsed
-                ? "p-2 mx-auto w-10 h-10 justify-center"
-                : "px-3 py-2 mx-0"
-            )}
-          >
-            {/* Avatar visual changes with collapsed state */}
-            <span
-              className={cn(
-                "rounded-full bg-slate-700 text-slate-200 flex items-center justify-center shrink-0",
-                collapsed ? "w-6 h-6" : "w-8 h-8"
-              )}
-              aria-hidden
-            >
-              <User className={cn(collapsed ? "w-3.5 h-3.5" : "w-4 h-4")} />
-            </span>
-            {!collapsed && <span className="text-sm">Account</span>}
-          </summary>
+          <Menu.Dropdown>
+            {accountMenuItems.map((item) => {
+              const Icon = item.icon;
 
-          {/* Dropdown menu — positioned so it’s usable in both modes */}
-          <ul
-            className={cn(
-              "absolute z-20 w-44 bg-nav border border-slate-800 rounded-md shadow-lg overflow-hidden",
-              // Place to the right when collapsed; above when expanded (to avoid covering summary)
-              collapsed
-                ? "left-[72px] bottom-2"
-                : "left-2 -top-1 translate-y-[-100%]"
-            )}
-          >
-            <li>
-              <Link
-                href="/profile"
-                className="flex items-center gap-2 px-3 py-2 hover:bg-slate-800"
-              >
-                <User className="w-4 h-4" /> Profile
-              </Link>
-            </li>
-            <li>
-              <Link
-                href="/settings"
-                className="flex items-center gap-2 px-3 py-2 hover:bg-slate-800"
-              >
-                <Settings className="w-4 h-4" /> Settings
-              </Link>
-            </li>
-            <li>
-              <Link
-                href="/sign-in"
-                className="flex items-center gap-2 px-3 py-2 hover:bg-slate-800"
-              >
-                <LogIn className="w-4 h-4" /> Sign in
-              </Link>
-            </li>
-            <li>
-              <button className="w-full text-left flex items-center gap-2 px-3 py-2 hover:bg-slate-800">
-                <LogOut className="w-4 h-4" /> Log out
-              </button>
-            </li>
-          </ul>
-        </details>
-      </div>
-    </aside>
+              if (item.type === "link") {
+                return (
+                  <Menu.Item
+                    key={item.label}
+                    component={Link}
+                    href={item.href}
+                    leftSection={<Icon size={16} aria-hidden />}
+                  >
+                    {item.label}
+                  </Menu.Item>
+                );
+              }
+
+              return (
+                <Menu.Item
+                  key={item.label}
+                  onClick={item.onClick}
+                  color="red"
+                  leftSection={<Icon size={16} aria-hidden />}
+                >
+                  {item.label}
+                </Menu.Item>
+              );
+            })}
+          </Menu.Dropdown>
+        </Menu>
+      </Box>
+    </Box>
   );
 }

@@ -1,33 +1,59 @@
+"use client";
+
+import { Button, Paper, Stack, Text, Title } from "@mantine/core";
+
 export default function ProfilePage() {
   return (
-    <div className="p-6 max-w-2xl mx-auto">
-      <h1 className="text-2xl font-bold mb-4">Profile</h1>
-      <div className="space-y-6">
-        <section>
-          <h2 className="text-lg font-semibold mb-2">User Information</h2>
-          <p className="text-slate-400 text-sm mb-2">
-            View and edit your personal details.
-          </p>
-          <div className="rounded-md border border-slate-800 bg-slate-900 p-4">
-            <p className="text-slate-200">
-              Username: <span className="font-mono">Guest</span>
-            </p>
-            <p className="text-slate-200">
-              Email: <span className="font-mono">guest@example.com</span>
-            </p>
-          </div>
-        </section>
+    <Stack gap="xl" p="xl" maw={720} mx="auto">
+      <Stack gap="xs">
+        <Title order={1}>Profile</Title>
+        <Text c="dimmed">
+          Review your account details and tweak preferences.
+        </Text>
+      </Stack>
 
-        <section>
-          <h2 className="text-lg font-semibold mb-2">Preferences</h2>
-          <p className="text-slate-400 text-sm mb-2">
-            Adjust your reading and notification preferences.
-          </p>
-          <button className="rounded-md bg-slate-800 px-3 py-2 text-sm hover:bg-slate-700">
-            Edit preferences
-          </button>
-        </section>
-      </div>
-    </div>
+      <Stack gap="sm">
+        <Title order={2} size="h3">
+          User Information
+        </Title>
+        <Text size="sm" c="dimmed">
+          View and edit your personal details.
+        </Text>
+        <Paper withBorder p="lg" radius="lg">
+          <Stack gap={8}>
+            <Text size="sm">
+              Username:{" "}
+              <Text span c="dimmed" ff="monospace">
+                Guest
+              </Text>
+            </Text>
+            <Text size="sm">
+              Email:{" "}
+              <Text span c="dimmed" ff="monospace">
+                guest@example.com
+              </Text>
+            </Text>
+          </Stack>
+        </Paper>
+      </Stack>
+
+      <Stack gap="sm">
+        <Title order={2} size="h3">
+          Preferences
+        </Title>
+        <Text size="sm" c="dimmed">
+          Adjust your reading and notification preferences.
+        </Text>
+        <Button
+          variant="light"
+          color="brand"
+          size="sm"
+          radius="md"
+          w="fit-content"
+        >
+          Edit preferences
+        </Button>
+      </Stack>
+    </Stack>
   );
 }

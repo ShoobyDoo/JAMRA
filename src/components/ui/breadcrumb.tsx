@@ -3,48 +3,59 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { routes } from "@/lib/routes";
-import { cn } from "@/lib/utils";
+import { Anchor, Breadcrumbs, Text } from "@mantine/core";
 
 export function Breadcrumb() {
   const pathname = usePathname();
   const segments = pathname.split("/").filter(Boolean);
 
-  const crumbs = segments.map((seg, idx) => {
-    const href = "/" + segments.slice(0, idx + 1).join("/");
-    const match = routes.find((r) => r.path === href);
-    return {
-      href,
-      label: match?.label ?? decodeURIComponent(seg),
-      isLast: idx === segments.length - 1,
-    };
+  const items = segments.map((segment, index) => {
+    const href = "/" + segments.slice(0, index + 1).join("/");
+    const match = routes.find((route) => route.path === href);
+    const label = match?.label ?? decodeURIComponent(segment);
+    const isLast = index === segments.length - 1;
+
+    return isLast ? (
+      <Text key={href} fw={500} size="sm" aria-current="page">
+        {label}
+      </Text>
+    ) : (
+      <Anchor
+        key={href}
+        component={Link}
+        href={href}
+        size="sm"
+        c="dimmed"
+        underline="hover"
+      >
+        {label}
+      </Anchor>
+    );
   });
 
-  // Special case: homepage
-  if (segments.length === 0) {
-    return (
-      <nav className="text-sm text-slate-400">
-        <span className="text-indigo-400">Home</span>
-      </nav>
-    );
-  }
+  const breadcrumbItems = [
+    segments.length === 0 ? (
+      <Text key="home" fw={500} size="sm">
+        Home
+      </Text>
+    ) : (
+      <Anchor
+        key="home"
+        component={Link}
+        href="/"
+        size="sm"
+        c="dimmed"
+        underline="hover"
+      >
+        Home
+      </Anchor>
+    ),
+    ...items,
+  ];
 
   return (
-    <nav className="flex items-center gap-2 text-sm text-slate-400">
-      <Link href="/" className="hover:text-indigo-300">
-        Home
-      </Link>
-      {crumbs.map((c) => (
-        <span key={c.href} className="flex items-center gap-2">
-          <span>/</span>
-          {c.isLast ? (
-            <span className="text-indigo-400">{c.label}</span>
-          ) : (
-            <Link href={c.href} className="hover:text-indigo-300">
-              {c.label}
-            </Link>
-          )}
-        </span>
-      ))}
-    </nav>
+    <Breadcrumbs separator="/" separatorMargin="xs">
+      {breadcrumbItems}
+    </Breadcrumbs>
   );
 }

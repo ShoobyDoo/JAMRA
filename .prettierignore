@@ -1,0 +1,10 @@
+node_modules
+.next
+out
+build
+dist
+**/dist
+.jamra-data
+
+# Generated artifacts
+pnpm-lock.yaml

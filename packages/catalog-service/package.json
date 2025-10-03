@@ -1,0 +1,28 @@
+{
+  "name": "@jamra/catalog-service",
+  "version": "0.1.0",
+  "description": "Service layer that orchestrates extension syncs and persists catalogue data.",
+  "type": "module",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p ."
+  },
+  "dependencies": {
+    "@jamra/catalog-db": "workspace:*",
+    "@jamra/extension-host": "workspace:*",
+    "@jamra/extension-sdk": "workspace:*"
+  },
+  "license": "MIT"
+}

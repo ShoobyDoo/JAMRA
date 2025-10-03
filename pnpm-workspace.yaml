@@ -1,4 +1,14 @@
+packages:
+  - packages/*
+
+allowScripts: better-sqlite3
+
+ignoredBuiltDependencies:
+  - better-sqlite3
+
 onlyBuiltDependencies:
-  - '@tailwindcss/oxide'
+  - "@tailwindcss/oxide"
+  - electron
+  - esbuild
   - sharp
   - unrs-resolver

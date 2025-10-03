@@ -1,0 +1,25 @@
+{
+  "name": "@jamra/example-extension",
+  "version": "0.1.0",
+  "description": "Example JAMRA extension returning mock catalogue data.",
+  "type": "module",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p ."
+  },
+  "dependencies": {
+    "@jamra/extension-sdk": "workspace:*"
+  }
+}

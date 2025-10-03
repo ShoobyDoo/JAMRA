@@ -10,10 +10,13 @@ export const useUIStore = create<UIState>()(
   persist(
     (set, get) => ({
       collapsed: false,
-      toggleCollapsed: () => set({ collapsed: !get().collapsed }),
+      toggleCollapsed: () => {
+        const shouldCollapse = !get().collapsed;
+        set({ collapsed: shouldCollapse });
+      },
     }),
     {
       name: "ui-storage", // localStorage key
-    }
-  )
+    },
+  ),
 );

@@ -1,10 +1,10 @@
-export default function LibraryPage() {
+export default function HistoryPage() {
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold mb-4">Library</h1>
-      <p className="text-slate-400">
-        Your saved manga will appear here. Log in to sync your library across
-        devices, or keep it stored locally.
+    <div className="space-y-4 p-6">
+      <h1 className="text-2xl font-semibold">History</h1>
+      <p className="text-muted-foreground">
+        Recently viewed chapters will show up here so you can quickly jump back
+        in.
       </p>
     </div>
   );

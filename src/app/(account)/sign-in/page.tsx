@@ -1,46 +1,58 @@
+"use client";
+
+import Link from "next/link";
+import {
+  Anchor,
+  Button,
+  Paper,
+  PasswordInput,
+  Stack,
+  Text,
+  TextInput,
+  Title,
+} from "@mantine/core";
+
 export default function SignInPage() {
   return (
-    <div className="p-6 max-w-md mx-auto">
-      <h1 className="text-2xl font-bold mb-4">Sign in</h1>
-      <form className="space-y-4">
-        <div>
-          <label htmlFor="email" className="block text-sm text-slate-400 mb-1">
-            Email
-          </label>
-          <input
+    <Stack gap="xl" p="xl" maw={420} mx="auto">
+      <Stack gap="xs">
+        <Title order={1}>Sign in</Title>
+        <Text size="sm" c="dimmed">
+          Enter your email and password to access your library.
+        </Text>
+      </Stack>
+
+      <Paper component="form" p="lg" radius="lg" withBorder>
+        <Stack gap="md">
+          <TextInput
             id="email"
+            name="email"
             type="email"
-            className="w-full rounded-md border border-slate-800 bg-content px-3 py-2 text-sm text-primary placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-accent"
+            label="Email"
             placeholder="you@example.com"
+            radius="md"
+            required
           />
-        </div>
-        <div>
-          <label
-            htmlFor="password"
-            className="block text-sm text-slate-400 mb-1"
-          >
-            Password
-          </label>
-          <input
+          <PasswordInput
             id="password"
-            type="password"
-            className="w-full rounded-md border border-slate-800 bg-content px-3 py-2 text-sm text-primary placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-accent"
+            name="password"
+            label="Password"
             placeholder="••••••••"
+            radius="md"
+            required
           />
-        </div>
-        <button
-          type="submit"
-          className="w-full rounded-md bg-accent px-3 py-2 text-sm font-medium text-white hover:bg-accent-hover transition-colors"
-        >
-          Sign in
-        </button>
-      </form>
-      <p className="mt-4 text-sm text-slate-400">
-        Don't have an account?{" "}
-        <a href="#" className="text-accent hover:underline">
+          <Button type="submit" fullWidth>
+            Sign in
+          </Button>
+        </Stack>
+      </Paper>
+
+      <Text size="sm" c="dimmed">
+        Don&apos;t have an account?{" "}
+        <Anchor component={Link} href="#" color="brand" underline="hover">
           Create account
-        </a>
-      </p>
-    </div>
+        </Anchor>
+      </Text>
+    </Stack>
   );
 }

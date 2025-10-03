@@ -1,0 +1,36 @@
+{
+  "name": "@jamra/catalog-server",
+  "version": "0.1.0",
+  "description": "HTTP server exposing JAMRA catalog APIs backed by the extension system.",
+  "type": "module",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p ."
+  },
+  "dependencies": {
+    "@jamra/catalog-db": "workspace:*",
+    "@jamra/catalog-service": "workspace:*",
+    "@jamra/extension-host": "workspace:*",
+    "@jamra/extension-registry": "workspace:*",
+    "@jamra/extension-sdk": "workspace:*",
+    "cors": "^2.8.5",
+    "express": "^4.21.2"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/cors": "^2.8.17"
+  },
+  "license": "MIT"
+}

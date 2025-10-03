@@ -1,33 +1,45 @@
+"use client";
+
+import { Button, Group, Stack, Text, Title } from "@mantine/core";
+
 export default function SettingsPage() {
   return (
-    <div className="p-6 max-w-2xl mx-auto">
-      <h1 className="text-2xl font-bold mb-4">Settings</h1>
-      <div className="space-y-6">
-        <section>
-          <h2 className="text-lg font-semibold mb-2">Appearance</h2>
-          <p className="text-slate-400 text-sm mb-2">
-            Customize how the app looks and feels.
-          </p>
-          <div className="flex items-center gap-4">
-            <button className="rounded-md bg-slate-800 px-3 py-2 text-sm hover:bg-slate-700">
-              Dark mode
-            </button>
-            <button className="rounded-md bg-slate-800 px-3 py-2 text-sm hover:bg-slate-700">
-              Light mode
-            </button>
-          </div>
-        </section>
+    <Stack gap="xl" p="xl" maw={720} mx="auto">
+      <Stack gap="xs">
+        <Title order={1}>Settings</Title>
+        <Text c="dimmed">
+          Configure appearance and account preferences for your reader.
+        </Text>
+      </Stack>
 
-        <section>
-          <h2 className="text-lg font-semibold mb-2">Account</h2>
-          <p className="text-slate-400 text-sm mb-2">
-            Manage your profile and authentication settings.
-          </p>
-          <button className="rounded-md bg-red-600 px-3 py-2 text-sm text-white hover:bg-red-500">
-            Delete account
-          </button>
-        </section>
-      </div>
-    </div>
+      <Stack gap="sm">
+        <Title order={2} size="h3">
+          Appearance
+        </Title>
+        <Text size="sm" c="dimmed">
+          Customize how the interface looks and feels.
+        </Text>
+        <Group gap="sm">
+          <Button variant="light" color="brand" size="sm">
+            Dark mode
+          </Button>
+          <Button variant="outline" color="accent" size="sm">
+            Light mode
+          </Button>
+        </Group>
+      </Stack>
+
+      <Stack gap="sm">
+        <Title order={2} size="h3">
+          Account
+        </Title>
+        <Text size="sm" c="dimmed">
+          Manage profile and authentication settings.
+        </Text>
+        <Button variant="filled" color="red" size="sm" w="fit-content">
+          Delete account
+        </Button>
+      </Stack>
+    </Stack>
   );
 }
