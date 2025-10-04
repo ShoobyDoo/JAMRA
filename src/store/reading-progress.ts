@@ -21,9 +21,21 @@ export interface ReadingProgressState {
   preloadedImages: Set<string>;
 
   // Actions
-  setProgress: (mangaId: string, chapterId: string, page: number, total: number) => void;
-  getProgress: (mangaId: string, chapterId: string) => ReadingProgress | undefined;
-  setCurrentChapter: (mangaId: string, chapterId: string, totalPages: number) => void;
+  setProgress: (
+    mangaId: string,
+    chapterId: string,
+    page: number,
+    total: number
+  ) => void;
+  getProgress: (
+    mangaId: string,
+    chapterId: string
+  ) => ReadingProgress | undefined;
+  setCurrentChapter: (
+    mangaId: string,
+    chapterId: string,
+    totalPages: number
+  ) => void;
   setCurrentPage: (page: number) => void;
   addPreloadedImage: (url: string) => void;
   clearPreloadedImages: () => void;

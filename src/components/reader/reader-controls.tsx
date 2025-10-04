@@ -36,7 +36,8 @@ export function ReaderControls({
   onPageSelect,
 }: ReaderControlsProps) {
   const router = useRouter();
-  const { zenMode, autoHideControls, autoHideDelay, readingMode } = useReaderSettings();
+  const { zenMode, autoHideControls, autoHideDelay, readingMode } =
+    useReaderSettings();
   const [isVisible, setIsVisible] = useState(true);
   const hideTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -115,7 +116,9 @@ export function ReaderControls({
           {/* Center: Title and chapter */}
           <div className="flex-1 truncate px-4 text-center">
             <h1 className="truncate text-sm font-semibold">{mangaTitle}</h1>
-            <p className="truncate text-xs text-muted-foreground">{chapterTitle}</p>
+            <p className="truncate text-xs text-muted-foreground">
+              {chapterTitle}
+            </p>
           </div>
 
           {/* Right: Controls */}

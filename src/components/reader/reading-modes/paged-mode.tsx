@@ -88,7 +88,7 @@ export function PagedMode({ pages, currentPage, onPageChange }: PagedModeProps) 
 
       isDragging.current = false;
       startY.current = e.clientY;
-      dragDelta.current = 0;
+      setDragOffset(0);
       container.style.cursor = "grabbing";
     };
 
