@@ -1,78 +1,51 @@
-import Image from "next/image";
 import Link from "next/link";
-import { fetchCataloguePage } from "@/lib/api";
-import { API_CONFIG } from "@/lib/constants";
 
 export default async function HomePage() {
-  let catalogue;
-  try {
-    catalogue = await fetchCataloguePage({ page: 1 });
-  } catch {
+  // TODO: Fetch user's reading history once that API is implemented
+  const readingHistory: never[] = [];
+
+  if (readingHistory.length === 0) {
     return (
-      <div className="space-y-4 p-6">
-        <h1 className="text-2xl font-semibold">Home</h1>
-        <p className="text-destructive">
-          Failed to load catalogue data. Ensure the catalog server is running on
-          <code className="ml-1">{API_CONFIG.DEFAULT_URL}</code>.
-        </p>
+      <div className="space-y-6 p-6">
+        <div>
+          <h1 className="text-2xl font-semibold">Continue Reading</h1>
+          <p className="text-muted-foreground">
+            Pick up where you left off with your manga collection.
+          </p>
+        </div>
+        <div className="max-w-2xl rounded-lg border border-border bg-card p-6 shadow-sm">
+          <h2 className="mb-3 text-lg font-semibold">Nothing Here Yet</h2>
+          <p className="mb-4 text-sm text-muted-foreground">
+            Start reading manga to see your progress tracked here. Your reading
+            history will show which chapters you&apos;ve read and how far
+            you&apos;ve gotten in each series.
+          </p>
+          <Link
+            href="/discover"
+            className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:bg-primary/90"
+          >
+            Discover Manga
+          </Link>
+        </div>
       </div>
     );
   }
 
+  // TODO: Render reading history with progress bars
+  // Each manga card should show:
+  // - Cover image
+  // - Title
+  // - Progress bar (read chapters / total chapters)
+  // - "Continue Reading" button linking to next unread chapter
   return (
     <div className="space-y-6 p-6">
       <div>
-        <h1 className="text-2xl font-semibold">Latest Updates</h1>
+        <h1 className="text-2xl font-semibold">Continue Reading</h1>
         <p className="text-muted-foreground">
-          Browse the newest series provided by the active extension.
+          Pick up where you left off with your manga collection.
         </p>
       </div>
-
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {catalogue.items.map((item) => (
-          <Link
-            key={item.id}
-            href={`/manga/${encodeURIComponent(item.id)}`}
-            className="group overflow-hidden rounded-lg border border-border bg-card shadow-sm transition hover:-translate-y-1 hover:shadow-lg"
-          >
-            <div className="relative aspect-[3/4] w-full overflow-hidden bg-muted">
-              {item.coverUrl ? (
-                <Image
-                  src={item.coverUrl}
-                  alt={item.title}
-                  fill
-                  sizes="(max-width: 640px) 100vw, (max-width: 1200px) 50vw, 25vw"
-                  className="object-cover transition duration-300 group-hover:scale-105"
-                />
-              ) : (
-                <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-                  No cover
-                </div>
-              )}
-            </div>
-            <div className="space-y-2 p-4">
-              <h2 className="line-clamp-2 text-lg font-semibold leading-tight">
-                {item.title}
-              </h2>
-              {item.description ? (
-                <p className="line-clamp-3 text-sm text-muted-foreground">
-                  {item.description}
-                </p>
-              ) : null}
-              <div className="flex flex-wrap gap-1">
-                {(item.tags ?? []).slice(0, 3).map((tag) => (
-                  <span
-                    key={tag}
-                    className="rounded bg-secondary px-2 py-1 text-xs text-secondary-foreground"
-                  >
-                    {tag}
-                  </span>
-                ))}
-              </div>
-            </div>
-          </Link>
-        ))}
-      </div>
+      {/* Reading history grid will go here */}
     </div>
   );
 }

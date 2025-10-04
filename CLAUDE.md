@@ -11,6 +11,11 @@ JAMRA is a monorepo for an extensible manga reader with:
 - **Desktop shell**: Electron app self-hosting both API and Next.js UI
 - **Web UI**: Next.js App Router frontend with Mantine components and Zustand state
 
+### Page Specifications
+
+- **Home Page (`/`)**: Netflix-style "Continue Reading" interface showing manga the user is currently reading with progress bars (calculated as read chapters / total chapters)
+- **Discover Page (`/discover`)**: Browse and explore new manga from catalog extensions
+
 ## Development Commands
 
 ### Package Manager

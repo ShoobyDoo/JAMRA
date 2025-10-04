@@ -24,6 +24,18 @@ function sanitizeErrorDetail(detail?: string | null): string | undefined {
   return withoutTags.length > 0 ? withoutTags : undefined;
 }
 
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public status: number,
+    public statusText: string,
+    public detail?: string,
+  ) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, {
     ...init,
@@ -37,8 +49,11 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   if (!response.ok) {
     const detailText = await response.text().catch(() => undefined);
     const cleanedDetail = sanitizeErrorDetail(detailText);
-    throw new Error(
+    throw new ApiError(
       `API request failed: ${response.status} ${response.statusText}${cleanedDetail ? ` - ${cleanedDetail}` : ""}`,
+      response.status,
+      response.statusText,
+      cleanedDetail,
     );
   }
 

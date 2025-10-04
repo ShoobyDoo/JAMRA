@@ -45,6 +45,10 @@ import {
   ArrowDown,
   ArrowUp,
   RefreshCcw,
+  ChevronDown,
+  ChevronUp,
+  Copy,
+  Check,
 } from "lucide-react";
 
 const TRUST_WARNING = "Only install extensions that you trust.";
@@ -116,6 +120,10 @@ export function ExtensionsManager({
     useState<MarketplaceInstallCandidate | null>(null);
   const [uninstallTarget, setUninstallTarget] =
     useState<ManagedExtension | null>(null);
+  const [expandedExtensionIds, setExpandedExtensionIds] = useState<Set<string>>(
+    new Set(),
+  );
+  const [copiedField, setCopiedField] = useState<string | null>(null);
 
   const installCandidateIcon = installCandidate
     ? resolveIcon(installCandidate.extension.icon)
@@ -123,6 +131,16 @@ export function ExtensionsManager({
 
   const [debouncedSearch] = useDebouncedValue(search, 300);
   const isFirstRender = useRef(true);
+
+  const copyToClipboard = async (text: string, fieldId: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedField(fieldId);
+      setTimeout(() => setCopiedField(null), 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
+  };
 
   const refreshExtensions = useCallback(
     async (silent = false) => {
@@ -500,8 +518,10 @@ export function ExtensionsManager({
       >
         <Stack gap={6}>
           <Text size="sm">
-            Version <strong>{latest.version}</strong>{" "}
-            {awaitingAction ? "is available" : "is currently installed"}.
+            Latest version: <strong>{latest.version}</strong>
+            {!awaitingAction && (
+              <span className="text-dimmed"> (currently installed)</span>
+            )}
           </Text>
           {latest.releaseNotes ? (
             <Text
@@ -512,33 +532,27 @@ export function ExtensionsManager({
               {latest.releaseNotes}
             </Text>
           ) : null}
-          <Group gap="sm">
-            {awaitingAction ? (
-              <>
-                <Button
-                  size="xs"
-                  color="violet"
-                  loading={busyExtensionId === extension.id}
-                  onClick={() => void handleApplyUpdate(extension)}
-                  leftSection={<ArrowDownToLine size={14} />}
-                >
-                  Install update
-                </Button>
-                <Button
-                  size="xs"
-                  variant="subtle"
-                  onClick={() => void handleAcknowledgeUpdate(extension)}
-                  disabled={busyExtensionId === extension.id}
-                >
-                  Mark as read
-                </Button>
-              </>
-            ) : (
-              <Text size="sm" c="dimmed">
-                This extension is already on the latest version.
-              </Text>
-            )}
-          </Group>
+          {awaitingAction && (
+            <Group gap="sm">
+              <Button
+                size="xs"
+                color="violet"
+                loading={busyExtensionId === extension.id}
+                onClick={() => void handleApplyUpdate(extension)}
+                leftSection={<ArrowDownToLine size={14} />}
+              >
+                Install update
+              </Button>
+              <Button
+                size="xs"
+                variant="subtle"
+                onClick={() => void handleAcknowledgeUpdate(extension)}
+                disabled={busyExtensionId === extension.id}
+              >
+                Mark as read
+              </Button>
+            </Group>
+          )}
         </Stack>
       </Alert>
     );
@@ -679,99 +693,217 @@ export function ExtensionsManager({
                     const iconSrc = resolveIcon(
                       extension.icon ?? extension.manifest.icon,
                     );
+                    const isExpanded = expandedExtensionIds.has(extension.id);
+
+                    const toggleExpanded = (e: React.MouseEvent) => {
+                      // Don't toggle if clicking on a button or interactive element
+                      const target = e.target as HTMLElement;
+                      if (
+                        target.closest('button') ||
+                        target.closest('a') ||
+                        target.closest('[role="button"]')
+                      ) {
+                        return;
+                      }
+
+                      setExpandedExtensionIds((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(extension.id)) {
+                          next.delete(extension.id);
+                        } else {
+                          next.add(extension.id);
+                        }
+                        return next;
+                      });
+                    };
+
+                    const description = extension.description ?? "No description provided.";
+                    const truncatedDescription = description.length > 80
+                      ? `${description.slice(0, 80)}...`
+                      : description;
 
                     return (
                       <Card
                         key={extension.id}
                         withBorder
-                        padding="lg"
+                        padding="md"
                         radius="md"
+                        className="extension-card-expandable"
                       >
                         <Stack gap="sm">
                           <Group
                             justify="space-between"
                             align="flex-start"
                             gap="md"
+                            wrap="nowrap"
+                            className="cursor-pointer -m-3 p-3 rounded-md"
+                            onClick={toggleExpanded}
                           >
-                            <div className="flex-1">
-                              <Group gap="sm" align="flex-start" wrap="nowrap">
-                                <Avatar
-                                  src={iconSrc}
-                                  alt={`${extension.name} icon`}
-                                  name={extension.name}
-                                  radius="md"
-                                  size={56}
-                                  color={iconSrc ? undefined : "gray"}
-                                  variant={iconSrc ? undefined : "filled"}
-                                  className="shrink-0"
-                                />
-                                <Stack gap={6} className="flex-1">
-                                  <Group
-                                    gap="sm"
-                                    align="center"
-                                    wrap="wrap"
-                                  >
-                                    <Title order={4}>{extension.name}</Title>
-                                    <Badge color="gray" variant="light">
-                                      v{extension.version}
+                            <Group gap="sm" align="flex-start" wrap="nowrap" className="flex-1 min-w-0">
+                              <Avatar
+                                src={iconSrc}
+                                alt={`${extension.name} icon`}
+                                name={extension.name}
+                                radius="md"
+                                size={48}
+                                color={iconSrc ? undefined : "gray"}
+                                variant={iconSrc ? undefined : "filled"}
+                                className="shrink-0"
+                              />
+                              <Stack gap={4} className="flex-1 min-w-0">
+                                <Group gap="xs" align="center" wrap="wrap">
+                                  <Title order={4} className="text-base">
+                                    {extension.name}
+                                  </Title>
+                                  <Badge size="xs" color="gray" variant="light">
+                                    v{extension.version}
+                                  </Badge>
+                                  {extension.enabled ? (
+                                    <Badge size="xs" color="green">Enabled</Badge>
+                                  ) : (
+                                    <Badge size="xs" color="yellow">Disabled</Badge>
+                                  )}
+                                  {updateBadge ? (
+                                    <Badge size="xs" color="violet" variant="filled">
+                                      Update
                                     </Badge>
-                                    {extension.enabled ? (
-                                      <Badge color="green">Enabled</Badge>
-                                    ) : (
-                                      <Badge color="yellow">Disabled</Badge>
-                                    )}
-                                    {extension.loaded ? (
-                                      <Badge color="green" variant="light">
-                                        Loaded
-                                      </Badge>
-                                    ) : (
-                                      <Badge color="gray" variant="light">
-                                        Not loaded
-                                      </Badge>
-                                    )}
-                                    {updateBadge ? (
-                                      <Badge color="violet" variant="filled">
-                                        Update available
-                                      </Badge>
-                                    ) : null}
-                                  </Group>
-                                  <Text size="sm" c="dimmed">
-                                    {extension.description ??
-                                      "No description provided."}
-                                  </Text>
-                                  <Text size="sm">
-                                    Author:{" "}
-                                    <span className="font-medium">
-                                      {extension.author.name}
-                                    </span>
-                                  </Text>
-                                  <Text size="xs" c="dimmed">
-                                    Source: {sourceLabel}
-                                    {extension.source?.version
-                                      ? ` · v${extension.source.version}`
-                                      : ""}
-                                  </Text>
-                                  {lastChecked ? (
-                                    <Text size="xs" c="dimmed">
-                                      Updates checked {lastChecked}
-                                    </Text>
                                   ) : null}
-                                  <Text size="sm" c="dimmed">
-                                    Languages:{" "}
-                                    {extension.languageCodes.join(", ") || "—"}
+                                </Group>
+                                <Text size="xs" c="dimmed" className="line-clamp-1">
+                                  {isExpanded ? description : truncatedDescription}
+                                </Text>
+                                {!isExpanded && (
+                                  <Text size="xs">
+                                    by <span className="font-medium">{extension.author.name}</span>
                                   </Text>
-                                  <Text size="sm" c="dimmed">
-                                    Source path: {extension.entryPath ?? "Unknown"}
-                                  </Text>
-                                </Stack>
-                              </Group>
-                            </div>
-                            <Stack gap="xs" align="flex-end">
-                              <Group gap="xs">
+                                )}
+                              </Stack>
+                            </Group>
+
+                            <Group gap="xs" align="center" className="shrink-0">
+                              {extension.enabled ? (
+                                <Button
+                                  size="xs"
+                                  color="yellow"
+                                  variant="light"
+                                  loading={busyExtensionId === extension.id}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    void handleDisable(extension);
+                                  }}
+                                >
+                                  Disable
+                                </Button>
+                              ) : (
+                                <Button
+                                  size="xs"
+                                  color="green"
+                                  variant="light"
+                                  loading={busyExtensionId === extension.id}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    void handleEnable(extension);
+                                  }}
+                                >
+                                  Enable
+                                </Button>
+                              )}
+                              <div className="cursor-pointer">
+                                {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                              </div>
+                            </Group>
+                          </Group>
+
+                          {isExpanded && (
+                            <>
+                              <Divider />
+                              <Stack gap={6}>
+                                <Text size="xs">
+                                  Author: <span className="font-medium">{extension.author.name}</span>
+                                </Text>
+                                <Text size="xs" c="dimmed">
+                                  Languages: {extension.languageCodes.join(", ") || "—"}
+                                </Text>
+                                <Text size="xs" c="dimmed">
+                                  Source: {sourceLabel}
+                                  {extension.source?.version ? ` · v${extension.source.version}` : ""}
+                                </Text>
+
+                                <div>
+                                  <Text size="xs" c="dimmed" mb={4}>Path</Text>
+                                  <Group gap="xs" align="center" wrap="nowrap">
+                                    <Text size="xs" c="dimmed" className="flex-1 break-all font-mono">
+                                      {extension.entryPath ?? "Unknown"}
+                                    </Text>
+                                    <Tooltip label={copiedField === `path-${extension.id}` ? "Copied!" : "Copy path"}>
+                                      <ActionIcon
+                                        size="xs"
+                                        variant="subtle"
+                                        color="gray"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          void copyToClipboard(extension.entryPath ?? "Unknown", `path-${extension.id}`);
+                                        }}
+                                      >
+                                        {copiedField === `path-${extension.id}` ? <Check size={12} /> : <Copy size={12} />}
+                                      </ActionIcon>
+                                    </Tooltip>
+                                  </Group>
+                                </div>
+
+                                <div>
+                                  <Text size="xs" c="dimmed" mb={4}>Extension ID</Text>
+                                  <Group gap="xs" align="center" wrap="nowrap">
+                                    <Text size="xs" c="dimmed" className="flex-1 font-mono">
+                                      {extension.id}
+                                    </Text>
+                                    <Tooltip label={copiedField === `id-${extension.id}` ? "Copied!" : "Copy ID"}>
+                                      <ActionIcon
+                                        size="xs"
+                                        variant="subtle"
+                                        color="gray"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          void copyToClipboard(extension.id, `id-${extension.id}`);
+                                        }}
+                                      >
+                                        {copiedField === `id-${extension.id}` ? <Check size={12} /> : <Copy size={12} />}
+                                      </ActionIcon>
+                                    </Tooltip>
+                                  </Group>
+                                </div>
+
+                                <Group gap="xs" wrap="wrap">
+                                  <Badge size="sm" color="blue" variant="light">
+                                    Installed {new Date(extension.installedAt).toLocaleString()}
+                                  </Badge>
+                                  {extension.loaded ? (
+                                    <Badge size="sm" color="green" variant="light">
+                                      Loaded
+                                    </Badge>
+                                  ) : (
+                                    <Badge size="sm" color="gray" variant="light">
+                                      Not loaded
+                                    </Badge>
+                                  )}
+                                  {lastChecked ? (
+                                    <Badge size="sm" color="gray" variant="outline">
+                                      Last checked {lastChecked}
+                                    </Badge>
+                                  ) : null}
+                                </Group>
+                              </Stack>
+
+                              <Divider />
+
+                              <Group gap="xs" wrap="wrap">
                                 <Button
                                   size="xs"
                                   variant="light"
-                                  onClick={() => openSettingsModal(extension)}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    openSettingsModal(extension);
+                                  }}
                                 >
                                   Settings
                                 </Button>
@@ -781,70 +913,43 @@ export function ExtensionsManager({
                                     variant="light"
                                     leftSection={<RefreshCcw size={14} />}
                                     loading={busyExtensionId === extension.id}
-                                    onClick={() =>
-                                      void handleCheckUpdates(extension)
-                                    }
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      void handleCheckUpdates(extension);
+                                    }}
                                   >
                                     Check updates
                                   </Button>
                                 ) : null}
-                                {extension.enabled ? (
-                                  <Button
-                                    size="xs"
-                                    color="yellow"
-                                    loading={busyExtensionId === extension.id}
-                                    onClick={() =>
-                                      void handleDisable(extension)
-                                    }
-                                  >
-                                    Disable
-                                  </Button>
-                                ) : (
-                                  <Button
-                                    size="xs"
-                                    color="green"
-                                    loading={busyExtensionId === extension.id}
-                                    onClick={() => void handleEnable(extension)}
-                                  >
-                                    Enable
-                                  </Button>
-                                )}
                                 <Button
                                   size="xs"
                                   color="red"
                                   variant="outline"
                                   loading={busyExtensionId === extension.id}
-                                  onClick={() => requestUninstall(extension)}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    requestUninstall(extension);
+                                  }}
                                 >
                                   Uninstall
                                 </Button>
                               </Group>
-                              <Text size="xs" c="dimmed">
-                                ID: {extension.id}
-                              </Text>
-                            </Stack>
-                          </Group>
 
-                          {renderUpdateAlert(extension)}
+                              {renderUpdateAlert(extension)}
 
-                          {hasErrors ? (
-                            <Alert color="red" title="Issues detected">
-                              <Stack gap={4}>
-                                {extension.errors.map((message) => (
-                                  <Text key={message} size="sm">
-                                    {message}
-                                  </Text>
-                                ))}
-                              </Stack>
-                            </Alert>
-                          ) : null}
-                          <Divider />
-                          <Group gap="xs">
-                            <Badge color="blue" variant="light">
-                              Installed{" "}
-                              {new Date(extension.installedAt).toLocaleString()}
-                            </Badge>
-                          </Group>
+                              {hasErrors ? (
+                                <Alert color="red" title="Issues detected">
+                                  <Stack gap={4}>
+                                    {extension.errors.map((message) => (
+                                      <Text key={message} size="sm">
+                                        {message}
+                                      </Text>
+                                    ))}
+                                  </Stack>
+                                </Alert>
+                              ) : null}
+                            </>
+                          )}
                         </Stack>
                       </Card>
                     );

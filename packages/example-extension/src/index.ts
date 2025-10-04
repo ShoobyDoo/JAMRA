@@ -15,7 +15,7 @@ const catalogueItems = Array.from({ length: 5 }).map((_, index) => ({
 }));
 
 const chapters = Array.from({ length: 3 }).map((_, index) => ({
-  id: `chapter-${index + 1}`,
+  id: `${index + 1}`,
   title: `Chapter ${index + 1}`,
   number: `${index + 1}`,
   publishedAt: new Date(Date.now() - index * 43_200_000).toISOString(),
