@@ -3,7 +3,6 @@ import "@mantine/core/styles.css";
 import "@mantine/core/styles.layer.css";
 import "@/app/globals.css";
 import { AppWarmup } from "@/components/system/app-warmup";
-import { AppLayout } from "@/components/system/app-layout";
 import { ColorSchemeScript, MantineProvider } from "@mantine/core";
 
 const geistSans = Geist({
@@ -35,7 +34,7 @@ export default function RootLayout({
       <body className="bg-background text-foreground antialiased" style={{ fontFamily: 'var(--font-geist-mono)' }}>
         <MantineProvider defaultColorScheme="light">
           <AppWarmup />
-          <AppLayout>{children}</AppLayout>
+          {children}
         </MantineProvider>
       </body>
     </html>
