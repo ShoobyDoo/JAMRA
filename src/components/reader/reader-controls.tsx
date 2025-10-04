@@ -163,18 +163,20 @@ export function ReaderControls({
             </button>
 
             <div className="flex flex-1 items-center gap-3">
-              <input
-                type="range"
-                min="0"
-                max={totalPages - 1}
-                value={currentPage}
-                onChange={(e) => onPageSelect(Number(e.target.value))}
-                className="h-1 flex-1 cursor-pointer appearance-none rounded-full bg-secondary accent-primary"
-                style={{
-                  background: `linear-gradient(to right, var(--primary) 0%, var(--primary) ${progress}%, var(--secondary) ${progress}%, var(--secondary) 100%)`,
-                }}
-                aria-label="Page slider"
-              />
+              <div className="relative flex-1">
+                <input
+                  type="range"
+                  min="0"
+                  max={totalPages - 1}
+                  value={currentPage}
+                  onChange={(e) => onPageSelect(Number(e.target.value))}
+                  className="h-1 w-full cursor-pointer appearance-none rounded-full bg-secondary accent-primary"
+                  style={{
+                    background: `linear-gradient(to right, var(--primary) 0%, var(--primary) ${progress}%, var(--secondary) ${progress}%, var(--secondary) 100%)`,
+                  }}
+                  aria-label="Page slider"
+                />
+              </div>
               <div className="flex min-w-[80px] items-center justify-center gap-1 text-sm font-medium">
                 <BookOpen className="h-3.5 w-3.5 text-muted-foreground" />
                 <span>

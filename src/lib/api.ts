@@ -518,3 +518,51 @@ export async function acknowledgeExtensionUpdate(
   }
   return response.extension;
 }
+
+// Reading Progress
+export interface ReadingProgressData {
+  mangaId: string;
+  chapterId: string;
+  currentPage: number;
+  totalPages: number;
+  lastReadAt: number;
+}
+
+export async function saveReadingProgress(
+  mangaId: string,
+  chapterId: string,
+  currentPage: number,
+  totalPages: number
+): Promise<void> {
+  await request<{ success: boolean }>("/reading-progress", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      mangaId,
+      chapterId,
+      currentPage,
+      totalPages,
+      scrollPosition: 0, // Keep for DB compatibility, but always set to 0
+    }),
+  });
+}
+
+export async function getReadingProgress(
+  mangaId: string,
+  chapterId: string
+): Promise<ReadingProgressData | null> {
+  try {
+    return await request<ReadingProgressData>(
+      `/reading-progress/${encodeURIComponent(mangaId)}/${encodeURIComponent(chapterId)}`
+    );
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) {
+      return null;
+    }
+    throw error;
+  }
+}
+
+export async function getAllReadingProgress(): Promise<ReadingProgressData[]> {
+  return request<ReadingProgressData[]>("/reading-progress");
+}

@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { useReaderSettings } from "@/store/reader-settings";
+import { ChevronRight, ChevronLeft } from "lucide-react";
 
 interface PagedModeProps {
   pages: Array<{
@@ -13,9 +15,20 @@ interface PagedModeProps {
   }>;
   currentPage: number;
   onPageChange: (pageIndex: number) => void;
+  nextChapter?: { id: string; title?: string; number?: string } | null;
+  prevChapter?: { id: string; title?: string; number?: string } | null;
+  mangaId?: string;
 }
 
-export function PagedMode({ pages, currentPage, onPageChange }: PagedModeProps) {
+export function PagedMode({
+  pages,
+  currentPage,
+  onPageChange,
+  nextChapter,
+  prevChapter,
+  mangaId,
+}: PagedModeProps) {
+  const router = useRouter();
   const { pageFit, backgroundColor, readingMode } = useReaderSettings();
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLDivElement>(null);
@@ -43,6 +56,9 @@ export function PagedMode({ pages, currentPage, onPageChange }: PagedModeProps) 
     return () => window.removeEventListener("resize", updateDimensions);
   }, []);
 
+  const isFirstPage = currentPage === 0;
+  const isLastPage = currentPage === pages.length - 1;
+
   const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!containerRef.current || isDragging.current) return;
 
@@ -52,16 +68,32 @@ export function PagedMode({ pages, currentPage, onPageChange }: PagedModeProps) 
 
     // Click on left/right side to navigate
     if (isRTL) {
-      if (clickPercentage > 0.5 && currentPage > 0) {
-        onPageChange(currentPage - 1);
-      } else if (clickPercentage <= 0.5 && currentPage < pages.length - 1) {
-        onPageChange(currentPage + 1);
+      if (clickPercentage > 0.5) {
+        if (currentPage > 0) {
+          onPageChange(currentPage - 1);
+        }
+        // At first page, clicking back side does nothing (prevChapter indicator shows instead)
+      } else {
+        if (currentPage < pages.length - 1) {
+          onPageChange(currentPage + 1);
+        } else if (nextChapter && mangaId) {
+          // Auto-advance to next chapter
+          router.push(`/read/${encodeURIComponent(mangaId)}/chapter/${encodeURIComponent(nextChapter.id)}`);
+        }
       }
     } else {
-      if (clickPercentage < 0.5 && currentPage > 0) {
-        onPageChange(currentPage - 1);
-      } else if (clickPercentage >= 0.5 && currentPage < pages.length - 1) {
-        onPageChange(currentPage + 1);
+      if (clickPercentage < 0.5) {
+        if (currentPage > 0) {
+          onPageChange(currentPage - 1);
+        }
+        // At first page, clicking back side does nothing (prevChapter indicator shows instead)
+      } else {
+        if (currentPage < pages.length - 1) {
+          onPageChange(currentPage + 1);
+        } else if (nextChapter && mangaId) {
+          // Auto-advance to next chapter
+          router.push(`/read/${encodeURIComponent(mangaId)}/chapter/${encodeURIComponent(nextChapter.id)}`);
+        }
       }
     }
   };
@@ -114,9 +146,14 @@ export function PagedMode({ pages, currentPage, onPageChange }: PagedModeProps) 
 
       // Check if drag was significant enough for page change
       if (Math.abs(dragDelta) > DRAG_THRESHOLD) {
-        if (dragDelta > 0 && currentPage < pages.length - 1) {
+        if (dragDelta > 0) {
           // Dragged up = next page
-          onPageChange(currentPage + 1);
+          if (currentPage < pages.length - 1) {
+            onPageChange(currentPage + 1);
+          } else if (nextChapter && mangaId) {
+            // Auto-advance to next chapter
+            router.push(`/read/${encodeURIComponent(mangaId)}/chapter/${encodeURIComponent(nextChapter.id)}`);
+          }
         } else if (dragDelta < 0 && currentPage > 0) {
           // Dragged down = previous page
           onPageChange(currentPage - 1);
@@ -143,7 +180,7 @@ export function PagedMode({ pages, currentPage, onPageChange }: PagedModeProps) 
       window.removeEventListener("mouseup", handleMouseUp);
       container.style.cursor = "";
     };
-  }, [currentPage, pages.length, onPageChange]);
+  }, [currentPage, pages.length, onPageChange, nextChapter, mangaId, router]);
 
   const getImageStyles = (): React.CSSProperties => {
     if (!currentPageData) return {};
@@ -248,6 +285,49 @@ export function PagedMode({ pages, currentPage, onPageChange }: PagedModeProps) 
           title={isRTL ? "Previous page" : "Next page"}
         />
       </div>
+
+      {/* Previous chapter indicator (left side for LTR, right side for RTL) */}
+      {isFirstPage && prevChapter && mangaId && (
+        <div
+          className={`absolute ${isRTL ? "right-0" : "left-0"} top-0 bottom-0 flex items-center px-6 z-20`}
+        >
+          <button
+            onClick={() => router.push(`/read/${encodeURIComponent(mangaId)}/chapter/${encodeURIComponent(prevChapter.id)}?page=last`)}
+            className="flex flex-col items-center gap-2 rounded-lg bg-black/80 px-4 py-3 text-white transition hover:bg-black/90"
+          >
+            {isRTL ? <ChevronRight className="h-6 w-6" /> : <ChevronLeft className="h-6 w-6" />}
+            <span className="text-xs text-center">
+              {prevChapter.title || `Chapter ${prevChapter.number || prevChapter.id}`}
+            </span>
+            <span className="text-xs text-white/60">Previous Chapter</span>
+          </button>
+        </div>
+      )}
+
+      {/* Next chapter or end indicator (right side for LTR, left side for RTL) */}
+      {isLastPage && (
+        <div
+          className={`absolute ${isRTL ? "left-0" : "right-0"} top-0 bottom-0 flex items-center px-6 z-20`}
+        >
+          {nextChapter && mangaId ? (
+            <button
+              onClick={() => router.push(`/read/${encodeURIComponent(mangaId)}/chapter/${encodeURIComponent(nextChapter.id)}`)}
+              className="flex flex-col items-center gap-2 rounded-lg bg-black/80 px-4 py-3 text-white transition hover:bg-black/90"
+            >
+              {isRTL ? <ChevronLeft className="h-6 w-6" /> : <ChevronRight className="h-6 w-6" />}
+              <span className="text-xs text-center">
+                {nextChapter.title || `Chapter ${nextChapter.number || nextChapter.id}`}
+              </span>
+              <span className="text-xs text-white/60">Click to continue</span>
+            </button>
+          ) : (
+            <div className="flex flex-col items-center gap-2 rounded-lg bg-black/80 px-4 py-3 text-white pointer-events-none">
+              <span className="text-sm font-medium">End of Manga</span>
+              <span className="text-xs text-white/60">No more chapters</span>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Page image */}
       <div

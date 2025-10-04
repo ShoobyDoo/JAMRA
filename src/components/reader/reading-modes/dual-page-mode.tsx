@@ -1,8 +1,10 @@
 "use client";
 
 import { useRef, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { useReaderSettings } from "@/store/reader-settings";
+import { ChevronRight, ChevronLeft } from "lucide-react";
 
 interface DualPageModeProps {
   pages: Array<{
@@ -13,9 +15,20 @@ interface DualPageModeProps {
   }>;
   currentPage: number;
   onPageChange: (pageIndex: number) => void;
+  nextChapter?: { id: string; title?: string; number?: string } | null;
+  prevChapter?: { id: string; title?: string; number?: string } | null;
+  mangaId?: string;
 }
 
-export function DualPageMode({ pages, currentPage, onPageChange }: DualPageModeProps) {
+export function DualPageMode({
+  pages,
+  currentPage,
+  onPageChange,
+  nextChapter,
+  prevChapter,
+  mangaId,
+}: DualPageModeProps) {
+  const router = useRouter();
   const { pageFit, backgroundColor, dualPageGap, readingMode } = useReaderSettings();
   const containerRef = useRef<HTMLDivElement>(null);
   const pagesRef = useRef<HTMLDivElement>(null);
@@ -53,14 +66,22 @@ export function DualPageMode({ pages, currentPage, onPageChange }: DualPageModeP
     if (isRTL) {
       if (clickPercentage > 0.5 && currentPage > 0) {
         onPageChange(Math.max(0, currentPage - step));
-      } else if (clickPercentage <= 0.5 && currentPage < pages.length - 1) {
-        onPageChange(Math.min(pages.length - 1, currentPage + step));
+      } else if (clickPercentage <= 0.5) {
+        if (currentPage < pages.length - 1) {
+          onPageChange(Math.min(pages.length - 1, currentPage + step));
+        } else if (nextChapter && mangaId) {
+          router.push(`/read/${encodeURIComponent(mangaId)}/chapter/${encodeURIComponent(nextChapter.id)}`);
+        }
       }
     } else {
       if (clickPercentage < 0.5 && currentPage > 0) {
         onPageChange(Math.max(0, currentPage - step));
-      } else if (clickPercentage >= 0.5 && currentPage < pages.length - 1) {
-        onPageChange(Math.min(pages.length - 1, currentPage + step));
+      } else if (clickPercentage >= 0.5) {
+        if (currentPage < pages.length - 1) {
+          onPageChange(Math.min(pages.length - 1, currentPage + step));
+        } else if (nextChapter && mangaId) {
+          router.push(`/read/${encodeURIComponent(mangaId)}/chapter/${encodeURIComponent(nextChapter.id)}`);
+        }
       }
     }
   };
@@ -105,8 +126,12 @@ export function DualPageMode({ pages, currentPage, onPageChange }: DualPageModeP
       const step = displayPages.right ? 2 : 1;
 
       if (Math.abs(dragDelta) > DRAG_THRESHOLD) {
-        if (dragDelta > 0 && currentPage < pages.length - 1) {
-          onPageChange(Math.min(pages.length - 1, currentPage + step));
+        if (dragDelta > 0) {
+          if (currentPage < pages.length - 1) {
+            onPageChange(Math.min(pages.length - 1, currentPage + step));
+          } else if (nextChapter && mangaId) {
+            router.push(`/read/${encodeURIComponent(mangaId)}/chapter/${encodeURIComponent(nextChapter.id)}`);
+          }
         } else if (dragDelta < 0 && currentPage > 0) {
           onPageChange(Math.max(0, currentPage - step));
         }
@@ -132,7 +157,7 @@ export function DualPageMode({ pages, currentPage, onPageChange }: DualPageModeP
       window.removeEventListener("mouseup", handleMouseUp);
       container.style.cursor = "";
     };
-  }, [currentPage, pages.length, onPageChange, displayPages.right]);
+  }, [currentPage, pages.length, onPageChange, displayPages.right, nextChapter, mangaId, router]);
 
   const getImageStyles = (page: typeof displayPages.left) => {
     if (!page) return {};
@@ -213,6 +238,49 @@ export function DualPageMode({ pages, currentPage, onPageChange }: DualPageModeP
           title={isRTL ? "Previous pages" : "Next pages"}
         />
       </div>
+
+      {/* Previous chapter indicator (left side for LTR, right side for RTL) */}
+      {currentPage === 0 && prevChapter && mangaId && (
+        <div
+          className={`absolute ${isRTL ? "right-0" : "left-0"} top-0 bottom-0 flex items-center px-6 z-20`}
+        >
+          <button
+            onClick={() => router.push(`/read/${encodeURIComponent(mangaId)}/chapter/${encodeURIComponent(prevChapter.id)}?page=last`)}
+            className="flex flex-col items-center gap-2 rounded-lg bg-black/80 px-4 py-3 text-white transition hover:bg-black/90"
+          >
+            {isRTL ? <ChevronRight className="h-6 w-6" /> : <ChevronLeft className="h-6 w-6" />}
+            <span className="text-xs text-center">
+              {prevChapter.title || `Chapter ${prevChapter.number || prevChapter.id}`}
+            </span>
+            <span className="text-xs text-white/60">Previous Chapter</span>
+          </button>
+        </div>
+      )}
+
+      {/* Next chapter or end indicator (right side for LTR, left side for RTL) */}
+      {currentPage >= pages.length - 1 && (
+        <div
+          className={`absolute ${isRTL ? "left-0" : "right-0"} top-0 bottom-0 flex items-center px-6 z-20`}
+        >
+          {nextChapter && mangaId ? (
+            <button
+              onClick={() => router.push(`/read/${encodeURIComponent(mangaId)}/chapter/${encodeURIComponent(nextChapter.id)}`)}
+              className="flex flex-col items-center gap-2 rounded-lg bg-black/80 px-4 py-3 text-white transition hover:bg-black/90"
+            >
+              {isRTL ? <ChevronLeft className="h-6 w-6" /> : <ChevronRight className="h-6 w-6" />}
+              <span className="text-xs text-center">
+                {nextChapter.title || `Chapter ${nextChapter.number || nextChapter.id}`}
+              </span>
+              <span className="text-xs text-white/60">Click to continue</span>
+            </button>
+          ) : (
+            <div className="flex flex-col items-center gap-2 rounded-lg bg-black/80 px-4 py-3 text-white pointer-events-none">
+              <span className="text-sm font-medium">End of Manga</span>
+              <span className="text-xs text-white/60">No more chapters</span>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Dual pages */}
       <div

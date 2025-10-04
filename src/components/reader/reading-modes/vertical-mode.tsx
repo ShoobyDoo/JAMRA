@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { useReaderSettings } from "@/store/reader-settings";
 import { useDragScroll } from "../hooks/use-drag-scroll";
+import { ChevronDown } from "lucide-react";
 
 interface VerticalModeProps {
   pages: Array<{
@@ -14,9 +16,20 @@ interface VerticalModeProps {
   }>;
   currentPage: number;
   onPageChange: (pageIndex: number) => void;
+  nextChapter?: { id: string; title?: string; number?: string } | null;
+  prevChapter?: { id: string; title?: string; number?: string } | null;
+  mangaId?: string;
 }
 
-export function VerticalMode({ pages, currentPage, onPageChange }: VerticalModeProps) {
+export function VerticalMode({
+  pages,
+  currentPage,
+  onPageChange,
+  nextChapter,
+  prevChapter,
+  mangaId,
+}: VerticalModeProps) {
+  const router = useRouter();
   const { backgroundColor, gapSize, pageFit, scrollSpeed } = useReaderSettings();
   const containerRef = useRef<HTMLDivElement>(null);
   const pageRefs = useRef<Map<number, HTMLDivElement>>(new Map());
@@ -130,6 +143,22 @@ export function VerticalMode({ pages, currentPage, onPageChange }: VerticalModeP
       }}
     >
       <div className="flex flex-col items-center">
+        {/* Previous chapter indicator at top */}
+        {prevChapter && mangaId && (
+          <div className="flex flex-col items-center justify-center gap-4 py-12">
+            <button
+              onClick={() => router.push(`/read/${encodeURIComponent(mangaId)}/chapter/${encodeURIComponent(prevChapter.id)}?page=last`)}
+              className="flex flex-col items-center gap-2 rounded-lg bg-primary px-6 py-4 text-primary-foreground transition hover:bg-primary/90"
+            >
+              <ChevronDown className="h-6 w-6 rotate-180" />
+              <span className="text-sm font-medium">Previous Chapter</span>
+              <span className="text-xs opacity-80">
+                {prevChapter.title || `Chapter ${prevChapter.number || prevChapter.id}`}
+              </span>
+            </button>
+          </div>
+        )}
+
         {pages.map((page, index) => (
           <div
             key={page.index}
@@ -159,9 +188,25 @@ export function VerticalMode({ pages, currentPage, onPageChange }: VerticalModeP
           </div>
         ))}
 
-        {/* End indicator */}
-        <div className="flex items-center justify-center py-8 text-muted-foreground">
-          <p className="text-sm">End of chapter</p>
+        {/* End of chapter indicator */}
+        <div className="flex flex-col items-center justify-center gap-4 py-12">
+          {nextChapter && mangaId ? (
+            <button
+              onClick={() => router.push(`/read/${encodeURIComponent(mangaId)}/chapter/${encodeURIComponent(nextChapter.id)}`)}
+              className="flex flex-col items-center gap-2 rounded-lg bg-primary px-6 py-4 text-primary-foreground transition hover:bg-primary/90"
+            >
+              <ChevronDown className="h-6 w-6" />
+              <span className="text-sm font-medium">Next Chapter</span>
+              <span className="text-xs opacity-80">
+                {nextChapter.title || `Chapter ${nextChapter.number || nextChapter.id}`}
+              </span>
+            </button>
+          ) : (
+            <div className="flex flex-col items-center gap-2 rounded-lg bg-muted px-6 py-4 text-muted-foreground">
+              <span className="text-sm font-medium">End of Manga</span>
+              <span className="text-xs">No more chapters available</span>
+            </div>
+          )}
         </div>
       </div>
     </div>

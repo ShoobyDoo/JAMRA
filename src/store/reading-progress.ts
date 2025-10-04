@@ -1,5 +1,9 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import {
+  saveReadingProgress as saveProgressAPI,
+  getReadingProgress as getProgressAPI,
+} from "@/lib/api";
 
 export interface ReadingProgress {
   mangaId: string;
@@ -31,6 +35,10 @@ export interface ReadingProgressState {
     mangaId: string,
     chapterId: string
   ) => ReadingProgress | undefined;
+  loadProgressFromAPI: (
+    mangaId: string,
+    chapterId: string
+  ) => Promise<ReadingProgress | null>;
   setCurrentChapter: (
     mangaId: string,
     chapterId: string,
@@ -54,18 +62,45 @@ export const useReadingProgress = create<ReadingProgressState>()(
 
       setProgress: (mangaId, chapterId, page, total) => {
         const key = `${mangaId}:${chapterId}`;
+        const progressData = {
+          mangaId,
+          chapterId,
+          currentPage: page,
+          totalPages: total,
+          lastReadAt: Date.now(),
+        };
+
+        // Update local state
         set((state) => ({
           progress: {
             ...state.progress,
-            [key]: {
-              mangaId,
-              chapterId,
-              currentPage: page,
-              totalPages: total,
-              lastReadAt: Date.now(),
-            },
+            [key]: progressData,
           },
         }));
+
+        // Save to API (fire and forget - don't block UI)
+        saveProgressAPI(mangaId, chapterId, page, total).catch((error) => {
+          console.error("Failed to save progress to API:", error);
+        });
+      },
+
+      loadProgressFromAPI: async (mangaId, chapterId) => {
+        try {
+          const progress = await getProgressAPI(mangaId, chapterId);
+          if (progress) {
+            const key = `${mangaId}:${chapterId}`;
+            set((state) => ({
+              progress: {
+                ...state.progress,
+                [key]: progress,
+              },
+            }));
+          }
+          return progress;
+        } catch (error) {
+          console.error("Failed to load progress from API:", error);
+          return null;
+        }
       },
 
       getProgress: (mangaId, chapterId) => {
@@ -73,12 +108,32 @@ export const useReadingProgress = create<ReadingProgressState>()(
         return get().progress[key];
       },
 
-      setCurrentChapter: (mangaId, chapterId, totalPages) => {
-        const existingProgress = get().getProgress(mangaId, chapterId);
+      setCurrentChapter: async (mangaId, chapterId, totalPages) => {
+        // Try to load from API first
+        const apiProgress = await get().loadProgressFromAPI(mangaId, chapterId);
+
+        let startPage = 0;
+
+        if (apiProgress) {
+          // Use API progress if valid
+          if (apiProgress.currentPage >= 0 && apiProgress.currentPage < totalPages) {
+            startPage = apiProgress.currentPage;
+          }
+        } else {
+          // Fall back to localStorage
+          const existingProgress = get().getProgress(mangaId, chapterId);
+          if (existingProgress?.currentPage !== undefined) {
+            const savedPage = existingProgress.currentPage;
+            if (savedPage >= 0 && savedPage < totalPages) {
+              startPage = savedPage;
+            }
+          }
+        }
+
         set({
           currentMangaId: mangaId,
           currentChapterId: chapterId,
-          currentPage: existingProgress?.currentPage ?? 0,
+          currentPage: startPage,
           totalPages,
           preloadedImages: new Set(),
         });
@@ -86,10 +141,40 @@ export const useReadingProgress = create<ReadingProgressState>()(
 
       setCurrentPage: (page) => {
         const { currentMangaId, currentChapterId, totalPages } = get();
-        set({ currentPage: page });
 
+        // Validate page is within bounds
+        if (page < 0 || page >= totalPages) {
+          console.warn(`Invalid page ${page} for totalPages ${totalPages}, clamping to valid range`);
+          page = Math.max(0, Math.min(page, totalPages - 1));
+        }
+
+        // Atomic update to prevent flashing
         if (currentMangaId && currentChapterId) {
-          get().setProgress(currentMangaId, currentChapterId, page, totalPages);
+          const key = `${currentMangaId}:${currentChapterId}`;
+          const progressData = {
+            mangaId: currentMangaId,
+            chapterId: currentChapterId,
+            currentPage: page,
+            totalPages,
+            lastReadAt: Date.now(),
+          };
+
+          set((state) => ({
+            currentPage: page,
+            progress: {
+              ...state.progress,
+              [key]: progressData,
+            },
+          }));
+
+          // Save to API
+          saveProgressAPI(currentMangaId, currentChapterId, page, totalPages).catch(
+            (error) => {
+              console.error("Failed to save progress to API:", error);
+            }
+          );
+        } else {
+          set({ currentPage: page });
         }
       },
 

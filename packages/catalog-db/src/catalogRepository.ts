@@ -634,4 +634,113 @@ export class CatalogRepository {
       }
     })();
   }
+
+  saveReadingProgress(
+    mangaId: string,
+    chapterId: string,
+    currentPage: number,
+    totalPages: number,
+    scrollPosition?: number
+  ): void {
+    this.db
+      .prepare(
+        `
+      INSERT INTO reading_progress (
+        manga_id,
+        chapter_id,
+        current_page,
+        total_pages,
+        scroll_position,
+        last_read_at
+      ) VALUES (@manga_id, @chapter_id, @current_page, @total_pages, @scroll_position, @last_read_at)
+      ON CONFLICT(manga_id, chapter_id) DO UPDATE SET
+        current_page = excluded.current_page,
+        total_pages = excluded.total_pages,
+        scroll_position = excluded.scroll_position,
+        last_read_at = excluded.last_read_at;
+    `
+      )
+      .run({
+        manga_id: mangaId,
+        chapter_id: chapterId,
+        current_page: currentPage,
+        total_pages: totalPages,
+        scroll_position: scrollPosition ?? 0,
+        last_read_at: now(),
+      });
+  }
+
+  getReadingProgress(
+    mangaId: string,
+    chapterId: string
+  ): {
+    mangaId: string;
+    chapterId: string;
+    currentPage: number;
+    totalPages: number;
+    scrollPosition: number;
+    lastReadAt: number;
+  } | undefined {
+    const row = this.db
+      .prepare(
+        `
+      SELECT
+        manga_id as mangaId,
+        chapter_id as chapterId,
+        current_page as currentPage,
+        total_pages as totalPages,
+        scroll_position as scrollPosition,
+        last_read_at as lastReadAt
+      FROM reading_progress
+      WHERE manga_id = @manga_id AND chapter_id = @chapter_id
+    `
+      )
+      .get({
+        manga_id: mangaId,
+        chapter_id: chapterId,
+      }) as
+      | {
+          mangaId: string;
+          chapterId: string;
+          currentPage: number;
+          totalPages: number;
+          scrollPosition: number;
+          lastReadAt: number;
+        }
+      | undefined;
+
+    return row;
+  }
+
+  getAllReadingProgress(): Array<{
+    mangaId: string;
+    chapterId: string;
+    currentPage: number;
+    totalPages: number;
+    scrollPosition: number;
+    lastReadAt: number;
+  }> {
+    return this.db
+      .prepare(
+        `
+      SELECT
+        manga_id as mangaId,
+        chapter_id as chapterId,
+        current_page as currentPage,
+        total_pages as totalPages,
+        scroll_position as scrollPosition,
+        last_read_at as lastReadAt
+      FROM reading_progress
+      ORDER BY last_read_at DESC
+    `
+      )
+      .all() as Array<{
+      mangaId: string;
+      chapterId: string;
+      currentPage: number;
+      totalPages: number;
+      scrollPosition: number;
+      lastReadAt: number;
+    }>;
+  }
 }

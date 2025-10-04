@@ -185,6 +185,25 @@ const MIGRATIONS: Migration[] = [
       }
     },
   },
+  {
+    id: 6,
+    up: (db) => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS reading_progress (
+          manga_id TEXT NOT NULL,
+          chapter_id TEXT NOT NULL,
+          current_page INTEGER NOT NULL DEFAULT 0,
+          total_pages INTEGER NOT NULL,
+          scroll_position INTEGER DEFAULT 0,
+          last_read_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000),
+          PRIMARY KEY (manga_id, chapter_id)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_reading_progress_last_read
+          ON reading_progress (last_read_at DESC);
+      `);
+    },
+  },
 ];
 
 export function runMigrations(db: Database.Database): void {

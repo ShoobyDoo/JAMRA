@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { useReaderSettings } from "@/store/reader-settings";
 import { useReaderProgress } from "./hooks/use-reader-progress";
 import { useReaderNavigation } from "./hooks/use-reader-navigation";
@@ -23,6 +24,12 @@ interface MangaReaderProps {
     width?: number;
     height?: number;
   }>;
+  chapters?: Array<{
+    id: string;
+    title?: string;
+    number?: string;
+  }>;
+  initialPage?: number;
 }
 
 export function MangaReader({
@@ -31,7 +38,10 @@ export function MangaReader({
   chapterId,
   chapterTitle,
   pages,
+  chapters = [],
+  initialPage,
 }: MangaReaderProps) {
+  const router = useRouter();
   const { readingMode, zenMode, setZenMode, pageFit, setPageFit } = useReaderSettings();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -44,7 +54,25 @@ export function MangaReader({
     firstPage,
     lastPage,
     goToPage,
-  } = useReaderProgress(mangaId, chapterId, pages.length);
+  } = useReaderProgress(mangaId, chapterId, pages.length, initialPage);
+
+  // Remove ?page=last query parameter after initial page is set
+  useEffect(() => {
+    if (initialPage !== undefined) {
+      // Replace the URL without the query parameter
+      const newUrl = `/read/${encodeURIComponent(mangaId)}/chapter/${encodeURIComponent(chapterId)}`;
+      router.replace(newUrl);
+    }
+  }, [initialPage, mangaId, chapterId, router]);
+
+  // Find current chapter index and next/prev chapters
+  const currentChapterIndex = chapters.findIndex((ch) => ch.id === chapterId);
+  const nextChapter = currentChapterIndex >= 0 && currentChapterIndex < chapters.length - 1
+    ? chapters[currentChapterIndex + 1]
+    : null;
+  const prevChapter = currentChapterIndex > 0
+    ? chapters[currentChapterIndex - 1]
+    : null;
 
   // Image preloading
   useImagePreloader(pages, currentPage);
@@ -117,6 +145,9 @@ export function MangaReader({
       pages,
       currentPage,
       onPageChange: goToPage,
+      nextChapter,
+      prevChapter,
+      mangaId,
     };
 
     switch (readingMode) {

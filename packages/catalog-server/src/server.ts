@@ -892,6 +892,80 @@ export async function startCatalogServer(
     }
   });
 
+  // Reading progress endpoints
+  app.post("/api/reading-progress", async (req, res) => {
+    try {
+      if (!repository) {
+        res.status(503).json({ error: "Database not available" });
+        return;
+      }
+
+      const { mangaId, chapterId, currentPage, totalPages, scrollPosition } =
+        req.body;
+
+      if (!mangaId || !chapterId || currentPage === undefined || !totalPages) {
+        res.status(400).json({ error: "Missing required fields" });
+        return;
+      }
+
+      repository.saveReadingProgress(
+        mangaId,
+        chapterId,
+        currentPage,
+        totalPages,
+        scrollPosition
+      );
+
+      res.status(200).json({ success: true });
+    } catch (error) {
+      handleError(res, error, "Failed to save reading progress");
+    }
+  });
+
+  app.get("/api/reading-progress/:mangaId/:chapterId", async (req, res) => {
+    try {
+      if (!repository) {
+        res.status(503).json({ error: "Database not available" });
+        return;
+      }
+
+      const { mangaId, chapterId } = req.params;
+
+      if (!mangaId || !chapterId) {
+        res.status(400).json({ error: "Missing manga ID or chapter ID" });
+        return;
+      }
+
+      const progress = repository.getReadingProgress(
+        decodeURIComponent(mangaId),
+        decodeURIComponent(chapterId)
+      );
+
+      if (!progress) {
+        res.status(404).json({ error: "No progress found" });
+        return;
+      }
+
+      res.json(progress);
+    } catch (error) {
+      handleError(res, error, "Failed to get reading progress");
+    }
+  });
+
+  app.get("/api/reading-progress", async (_req, res) => {
+    try {
+      if (!repository) {
+        res.status(503).json({ error: "Database not available" });
+        return;
+      }
+
+      const allProgress = repository.getAllReadingProgress();
+      res.json(allProgress);
+    } catch (error) {
+      handleError(res, error, "Failed to get all reading progress");
+    }
+  });
+
   const server = await new Promise<Server>((resolve) => {
     const listener = app.listen(port, () => {
       console.log(

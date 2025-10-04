@@ -1,23 +1,40 @@
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useRef } from "react";
 import { useReadingProgress } from "@/store/reading-progress";
 
 export function useReaderProgress(
   mangaId: string,
   chapterId: string,
-  totalPages: number
+  totalPages: number,
+  initialPage?: number
 ) {
+  const store = useReadingProgress();
   const {
     currentPage,
     setCurrentChapter,
     setCurrentPage,
     getProgress,
     markChapterComplete,
-  } = useReadingProgress();
+  } = store;
+
+  // Use ref to always get the latest page value
+  const currentPageRef = useRef(currentPage);
+
+  useEffect(() => {
+    currentPageRef.current = currentPage;
+  }, [currentPage]);
 
   // Initialize chapter on mount
   useEffect(() => {
-    setCurrentChapter(mangaId, chapterId, totalPages);
-  }, [mangaId, chapterId, totalPages, setCurrentChapter]);
+    // setCurrentChapter is now async, so we need to handle it properly
+    const initChapter = async () => {
+      await setCurrentChapter(mangaId, chapterId, totalPages);
+      // Override with initialPage if provided
+      if (initialPage !== undefined) {
+        setCurrentPage(initialPage);
+      }
+    };
+    initChapter();
+  }, [mangaId, chapterId, totalPages, setCurrentChapter, initialPage, setCurrentPage]);
 
   const goToPage = useCallback(
     (pageIndex: number) => {
@@ -34,20 +51,22 @@ export function useReaderProgress(
   );
 
   const nextPage = useCallback(() => {
-    if (currentPage < totalPages - 1) {
-      goToPage(currentPage + 1);
+    const current = currentPageRef.current;
+    if (current < totalPages - 1) {
+      goToPage(current + 1);
       return true;
     }
     return false;
-  }, [currentPage, totalPages, goToPage]);
+  }, [totalPages, goToPage]);
 
   const prevPage = useCallback(() => {
-    if (currentPage > 0) {
-      goToPage(currentPage - 1);
+    const current = currentPageRef.current;
+    if (current > 0) {
+      goToPage(current - 1);
       return true;
     }
     return false;
-  }, [currentPage, goToPage]);
+  }, [goToPage]);
 
   const firstPage = useCallback(() => {
     goToPage(0);
