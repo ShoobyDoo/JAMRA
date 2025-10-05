@@ -10,6 +10,7 @@ const SHELL = process.platform === "win32";
 
 const PACKAGE_ORDER = [
   "@jamra/extension-sdk",
+  "@jamra/extension-registry",
   "@jamra/catalog-db",
   "@jamra/extension-host",
   "@jamra/catalog-service",

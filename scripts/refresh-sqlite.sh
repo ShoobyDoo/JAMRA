@@ -215,7 +215,10 @@ prune_cached_binary() {
   if [[ ! -d "$dir" ]]; then
     return
   fi
-  mapfile -t binaries < <(find "$dir" -type f -name 'better_sqlite3.node' 2>/dev/null | sort -u)
+  local binaries=()
+  while IFS= read -r line; do
+    binaries+=("$line")
+  done < <(find "$dir" -type f -name 'better_sqlite3.node' 2>/dev/null | sort -u)
   if ((${#binaries[@]})); then
     echo "- removing cached binaries from $label"
     rm -f "${binaries[@]}"
