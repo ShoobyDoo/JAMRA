@@ -16,6 +16,7 @@ const PACKAGE_ORDER = [
   "@jamra/catalog-service",
   "@jamra/catalog-server",
   "@jamra/example-extension",
+  "@jamra/weebcentral-extension",
 ];
 
 function runCommand(instruction: Instruction): Promise<void> {

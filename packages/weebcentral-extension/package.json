@@ -1,0 +1,30 @@
+{
+  "name": "@jamra/weebcentral-extension",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "WeebCentral (formerly MangaSee) manga source extension for JAMRA",
+  "main": "dist/bundle.cjs",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p . && node build.mjs",
+    "clean": "rm -rf dist"
+  },
+  "keywords": [
+    "manga",
+    "weebcentral",
+    "mangasee",
+    "extension"
+  ],
+  "author": "JAMRA Team",
+  "license": "MIT",
+  "dependencies": {
+    "@jamra/extension-sdk": "workspace:*",
+    "cheerio": "^1.1.2"
+  },
+  "devDependencies": {
+    "@types/cheerio": "^0.22.35",
+    "@types/node": "^20.0.0",
+    "esbuild": "^0.25.10",
+    "typescript": "^5.3.3"
+  }
+}

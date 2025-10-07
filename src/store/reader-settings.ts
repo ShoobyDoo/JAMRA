@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 export type ReadingMode = "paged-ltr" | "paged-rtl" | "dual-page" | "vertical";
-export type PageFit = "width" | "height" | "auto" | "original";
+export type PageFit = "width" | "height" | "auto" | "original" | "custom";
 export type BackgroundColor = "black" | "white" | "sepia" | "dark-gray";
 
 export interface ReaderSettings {
@@ -10,6 +10,7 @@ export interface ReaderSettings {
   readingMode: ReadingMode;
   pageFit: PageFit;
   backgroundColor: BackgroundColor;
+  customWidth: number; // percentage (1-100)
 
   // Vertical mode settings
   scrollSpeed: number; // 1-10
@@ -29,10 +30,14 @@ export interface ReaderSettings {
   // Zen mode
   zenMode: boolean;
 
+  // Chapter navigation
+  autoAdvanceChapter: boolean;
+
   // Actions
   setReadingMode: (mode: ReadingMode) => void;
   setPageFit: (fit: PageFit) => void;
   setBackgroundColor: (color: BackgroundColor) => void;
+  setCustomWidth: (width: number) => void;
   setScrollSpeed: (speed: number) => void;
   setGapSize: (size: number) => void;
   setDualPageGap: (gap: number) => void;
@@ -42,6 +47,7 @@ export interface ReaderSettings {
   setAutoHideDelay: (delay: number) => void;
   setZenMode: (zen: boolean) => void;
   toggleZenMode: () => void;
+  setAutoAdvanceChapter: (autoAdvance: boolean) => void;
   resetToDefaults: () => void;
 }
 
@@ -49,6 +55,7 @@ const DEFAULT_SETTINGS = {
   readingMode: "paged-ltr" as ReadingMode,
   pageFit: "auto" as PageFit,
   backgroundColor: "black" as BackgroundColor,
+  customWidth: 80,
   scrollSpeed: 20,
   gapSize: 0,
   dualPageGap: 24,
@@ -57,6 +64,7 @@ const DEFAULT_SETTINGS = {
   autoHideControls: true,
   autoHideDelay: 2000,
   zenMode: false,
+  autoAdvanceChapter: true,
 };
 
 export const useReaderSettings = create<ReaderSettings>()(
@@ -67,6 +75,7 @@ export const useReaderSettings = create<ReaderSettings>()(
       setReadingMode: (mode) => set({ readingMode: mode }),
       setPageFit: (fit) => set({ pageFit: fit }),
       setBackgroundColor: (color) => set({ backgroundColor: color }),
+      setCustomWidth: (width) => set({ customWidth: Math.max(10, Math.min(100, width)) }),
       setScrollSpeed: (speed) => set({ scrollSpeed: Math.max(1, Math.min(50, speed)) }),
       setGapSize: (size) => set({ gapSize: Math.max(0, Math.min(100, size)) }),
       setDualPageGap: (gap) => set({ dualPageGap: Math.max(0, Math.min(100, gap)) }),
@@ -76,6 +85,7 @@ export const useReaderSettings = create<ReaderSettings>()(
       setAutoHideDelay: (delay) => set({ autoHideDelay: Math.max(500, Math.min(10000, delay)) }),
       setZenMode: (zen) => set({ zenMode: zen }),
       toggleZenMode: () => set((state) => ({ zenMode: !state.zenMode })),
+      setAutoAdvanceChapter: (autoAdvance) => set({ autoAdvanceChapter: autoAdvance }),
       resetToDefaults: () => set(DEFAULT_SETTINGS),
     }),
     {

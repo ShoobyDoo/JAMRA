@@ -1,7 +1,7 @@
 "use client";
 
 import { Breadcrumb } from "@/components/ui/breadcrumb";
-import { ActionIcon, Group, Text, TextInput, Tooltip } from "@mantine/core";
+import { ActionIcon, Group, Text, Tooltip } from "@mantine/core";
 import { useUIStore } from "@/store/ui";
 import { SIDEBAR_WIDTH, HEADER_HEIGHT } from "@/lib/constants";
 import {
@@ -11,6 +11,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { SearchBar } from "./search-bar";
 
 export function Topbar() {
   const collapsed = useUIStore((state) => state.collapsed);
@@ -74,22 +75,9 @@ export function Topbar() {
 
         <Breadcrumb />
 
-        <form
-          action="/search"
-          method="GET"
-          className="ml-auto hidden md:block"
-          role="search"
-        >
-          <TextInput
-            type="search"
-            name="q"
-            aria-label="Search manga"
-            placeholder="Search manga…"
-            className="w-72"
-            size="sm"
-            radius="md"
-          />
-        </form>
+        <div className="ml-auto hidden md:block">
+          <SearchBar />
+        </div>
       </div>
     </div>
   );

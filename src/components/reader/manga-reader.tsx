@@ -42,7 +42,7 @@ export function MangaReader({
   initialPage,
 }: MangaReaderProps) {
   const router = useRouter();
-  const { readingMode, zenMode, setZenMode, pageFit, setPageFit } = useReaderSettings();
+  const { readingMode, zenMode, setZenMode, pageFit, setPageFit, autoAdvanceChapter } = useReaderSettings();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const viewportRef = useRef<HTMLDivElement>(null);
 
@@ -140,6 +140,24 @@ export function MangaReader({
     return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
   }, [setZenMode]);
 
+  // Prefetch next chapter when on last page for seamless auto-advance
+  useEffect(() => {
+    if (!autoAdvanceChapter || !nextChapter || currentPage !== totalPages - 1) {
+      return;
+    }
+
+    // Prefetch next chapter data by creating a link element
+    // This tells the browser to prefetch the route in the background
+    const prefetchUrl = `/read/${encodeURIComponent(mangaId)}/chapter/${encodeURIComponent(nextChapter.id)}`;
+
+    // Use Next.js router prefetch
+    router.prefetch(prefetchUrl);
+
+    // Note: No delay - when user navigates forward from last page,
+    // the reading mode components will handle the navigation
+    // The prefetch ensures it's instant
+  }, [autoAdvanceChapter, nextChapter, currentPage, totalPages, mangaId, router]);
+
   const renderReadingMode = () => {
     const props = {
       pages,
@@ -172,6 +190,7 @@ export function MangaReader({
 
       {/* Controls overlay */}
       <ReaderControls
+        mangaId={mangaId}
         mangaTitle={mangaTitle}
         chapterTitle={chapterTitle}
         currentPage={currentPage}

@@ -1,10 +1,29 @@
 import Link from "next/link";
+import { getAllReadingProgress, fetchMangaDetails } from "@/lib/api";
+import { ContinueReadingCard } from "@/components/manga/continue-reading-card";
 
 export default async function HomePage() {
-  // TODO: Fetch user's reading history once that API is implemented
-  const readingHistory: never[] = [];
+  // Fetch reading history from API
+  const readingHistory = await getAllReadingProgress().catch(() => []);
 
-  if (readingHistory.length === 0) {
+  // Fetch manga details for each progress entry
+  const enrichedHistory = await Promise.all(
+    readingHistory.map(async (progress) => {
+      try {
+        const { details } = await fetchMangaDetails(progress.mangaId);
+        return { ...progress, manga: details, error: null };
+      } catch (error) {
+        console.error(`Failed to fetch manga details for ${progress.mangaId}:`, error);
+        return {
+          ...progress,
+          manga: null,
+          error: error instanceof Error ? error.message : "Failed to fetch manga details"
+        };
+      }
+    })
+  );
+
+  if (enrichedHistory.length === 0) {
     return (
       <div className="space-y-6 p-6">
         <div>
@@ -31,21 +50,68 @@ export default async function HomePage() {
     );
   }
 
-  // TODO: Render reading history with progress bars
-  // Each manga card should show:
-  // - Cover image
-  // - Title
-  // - Progress bar (read chapters / total chapters)
-  // - "Continue Reading" button linking to next unread chapter
+  // Separate available and unavailable manga
+  const availableManga = enrichedHistory.filter((item) => !item.error && item.manga);
+  const unavailableManga = enrichedHistory.filter((item) => item.error || !item.manga);
+
   return (
-    <div className="space-y-6 p-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Continue Reading</h1>
-        <p className="text-muted-foreground">
-          Pick up where you left off with your manga collection.
-        </p>
-      </div>
-      {/* Reading history grid will go here */}
+    <div className="space-y-8 p-6">
+      {/* Available Manga Section */}
+      {availableManga.length > 0 && (
+        <div className="space-y-4">
+          <div>
+            <h1 className="text-2xl font-semibold">Continue Reading</h1>
+            <p className="text-muted-foreground">
+              Pick up where you left off with your manga collection.
+            </p>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-1 lg:grid-cols-2 xl:grid-cols-3">
+            {availableManga.map((item) => (
+              <ContinueReadingCard
+                key={`${item.mangaId}:${item.chapterId}`}
+                manga={item.manga}
+                mangaId={item.mangaId}
+                currentChapterId={item.chapterId}
+                currentPage={item.currentPage}
+                totalPages={item.totalPages}
+                lastReadAt={item.lastReadAt}
+                error={item.error}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Unavailable Manga Section */}
+      {unavailableManga.length > 0 && (
+        <div className="space-y-4">
+          <div>
+            <h2 className="text-xl font-semibold text-muted-foreground">
+              Unavailable Manga
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              These manga cannot be loaded because their extensions are disabled
+              or unavailable. Enable the required extensions to continue reading.
+            </p>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-1 lg:grid-cols-2 xl:grid-cols-3">
+            {unavailableManga.map((item) => (
+              <ContinueReadingCard
+                key={`${item.mangaId}:${item.chapterId}`}
+                manga={item.manga}
+                mangaId={item.mangaId}
+                currentChapterId={item.chapterId}
+                currentPage={item.currentPage}
+                totalPages={item.totalPages}
+                lastReadAt={item.lastReadAt}
+                error={item.error}
+              />
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

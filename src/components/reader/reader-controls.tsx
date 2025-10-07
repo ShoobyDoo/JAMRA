@@ -9,10 +9,12 @@ import {
   ChevronLeft,
   ChevronRight,
   BookOpen,
+  X,
 } from "lucide-react";
 import { useReaderSettings } from "@/store/reader-settings";
 
 interface ReaderControlsProps {
+  mangaId: string;
   mangaTitle: string;
   chapterTitle: string;
   currentPage: number;
@@ -25,6 +27,7 @@ interface ReaderControlsProps {
 }
 
 export function ReaderControls({
+  mangaId,
   mangaTitle,
   chapterTitle,
   currentPage,
@@ -139,6 +142,14 @@ export function ReaderControls({
               aria-label="Settings"
             >
               <Settings className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => router.push(`/manga/${encodeURIComponent(mangaId)}`)}
+              className="rounded-md p-2 transition hover:bg-accent hover:text-destructive"
+              aria-label="Exit reader"
+              title="Exit to manga details"
+            >
+              <X className="h-4 w-4" />
             </button>
           </div>
         </div>

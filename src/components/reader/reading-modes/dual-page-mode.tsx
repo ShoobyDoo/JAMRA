@@ -29,12 +29,13 @@ export function DualPageMode({
   mangaId,
 }: DualPageModeProps) {
   const router = useRouter();
-  const { pageFit, backgroundColor, dualPageGap, readingMode } = useReaderSettings();
+  const { pageFit, backgroundColor, dualPageGap, readingMode, customWidth } = useReaderSettings();
   const containerRef = useRef<HTMLDivElement>(null);
   const pagesRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);
-  const startY = useRef(0);
+  const startX = useRef(0);
   const [dragOffset, setDragOffset] = useState(0);
+  const [showDragCursor, setShowDragCursor] = useState(false);
 
   const isRTL = readingMode === "paged-rtl";
 
@@ -102,50 +103,62 @@ export function DualPageMode({
       }
 
       isDragging.current = false;
-      startY.current = e.clientY;
+      startX.current = e.clientX;
       setDragOffset(0);
-      container.style.cursor = "grabbing";
+      setShowDragCursor(true);
     };
 
     const handleMouseMove = (e: MouseEvent) => {
-      if (startY.current === 0) return;
-      const delta = startY.current - e.clientY;
+      if (startX.current === 0) return;
+      const delta = e.clientX - startX.current;
       if (Math.abs(delta) > 5) {
         isDragging.current = true;
       }
       // Update visual offset in real-time
-      setDragOffset(-delta);
+      setDragOffset(delta);
     };
 
     const handleMouseUp = (e: MouseEvent) => {
-      if (startY.current === 0) return;
+      if (startX.current === 0) return;
 
-      const dragDelta = startY.current - e.clientY;
-      container.style.cursor = "grab";
+      const dragDelta = e.clientX - startX.current;
+      setShowDragCursor(false);
 
       const step = displayPages.right ? 2 : 1;
 
       if (Math.abs(dragDelta) > DRAG_THRESHOLD) {
-        if (dragDelta > 0) {
-          if (currentPage < pages.length - 1) {
-            onPageChange(Math.min(pages.length - 1, currentPage + step));
-          } else if (nextChapter && mangaId) {
-            router.push(`/read/${encodeURIComponent(mangaId)}/chapter/${encodeURIComponent(nextChapter.id)}`);
+        if (isRTL) {
+          // RTL: drag left = next, drag right = prev
+          if (dragDelta < 0) {
+            if (currentPage < pages.length - 1) {
+              onPageChange(Math.min(pages.length - 1, currentPage + step));
+            } else if (nextChapter && mangaId) {
+              router.push(`/read/${encodeURIComponent(mangaId)}/chapter/${encodeURIComponent(nextChapter.id)}`);
+            }
+          } else if (dragDelta > 0 && currentPage > 0) {
+            onPageChange(Math.max(0, currentPage - step));
           }
-        } else if (dragDelta < 0 && currentPage > 0) {
-          onPageChange(Math.max(0, currentPage - step));
+        } else {
+          // LTR: drag left = next, drag right = prev
+          if (dragDelta < 0) {
+            if (currentPage < pages.length - 1) {
+              onPageChange(Math.min(pages.length - 1, currentPage + step));
+            } else if (nextChapter && mangaId) {
+              router.push(`/read/${encodeURIComponent(mangaId)}/chapter/${encodeURIComponent(nextChapter.id)}`);
+            }
+          } else if (dragDelta > 0 && currentPage > 0) {
+            onPageChange(Math.max(0, currentPage - step));
+          }
         }
       }
 
       // Reset with animation
       setDragOffset(0);
-      startY.current = 0;
+      startX.current = 0;
       setTimeout(() => {
         isDragging.current = false;
       }, 50);
     };
-
-    container.style.cursor = "grab";
 
     container.addEventListener("mousedown", handleMouseDown);
     window.addEventListener("mousemove", handleMouseMove);
@@ -155,9 +168,8 @@ export function DualPageMode({
       container.removeEventListener("mousedown", handleMouseDown);
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseup", handleMouseUp);
-      container.style.cursor = "";
     };
-  }, [currentPage, pages.length, onPageChange, displayPages.right, nextChapter, mangaId, router]);
+  }, [currentPage, pages.length, onPageChange, displayPages.right, nextChapter, mangaId, router, isRTL]);
 
   const getImageStyles = (page: typeof displayPages.left) => {
     if (!page) return {};
@@ -185,6 +197,14 @@ export function DualPageMode({
           height: page.height ?? "auto",
           maxWidth: "100%",
           maxHeight: "100%",
+        };
+
+      case "custom":
+        return {
+          width: `${customWidth}%`,
+          height: "auto",
+          maxHeight: "100%",
+          objectFit: "contain" as const,
         };
 
       case "auto":
@@ -227,16 +247,24 @@ export function DualPageMode({
       onClick={handleClick}
       className={`relative flex h-full w-full cursor-pointer items-center justify-center ${backgroundColors[backgroundColor]}`}
     >
-      {/* Navigation hints */}
-      <div className="absolute inset-0 flex">
-        <div
-          className="hover:bg-white/5 flex-1 transition-colors"
-          title={isRTL ? "Next pages" : "Previous pages"}
-        />
-        <div
-          className="hover:bg-white/5 flex-1 transition-colors"
-          title={isRTL ? "Previous pages" : "Next pages"}
-        />
+      {/* Hot-edge navigation with chevron arrows */}
+      <div className="absolute inset-0 flex pointer-events-none">
+        {/* Left edge */}
+        <div className="relative flex-1 group">
+          <div className={`absolute left-0 top-1/2 -translate-y-1/2 pl-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200 ${currentPage > 0 || isRTL ? 'block' : 'hidden'}`}>
+            <div className="flex items-center justify-center w-12 h-12 rounded-full bg-black/50 backdrop-blur-sm">
+              <ChevronLeft className="h-6 w-6 text-white" />
+            </div>
+          </div>
+        </div>
+        {/* Right edge */}
+        <div className="relative flex-1 group">
+          <div className={`absolute right-0 top-1/2 -translate-y-1/2 pr-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200 ${currentPage < pages.length - 1 || !isRTL ? 'block' : 'hidden'}`}>
+            <div className="flex items-center justify-center w-12 h-12 rounded-full bg-black/50 backdrop-blur-sm">
+              <ChevronRight className="h-6 w-6 text-white" />
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Previous chapter indicator (left side for LTR, right side for RTL) */}
@@ -287,8 +315,9 @@ export function DualPageMode({
         ref={pagesRef}
         className="relative z-10 flex h-full items-center justify-center gap-0 transition-transform"
         style={{
-          transform: `translateY(${dragOffset}px)`,
+          transform: `translateX(${dragOffset}px)`,
           transition: dragOffset === 0 ? 'transform 0.2s ease-out' : 'none',
+          cursor: showDragCursor ? 'grabbing' : 'default',
         }}
       >
         {displayPages.left && (

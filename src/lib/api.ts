@@ -5,6 +5,7 @@ import type {
   ExtensionRegistryVersion,
 } from "@jamra/extension-registry";
 import { API_CONFIG } from "./constants";
+import { logger } from "./logger";
 
 const API_BASE =
   process.env.NEXT_PUBLIC_JAMRA_API_URL ??
@@ -37,31 +38,96 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_BASE}${path}`, {
-    ...init,
-    headers: {
-      accept: "application/json",
-      ...(init?.headers ?? {}),
-    },
-    cache: "no-store",
+  const url = `${API_BASE}${path}`;
+  const method = init?.method || 'GET';
+  const startTime = Date.now();
+
+  // Log the outgoing request
+  logger.apiCall(url, method, {
+    component: 'API',
+    action: 'request',
+    requestSize: init?.body ? JSON.stringify(init.body).length : 0,
   });
 
-  if (!response.ok) {
-    const detailText = await response.text().catch(() => undefined);
-    const cleanedDetail = sanitizeErrorDetail(detailText);
-    throw new ApiError(
-      `API request failed: ${response.status} ${response.statusText}${cleanedDetail ? ` - ${cleanedDetail}` : ""}`,
-      response.status,
-      response.statusText,
-      cleanedDetail,
-    );
-  }
+  try {
+    const response = await fetch(url, {
+      ...init,
+      headers: {
+        accept: "application/json",
+        ...(init?.headers ?? {}),
+      },
+      cache: "no-store",
+    });
 
-  if (response.status === 204) {
-    return undefined as T;
-  }
+    const duration = Date.now() - startTime;
+    const responseSize = Number(response.headers.get('content-length')) || 0;
 
-  return (await response.json()) as T;
+    // Log the response
+    logger.apiResponse(url, method, response.status, duration, {
+      component: 'API',
+      action: 'response',
+      responseSize,
+    });
+
+    if (!response.ok) {
+      const detailText = await response.text().catch(() => undefined);
+      const cleanedDetail = sanitizeErrorDetail(detailText);
+
+      logger.error(`API request failed: ${response.status} ${response.statusText}`, {
+        component: 'API',
+        action: 'error',
+        url,
+        method,
+        statusCode: response.status,
+        duration,
+        error: new Error(cleanedDetail || response.statusText),
+      });
+
+      throw new ApiError(
+        `API request failed: ${response.status} ${response.statusText}${cleanedDetail ? ` - ${cleanedDetail}` : ""}`,
+        response.status,
+        response.statusText,
+        cleanedDetail,
+      );
+    }
+
+    if (response.status === 204) {
+      return undefined as T;
+    }
+
+    const responseData = (await response.json()) as T;
+
+    // Log successful data retrieval for debugging
+    logger.debug(`API response data received`, {
+      component: 'API',
+      action: 'data-received',
+      url,
+      method,
+      dataSize: JSON.stringify(responseData).length,
+    });
+
+    return responseData;
+  } catch (error) {
+    const duration = Date.now() - startTime;
+
+    if (error instanceof ApiError) {
+      logger.apiError(url, method, error, duration, {
+        component: 'API',
+        action: 'api-error',
+      });
+    } else {
+      logger.error(`Network or parsing error`, {
+        component: 'API',
+        action: 'network-error',
+        url,
+        method,
+        duration,
+        error: error as Error,
+      });
+    }
+
+    throw error;
+  }
 }
 
 export interface CatalogueItem {
@@ -76,6 +142,8 @@ export interface CatalogueItem {
   languageCode?: string;
   updatedAt?: string;
 }
+
+export type MangaSummary = CatalogueItem;
 
 export interface CataloguePage {
   page: number;
@@ -565,4 +633,10 @@ export async function getReadingProgress(
 
 export async function getAllReadingProgress(): Promise<ReadingProgressData[]> {
   return request<ReadingProgressData[]>("/reading-progress");
+}
+
+export async function clearChaptersCache(mangaId: string): Promise<void> {
+  await request(`/manga/${encodeURIComponent(mangaId)}/chapters`, {
+    method: "DELETE",
+  });
 }

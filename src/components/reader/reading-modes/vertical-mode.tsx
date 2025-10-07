@@ -30,7 +30,7 @@ export function VerticalMode({
   mangaId,
 }: VerticalModeProps) {
   const router = useRouter();
-  const { backgroundColor, gapSize, pageFit, scrollSpeed } = useReaderSettings();
+  const { backgroundColor, gapSize, pageFit, scrollSpeed, customWidth } = useReaderSettings();
   const containerRef = useRef<HTMLDivElement>(null);
   const pageRefs = useRef<Map<number, HTMLDivElement>>(new Map());
   const isScrollingProgrammatically = useRef(false);
@@ -98,6 +98,8 @@ export function VerticalMode({
         return "auto";
       case "original":
         return "auto";
+      case "custom":
+        return `${customWidth}%`;
       default:
         return "100%";
     }

@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { routes } from "@/lib/routes";
+import { logger } from "@/lib/logger";
 
 const sidebarPaths = routes
   .filter((route) => route.inSidebar)
@@ -14,18 +15,54 @@ export function AppWarmup(): null {
   const router = useRouter();
 
   useEffect(() => {
+    logger.componentMount("AppWarmup", {
+      component: "AppWarmup",
+      action: "warmup-start",
+    });
+
+    logger.debug("Starting application warmup", {
+      component: "AppWarmup",
+      action: "warmup-start",
+      sidebarPathsCount: sidebarPaths.length,
+      apiTargetsCount: apiWarmupTargets.length,
+    });
+
     sidebarPaths.forEach((path) => {
       void Promise.resolve(router.prefetch(path)).catch(() => undefined);
+      logger.debug(`Prefetching route: ${path}`, {
+        component: "AppWarmup",
+        action: "route-prefetch",
+        path,
+      });
     });
 
     const controller = new AbortController();
     const { signal } = controller;
 
     apiWarmupTargets.forEach((target) => {
-      void fetch(target, { signal }).catch(() => undefined);
+      void fetch(target, { signal })
+        .then(() => {
+          logger.debug(`API warmup successful: ${target}`, {
+            component: "AppWarmup",
+            action: "api-warmup-success",
+            target,
+          });
+        })
+        .catch((error) => {
+          logger.warn(`API warmup failed: ${target}`, {
+            component: "AppWarmup",
+            action: "api-warmup-error",
+            target,
+            error,
+          });
+        });
     });
 
     return () => {
+      logger.componentUnmount("AppWarmup", {
+        component: "AppWarmup",
+        action: "warmup-cleanup",
+      });
       controller.abort();
     };
   }, [router]);

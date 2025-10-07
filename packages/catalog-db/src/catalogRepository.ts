@@ -447,7 +447,11 @@ export class CatalogRepository {
     });
   }
 
-  upsertMangaSummaries(extensionId: string, items: MangaSummary[]): void {
+  upsertMangaSummaries(
+    extensionId: string,
+    items: MangaSummary[],
+    seriesNames?: Map<string, string>
+  ): void {
     const stmt = this.db.prepare(`
       INSERT INTO manga (
         id,
@@ -461,9 +465,10 @@ export class CatalogRepository {
         demographic,
         language_code,
         updated_at,
-        last_synced_at
+        last_synced_at,
+        series_name
       ) VALUES (@id, @extension_id, @title, @alt_titles_json, @description, @cover_url, @status,
-        @tags_json, @demographic, @language_code, @updated_at, @last_synced_at)
+        @tags_json, @demographic, @language_code, @updated_at, @last_synced_at, @series_name)
       ON CONFLICT(id) DO UPDATE SET
         extension_id = excluded.extension_id,
         title = excluded.title,
@@ -475,7 +480,8 @@ export class CatalogRepository {
         demographic = excluded.demographic,
         language_code = excluded.language_code,
         updated_at = excluded.updated_at,
-        last_synced_at = excluded.last_synced_at;
+        last_synced_at = excluded.last_synced_at,
+        series_name = COALESCE(excluded.series_name, manga.series_name);
     `);
 
     const run = this.db.transaction((entries: MangaSummary[]) => {
@@ -493,6 +499,7 @@ export class CatalogRepository {
           language_code: item.languageCode ?? null,
           updated_at: item.updatedAt ?? null,
           last_synced_at: now(),
+          series_name: seriesNames?.get(item.id) ?? null,
         });
       }
     });
@@ -589,6 +596,13 @@ export class CatalogRepository {
     });
 
     run(chapters);
+  }
+
+  deleteChaptersForManga(mangaId: string): void {
+    const stmt = this.db.prepare(`
+      DELETE FROM chapters WHERE manga_id = @manga_id
+    `);
+    stmt.run({ manga_id: mangaId });
   }
 
   replaceChapterPages(
@@ -742,5 +756,34 @@ export class CatalogRepository {
       scrollPosition: number;
       lastReadAt: number;
     }>;
+  }
+
+  getSeriesName(mangaId: string): string | undefined {
+    const row = this.db
+      .prepare(
+        `
+      SELECT series_name
+      FROM manga
+      WHERE id = @manga_id
+    `
+      )
+      .get({ manga_id: mangaId }) as { series_name: string | null } | undefined;
+
+    return row?.series_name ?? undefined;
+  }
+
+  setSeriesName(mangaId: string, seriesName: string): void {
+    this.db
+      .prepare(
+        `
+      UPDATE manga
+      SET series_name = @series_name
+      WHERE id = @manga_id
+    `
+      )
+      .run({
+        manga_id: mangaId,
+        series_name: seriesName,
+      });
   }
 }

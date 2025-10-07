@@ -1,7 +1,11 @@
 import Image from "next/image";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { fetchMangaDetails } from "@/lib/api";
+import { ChapterList } from "@/components/manga/chapter-list";
+import { ExpandableDescription } from "@/components/manga/expandable-description";
+import { GenrePills } from "@/components/manga/genre-pills";
+import { ContinueReadingButton } from "@/components/manga/continue-reading-button";
+import { ClearChaptersButton } from "@/components/manga/clear-chapters-button";
 
 interface MangaPageProps {
   params: Promise<{ slug: string }>;
@@ -56,9 +60,7 @@ export default async function MangaPage({ params }: MangaPageProps) {
           </div>
 
           {details.description ? (
-            <p className="max-w-2xl whitespace-pre-line text-sm text-muted-foreground">
-              {details.description}
-            </p>
+            <ExpandableDescription description={details.description} />
           ) : (
             <p className="text-sm text-muted-foreground">
               No description available.
@@ -79,9 +81,9 @@ export default async function MangaPage({ params }: MangaPageProps) {
               </div>
             ) : null}
             {details.genres && details.genres.length > 0 ? (
-              <div>
-                <dt className="text-muted-foreground">Genres</dt>
-                <dd>{details.genres.join(", ")}</dd>
+              <div className="col-span-2 sm:col-span-3 lg:col-span-4">
+                <dt className="text-muted-foreground mb-2">Genres</dt>
+                <dd><GenrePills genres={details.genres} /></dd>
               </div>
             ) : null}
             {details.status ? (
@@ -128,42 +130,19 @@ export default async function MangaPage({ params }: MangaPageProps) {
       </div>
 
       <div className="space-y-3">
-        <div>
-          <h2 className="text-xl font-semibold">Chapters</h2>
-          <p className="text-sm text-muted-foreground">
-            {chapters.length} chapter{chapters.length === 1 ? "" : "s"}{" "}
-            available.
-          </p>
+        <div className="flex items-start justify-between">
+          <div>
+            <h2 className="text-xl font-semibold">Chapters</h2>
+            <p className="text-sm text-muted-foreground">
+              {chapters.length} chapter{chapters.length === 1 ? "" : "s"}{" "}
+              available.
+            </p>
+          </div>
+          <ClearChaptersButton mangaId={slug} />
         </div>
 
-        <div className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-card">
-          {chapters.length === 0 ? (
-            <div className="p-4 text-sm text-muted-foreground">
-              No chapters available.
-            </div>
-          ) : (
-            chapters.map((chapter) => (
-              <Link
-                key={chapter.id}
-                href={`/read/${encodeURIComponent(slug)}/chapter/${encodeURIComponent(chapter.id)}`}
-                className="flex items-center justify-between gap-2 p-4 transition hover:bg-secondary"
-              >
-                <div>
-                  <p className="font-medium">
-                    {chapter.title ?? `Chapter ${chapter.number ?? chapter.id}`}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {chapter.number ? `Chapter ${chapter.number}` : null}
-                    {chapter.publishedAt
-                      ? ` · ${new Date(chapter.publishedAt).toLocaleDateString()}`
-                      : null}
-                  </p>
-                </div>
-                <span className="text-xs text-muted-foreground">Read</span>
-              </Link>
-            ))
-          )}
-        </div>
+        <ContinueReadingButton chapters={chapters} mangaSlug={slug} />
+        <ChapterList chapters={chapters} mangaSlug={slug} />
       </div>
     </div>
   );

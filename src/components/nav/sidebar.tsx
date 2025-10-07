@@ -28,7 +28,22 @@ export function Sidebar() {
   const isSignedIn = false;
 
   const handleSignOut = () => {
-    // TODO: integrate sign-out flow
+    // Clear any stored authentication data
+    // When auth is implemented, this should call the auth provider's signOut method
+    if (typeof window !== "undefined") {
+      // Clear localStorage items (except reader settings and progress which should persist)
+      const keysToPreserve = ["reader-settings-storage", "reading-progress-storage"];
+      const allKeys = Object.keys(localStorage);
+
+      allKeys.forEach((key) => {
+        if (!keysToPreserve.includes(key)) {
+          localStorage.removeItem(key);
+        }
+      });
+
+      // Redirect to home page
+      window.location.href = "/";
+    }
   };
 
   const accountMenuItems = [

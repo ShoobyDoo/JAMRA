@@ -13,21 +13,25 @@ export function ReaderSettingsPanel({ isOpen, onClose }: ReaderSettingsPanelProp
     readingMode,
     pageFit,
     backgroundColor,
+    customWidth,
     scrollSpeed,
     gapSize,
     dualPageGap,
     preloadCount,
     autoHideControls,
     autoHideDelay,
+    autoAdvanceChapter,
     setReadingMode,
     setPageFit,
     setBackgroundColor,
+    setCustomWidth,
     setScrollSpeed,
     setGapSize,
     setDualPageGap,
     setPreloadCount,
     setAutoHideControls,
     setAutoHideDelay,
+    setAutoAdvanceChapter,
     resetToDefaults,
   } = useReaderSettings();
 
@@ -45,6 +49,7 @@ export function ReaderSettingsPanel({ isOpen, onClose }: ReaderSettingsPanelProp
     { value: "width", label: "Fit Width" },
     { value: "height", label: "Fit Height" },
     { value: "original", label: "Original Size" },
+    { value: "custom", label: "Custom Width" },
   ];
 
   const backgroundColors: { value: BackgroundColor; label: string; color: string }[] = [
@@ -118,6 +123,27 @@ export function ReaderSettingsPanel({ isOpen, onClose }: ReaderSettingsPanelProp
                 </button>
               ))}
             </div>
+
+            {/* Custom Width Slider */}
+            {pageFit === "custom" && (
+              <div className="space-y-2 rounded-lg border border-border bg-muted/50 p-4">
+                <label className="text-sm font-medium">
+                  Custom Width: {customWidth}%
+                </label>
+                <input
+                  type="range"
+                  min="10"
+                  max="100"
+                  step="5"
+                  value={customWidth}
+                  onChange={(e) => setCustomWidth(Number(e.target.value))}
+                  className="h-2 w-full cursor-pointer appearance-none rounded-full bg-secondary accent-primary"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Adjust the page width as a percentage of the viewport
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Background Color */}
@@ -241,6 +267,26 @@ export function ReaderSettingsPanel({ isOpen, onClose }: ReaderSettingsPanelProp
                 />
               </div>
             )}
+          </div>
+
+          {/* Chapter Navigation */}
+          <div className="space-y-3">
+            <label className="text-sm font-medium">Chapter Navigation</label>
+
+            <label className="flex cursor-pointer items-center justify-between rounded-lg border border-border p-3">
+              <div className="flex flex-col">
+                <span className="text-sm">Auto-advance chapter</span>
+                <span className="text-xs text-muted-foreground">
+                  Automatically load next chapter at the end
+                </span>
+              </div>
+              <input
+                type="checkbox"
+                checked={autoAdvanceChapter}
+                onChange={(e) => setAutoAdvanceChapter(e.target.checked)}
+                className="h-4 w-4 rounded accent-primary"
+              />
+            </label>
           </div>
 
           {/* Reset */}

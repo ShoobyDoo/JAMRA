@@ -204,6 +204,28 @@ const MIGRATIONS: Migration[] = [
       `);
     },
   },
+  {
+    id: 7,
+    up: (db) => {
+      // Add series_name column to manga table for WeebCentral caching
+      const columns = db
+        .prepare(`PRAGMA table_info(manga)`)
+        .all() as Array<{
+        name: string;
+      }>;
+      const existing = new Set(columns.map((column) => column.name));
+
+      if (!existing.has("series_name")) {
+        db.exec(`ALTER TABLE manga ADD COLUMN series_name TEXT;`);
+      }
+
+      // Create index for faster lookups
+      db.exec(`
+        CREATE INDEX IF NOT EXISTS idx_manga_series_name
+          ON manga (series_name);
+      `);
+    },
+  },
 ];
 
 export function runMigrations(db: Database.Database): void {

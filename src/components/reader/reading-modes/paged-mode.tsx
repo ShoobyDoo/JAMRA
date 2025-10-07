@@ -29,13 +29,14 @@ export function PagedMode({
   mangaId,
 }: PagedModeProps) {
   const router = useRouter();
-  const { pageFit, backgroundColor, readingMode } = useReaderSettings();
+  const { pageFit, backgroundColor, readingMode, customWidth } = useReaderSettings();
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
   const isDragging = useRef(false);
-  const startY = useRef(0);
+  const startX = useRef(0);
   const [dragOffset, setDragOffset] = useState(0);
+  const [showDragCursor, setShowDragCursor] = useState(false);
 
   const currentPageData = pages[currentPage];
   const isRTL = readingMode === "paged-rtl";
@@ -119,56 +120,69 @@ export function PagedMode({
       }
 
       isDragging.current = false;
-      startY.current = e.clientY;
+      startX.current = e.clientX;
       setDragOffset(0);
-      container.style.cursor = "grabbing";
+      setShowDragCursor(true);
     };
 
     const handleMouseMove = (e: MouseEvent) => {
-      if (startY.current === 0) return;
+      if (startX.current === 0) return;
 
-      const delta = startY.current - e.clientY;
+      const delta = e.clientX - startX.current;
 
       // Mark as dragging if moved more than 5px
       if (Math.abs(delta) > 5) {
         isDragging.current = true;
       }
 
-      // Update visual offset in real-time
-      setDragOffset(-delta);
+      // Update visual offset in real-time (positive delta = drag right, negative = drag left)
+      setDragOffset(delta);
     };
 
     const handleMouseUp = (e: MouseEvent) => {
-      if (startY.current === 0) return;
+      if (startX.current === 0) return;
 
-      const dragDelta = startY.current - e.clientY;
-      container.style.cursor = "grab";
+      const dragDelta = e.clientX - startX.current;
+      setShowDragCursor(false);
 
       // Check if drag was significant enough for page change
       if (Math.abs(dragDelta) > DRAG_THRESHOLD) {
-        if (dragDelta > 0) {
-          // Dragged up = next page
-          if (currentPage < pages.length - 1) {
-            onPageChange(currentPage + 1);
-          } else if (nextChapter && mangaId) {
-            // Auto-advance to next chapter
-            router.push(`/read/${encodeURIComponent(mangaId)}/chapter/${encodeURIComponent(nextChapter.id)}`);
+        if (isRTL) {
+          // RTL mode: drag left = next page, drag right = prev page
+          if (dragDelta < 0) {
+            // Dragged left = next page
+            if (currentPage < pages.length - 1) {
+              onPageChange(currentPage + 1);
+            } else if (nextChapter && mangaId) {
+              router.push(`/read/${encodeURIComponent(mangaId)}/chapter/${encodeURIComponent(nextChapter.id)}`);
+            }
+          } else if (dragDelta > 0 && currentPage > 0) {
+            // Dragged right = previous page
+            onPageChange(currentPage - 1);
           }
-        } else if (dragDelta < 0 && currentPage > 0) {
-          // Dragged down = previous page
-          onPageChange(currentPage - 1);
+        } else {
+          // LTR mode: drag right = prev page, drag left = next page
+          if (dragDelta < 0) {
+            // Dragged left = next page
+            if (currentPage < pages.length - 1) {
+              onPageChange(currentPage + 1);
+            } else if (nextChapter && mangaId) {
+              router.push(`/read/${encodeURIComponent(mangaId)}/chapter/${encodeURIComponent(nextChapter.id)}`);
+            }
+          } else if (dragDelta > 0 && currentPage > 0) {
+            // Dragged right = previous page
+            onPageChange(currentPage - 1);
+          }
         }
       }
 
       // Reset with animation
       setDragOffset(0);
-      startY.current = 0;
+      startX.current = 0;
       setTimeout(() => {
         isDragging.current = false;
       }, 50);
     };
-
-    container.style.cursor = "grab";
 
     container.addEventListener("mousedown", handleMouseDown);
     window.addEventListener("mousemove", handleMouseMove);
@@ -178,9 +192,8 @@ export function PagedMode({
       container.removeEventListener("mousedown", handleMouseDown);
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseup", handleMouseUp);
-      container.style.cursor = "";
     };
-  }, [currentPage, pages.length, onPageChange, nextChapter, mangaId, router]);
+  }, [currentPage, pages.length, onPageChange, nextChapter, mangaId, router, isRTL]);
 
   const getImageStyles = (): React.CSSProperties => {
     if (!currentPageData) return {};
@@ -213,6 +226,14 @@ export function PagedMode({
           height: currentPageData.height ?? "auto",
           maxWidth: "100%",
           maxHeight: "100%",
+        };
+
+      case "custom":
+        return {
+          width: `${customWidth}%`,
+          height: "auto",
+          maxHeight: "100%",
+          objectFit: "contain",
         };
 
       case "auto":
@@ -274,16 +295,24 @@ export function PagedMode({
       onClick={handleClick}
       className={`relative flex h-full w-full cursor-pointer items-center justify-center ${backgroundColors[backgroundColor]}`}
     >
-      {/* Navigation hints */}
-      <div className="absolute inset-0 flex">
-        <div
-          className={`flex-1 ${isRTL ? "hover:bg-white/5" : "hover:bg-white/5"} transition-colors`}
-          title={isRTL ? "Next page" : "Previous page"}
-        />
-        <div
-          className={`flex-1 ${isRTL ? "hover:bg-white/5" : "hover:bg-white/5"} transition-colors`}
-          title={isRTL ? "Previous page" : "Next page"}
-        />
+      {/* Hot-edge navigation with chevron arrows */}
+      <div className="absolute inset-0 flex pointer-events-none">
+        {/* Left edge */}
+        <div className="relative flex-1 group">
+          <div className={`absolute left-0 top-1/2 -translate-y-1/2 pl-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200 ${!isFirstPage || isRTL ? 'block' : 'hidden'}`}>
+            <div className="flex items-center justify-center w-12 h-12 rounded-full bg-black/50 backdrop-blur-sm">
+              <ChevronLeft className="h-6 w-6 text-white" />
+            </div>
+          </div>
+        </div>
+        {/* Right edge */}
+        <div className="relative flex-1 group">
+          <div className={`absolute right-0 top-1/2 -translate-y-1/2 pr-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200 ${!isLastPage || !isRTL ? 'block' : 'hidden'}`}>
+            <div className="flex items-center justify-center w-12 h-12 rounded-full bg-black/50 backdrop-blur-sm">
+              <ChevronRight className="h-6 w-6 text-white" />
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Previous chapter indicator (left side for LTR, right side for RTL) */}
@@ -335,8 +364,9 @@ export function PagedMode({
         className="relative z-10 flex items-center justify-center transition-transform"
         style={{
           ...getImageStyles(),
-          transform: `translateY(${dragOffset}px)`,
+          transform: `translateX(${dragOffset}px)`,
           transition: dragOffset === 0 ? 'transform 0.2s ease-out' : 'none',
+          cursor: showDragCursor ? 'grabbing' : 'default',
         }}
       >
         <Image

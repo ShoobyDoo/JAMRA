@@ -38,6 +38,31 @@
           "publishedAt": "2025-01-01T00:00:00.000Z"
         }
       ]
+    },
+    {
+      "id": "com.weebcentral.manga",
+      "name": "WeebCentral",
+      "summary": "WeebCentral manga source (formerly MangaSee) with comprehensive library.",
+      "description": "Access to WeebCentral's extensive manga collection including official and fan scanlations. Features advanced search, filtering by genre/status/type, and high-quality image delivery.",
+      "homepage": "https://weebcentral.com",
+      "repository": "https://github.com/jamra-app/jamra/tree/main/packages/weebcentral-extension",
+      "tags": ["official", "manga", "english"],
+      "author": {
+        "name": "JAMRA Team",
+        "url": "https://github.com/jamra-app"
+      },
+      "versions": [
+        {
+          "version": "1.0.0",
+          "downloadUrl": "./packages/weebcentral-extension/dist/bundle.cjs",
+          "checksum": {
+            "algorithm": "sha256",
+            "value": "55378368071284a7c610eccb8771e75db757060ff0f6e10f938928db7ed04e14"
+          },
+          "releaseNotes": "Initial release with search, catalogue, manga details, chapter pages, and filter support. Bundled with cheerio dependencies.",
+          "publishedAt": "2025-01-06T00:00:00.000Z"
+        }
+      ]
     }
   ]
 }

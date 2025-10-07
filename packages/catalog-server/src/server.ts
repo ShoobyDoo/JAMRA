@@ -226,6 +226,9 @@ export async function startCatalogServer(
   } catch (error) {
     console.warn("Failed to resolve bootstrap extension path.", error);
   }
+  const usingCustomBootstrap =
+    options.extensionPath !== undefined ||
+    process.env.JAMRA_EXTENSION_PATH !== undefined;
 
   let database: CatalogDatabase | undefined;
 
@@ -283,11 +286,15 @@ export async function startCatalogServer(
           (extension) => extension.id === bootstrapId
         );
 
-        if (
+        const needsInstall =
           !existing ||
           !existing.entryPath ||
-          !fs.existsSync(existing.entryPath)
-        ) {
+          !fs.existsSync(existing.entryPath);
+        const shouldRefresh = Boolean(
+          usingCustomBootstrap && existing && !needsInstall,
+        );
+
+        if (needsInstall || shouldRefresh) {
           try {
             await extensionManager.installFromFile(bootstrapExtensionPath!, {
               enabled: existing?.enabled ?? true,
@@ -875,6 +882,22 @@ export async function startCatalogServer(
       res.json({ ...result, extensionId });
     } catch (error) {
       handleError(res, error, "Failed to fetch chapter pages");
+    }
+  });
+
+  // Clear chapter cache for a manga
+  app.delete("/api/manga/:id/chapters", async (req, res) => {
+    try {
+      if (!repository) {
+        res.status(503).json({ error: "Database not available" });
+        return;
+      }
+
+      const { id: mangaId } = req.params;
+      repository.deleteChaptersForManga(mangaId);
+      res.json({ success: true, message: `Chapters cleared for manga ${mangaId}` });
+    } catch (error) {
+      handleError(res, error, "Failed to clear chapters");
     }
   });
 

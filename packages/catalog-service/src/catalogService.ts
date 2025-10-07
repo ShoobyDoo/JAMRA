@@ -69,10 +69,8 @@ export class CatalogService {
 
     const response = await handler(extensionId, request);
 
-    if (this.repository && response.items.length > 0) {
-      this.repository.upsertMangaSummaries(extensionId, response.items);
-      this.repository.updateSyncState(extensionId, { catalogue: Date.now() });
-    }
+    // DO NOT cache catalog results - they should always be fresh from the extension
+    // Only cache heavy metadata (manga details, chapters) when explicitly fetched
 
     return response;
   }
@@ -96,10 +94,8 @@ export class CatalogService {
         filters: options.filters,
       });
 
-      if (response.items.length > 0) {
-        this.repository?.upsertMangaSummaries(extensionId, response.items);
-        itemsUpserted += response.items.length;
-      }
+      // DO NOT cache catalog results - only count items fetched
+      itemsUpserted += response.items.length;
 
       await options.onPage?.(response, currentPage);
 
@@ -107,8 +103,6 @@ export class CatalogService {
       currentPage += 1;
       pagesFetched += 1;
     }
-
-    this.repository?.updateSyncState(extensionId, { catalogue: Date.now() });
 
     return {
       pagesFetched,
