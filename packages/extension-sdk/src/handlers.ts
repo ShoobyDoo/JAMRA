@@ -3,6 +3,8 @@ import {
   CatalogueResponse,
   ChapterListRequest,
   ChapterPages,
+  ChapterPagesChunk,
+  ChapterPagesChunkRequest,
   ChapterPagesRequest,
   MangaDetails,
   MangaDetailsRequest,
@@ -31,6 +33,11 @@ export type ChapterPagesHandler = (
   request: ChapterPagesRequest,
 ) => Promise<ChapterPages>;
 
+export type ChapterPagesChunkHandler = (
+  context: ExtensionContext,
+  request: ChapterPagesChunkRequest,
+) => Promise<ChapterPagesChunk>;
+
 export type FiltersHandler = (
   context: ExtensionContext,
 ) => Promise<ExtensionFilters | undefined>;
@@ -48,5 +55,6 @@ export interface ExtensionHandlers {
   fetchMangaDetails?: MangaDetailsHandler;
   fetchChapters?: ChapterListHandler;
   fetchChapterPages?: ChapterPagesHandler;
+  fetchChapterPagesChunk?: ChapterPagesChunkHandler;
   search?: CatalogueHandler;
 }

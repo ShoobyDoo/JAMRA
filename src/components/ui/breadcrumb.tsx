@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { routes } from "@/lib/routes";
+import { formatChapterSlugForDisplay } from "@/lib/chapter-slug";
 import { Anchor, Breadcrumbs, Text } from "@mantine/core";
 
 interface BreadcrumbSegment {
@@ -31,15 +32,16 @@ function buildBreadcrumbSegments(pathname: string): BreadcrumbSegment[] {
     // Check if this path matches a known route
     const match = routes.find((route) => route.path === href);
 
-    // Handle /read/[slug]/chapter/[number] pattern
+    // Handle /read/[slug]/chapter/[chapterSlug] pattern
     if (segment === "chapter" && i > 0 && segments[0] === "read") {
-      // This is part of /read/[slug]/chapter/[number]
+      // This is part of /read/[slug]/chapter/[slug]
       // We'll combine "chapter" with the next segment
       if (i + 1 < segments.length) {
-        const chapterNumber = segments[i + 1];
+        const chapterSlug = segments[i + 1];
+        const combinedHref = "/" + segments.slice(0, i + 2).join("/");
         result.push({
-          label: `Chapter ${decodeURIComponent(chapterNumber)}`,
-          href: isLast ? undefined : href + "/" + chapterNumber,
+          label: formatChapterSlugForDisplay(chapterSlug),
+          href: i + 1 === segments.length - 1 ? undefined : combinedHref,
           isLast: i + 1 === segments.length - 1,
         });
         i++; // Skip the next iteration since we consumed the chapter number

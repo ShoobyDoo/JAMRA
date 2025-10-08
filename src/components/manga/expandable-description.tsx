@@ -13,21 +13,31 @@ export function ExpandableDescription({
 }: ExpandableDescriptionProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const needsTruncation = description.length > maxLength;
-  const displayText = isExpanded || !needsTruncation
-    ? description
-    : description.slice(0, maxLength) + "...";
+  const truncated = description.slice(0, maxLength).trimEnd();
+  const ellipsis = truncated.endsWith("...") ? "" : "...";
 
   return (
     <div className="max-w-2xl space-y-2">
       <p className="whitespace-pre-line text-sm text-muted-foreground">
-        {displayText}
+        {isExpanded || !needsTruncation ? description : truncated}
+        {needsTruncation && !isExpanded && (
+          <>
+            {ellipsis}{" "}
+            <button
+              onClick={() => setIsExpanded(true)}
+              className="inline-flex items-center text-xs font-semibold uppercase tracking-wide text-primary hover:underline"
+            >
+              Show more
+            </button>
+          </>
+        )}
       </p>
-      {needsTruncation && (
+      {needsTruncation && isExpanded && (
         <button
           onClick={() => setIsExpanded(!isExpanded)}
-          className="text-sm font-medium text-primary hover:underline"
+          className="text-xs font-semibold uppercase tracking-wide text-primary hover:underline"
         >
-          {isExpanded ? "Show less" : "Show more"}
+          Show less
         </button>
       )}
     </div>

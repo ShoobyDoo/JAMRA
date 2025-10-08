@@ -3,6 +3,7 @@ import type {
   MangaSummary,
   MangaDetails,
   ChapterPages,
+  ChapterPagesChunk,
   ExtensionCache,
 } from "@jamra/extension-sdk";
 import { RateLimiter } from "./rate-limiter.js";
@@ -18,6 +19,9 @@ const HEADERS = {
 };
 
 const SERIES_CACHE_NAMESPACE = "series-names";
+const CHAPTER_CACHE_NAMESPACE = "chapter-list";
+const CHAPTER_CACHE_TTL_MS = 1000 * 60 * 15; // 15 minutes
+const CHAPTER_PAGES_CACHE_TTL_MS = 1000 * 60 * 10; // 10 minutes
 
 interface SeriesMetadata {
   id: string;
@@ -34,6 +38,7 @@ export class WeebCentralScraper {
   private rateLimiter: RateLimiter;
   private seriesCache: Map<string, SeriesMetadata> = new Map();
   private cache?: ExtensionCache;
+  private chapterPagesCache: Map<string, { pages: ChapterPages["pages"]; fetchedAt: number }> = new Map();
 
   constructor(rateLimiter: RateLimiter, cache?: ExtensionCache) {
     this.rateLimiter = rateLimiter;
@@ -42,6 +47,45 @@ export class WeebCentralScraper {
 
   setCache(cache: ExtensionCache): void {
     this.cache = cache;
+  }
+
+  private async fetchChapterPageList(chapterId: string): Promise<ChapterPages["pages"]> {
+    const cached = this.chapterPagesCache.get(chapterId);
+    const now = Date.now();
+    if (cached && now - cached.fetchedAt < CHAPTER_PAGES_CACHE_TTL_MS) {
+      return cached.pages;
+    }
+
+    const url = `${BASE_URL}/chapters/${chapterId}/images?reading_style=long_strip`;
+
+    const html = await this.rateLimiter.throttle(async () => {
+      const response = await fetch(url, { headers: HEADERS });
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      return response.text();
+    });
+
+    const $ = cheerio.load(html);
+    const pages: ChapterPages["pages"] = [];
+
+    $('section[x-data] img, section img[src*="manga"]').each((i, el) => {
+      const src = $(el).attr("src");
+      if (src && src.includes("manga") && !src.includes("logo")) {
+        const width = $(el).attr("width");
+        const height = $(el).attr("height");
+
+        pages.push({
+          index: i,
+          url: src,
+          width: width ? parseInt(width) : undefined,
+          height: height ? parseInt(height) : undefined,
+        });
+      }
+    });
+
+    this.chapterPagesCache.set(chapterId, { pages, fetchedAt: now });
+    return pages;
   }
 
   async getHotUpdates(page: number = 1): Promise<CatalogueResult> {
@@ -90,6 +134,7 @@ export class WeebCentralScraper {
 
           items.push({
             id,
+            slug: name,
             title,
             coverUrl: thumbnail || `https://temp.compsci88.com/cover/fallback/${id}.jpg`,
           });
@@ -192,6 +237,7 @@ export class WeebCentralScraper {
 
           items.push({
             id,
+            slug: name,
             title,
             coverUrl: thumbnail || `https://temp.compsci88.com/cover/fallback/${id}.jpg`,
           });
@@ -221,6 +267,7 @@ export class WeebCentralScraper {
       }
     }
 
+    const chapterPromise = this.getChapterList(mangaId);
     const url = `${BASE_URL}/series/${mangaId}/${metadata.name}`;
 
     const html = await this.rateLimiter.throttle(async () => {
@@ -276,11 +323,17 @@ export class WeebCentralScraper {
     else if (statusText.includes("hiatus")) status = "hiatus";
     else if (statusText.includes("cancel")) status = "cancelled";
 
-    // Fetch chapters
-    const chapters = await this.getChapterList(mangaId);
+    let chapters: NonNullable<MangaDetails["chapters"]> = [];
+    try {
+      chapters = await chapterPromise;
+    } catch (error) {
+      console.warn(`Failed to fetch chapter list for ${mangaId}:`, error);
+      chapters = [];
+    }
 
     return {
       id: mangaId,
+      slug: metadata?.name,
       title,
       description,
       coverUrl: `https://temp.compsci88.com/cover/fallback/${mangaId}.jpg`,
@@ -307,7 +360,22 @@ export class WeebCentralScraper {
 
   private async getChapterList(
     seriesId: string
-  ): Promise<MangaDetails["chapters"]> {
+  ): Promise<NonNullable<MangaDetails["chapters"]>> {
+    const cacheKey = `${seriesId}:v2`;
+    if (this.cache) {
+      try {
+        const cached = await this.cache.get<NonNullable<MangaDetails["chapters"]>>(
+          CHAPTER_CACHE_NAMESPACE,
+          cacheKey
+        );
+        if (cached && Array.isArray(cached) && cached.length > 0) {
+          return cached;
+        }
+      } catch (error) {
+        console.warn(`Failed to read cached chapters for ${seriesId}:`, error);
+      }
+    }
+
     const url = `${BASE_URL}/series/${seriesId}/full-chapter-list`;
 
     const html = await this.rateLimiter.throttle(async () => {
@@ -320,6 +388,14 @@ export class WeebCentralScraper {
 
     const $ = cheerio.load(html);
     const chapters: NonNullable<MangaDetails["chapters"]> = [];
+
+    const cleanScanlatorName = (value: string) => {
+      return value
+        .replace(/\s+/g, " ")
+        .replace(/^(?:scanlation|scanlator|group|by)[:\-\s]+/i, "")
+        .replace(/^(?:scanlated|scans?|team|teams?)\s+by\s+/i, "")
+        .trim();
+    };
 
     $('div[x-data] > a, section a[href*="/chapters/"]').each((i, el) => {
       const href = $(el).attr("href");
@@ -346,6 +422,98 @@ export class WeebCentralScraper {
           }
         }
       }
+
+      const scanlatorSet = new Set<string>();
+      const attributeCandidates = [
+        "data-credits",
+        "data-credit",
+        "data-credits-json",
+        "data-scanlators",
+        "data-scanlator",
+        "data-groups",
+        "data-group",
+        "data-team",
+        "data-teams",
+      ] as const;
+
+      const pushScanlator = (raw?: string | null) => {
+        if (!raw) return;
+        const cleaned = cleanScanlatorName(raw);
+        if (!cleaned) return;
+        if (/^chapter\s+/i.test(cleaned)) return;
+        if (/^vol(?:ume)?\s+/i.test(cleaned)) return;
+        if (/^\d+(?:\.\d+)?$/.test(cleaned)) return;
+        if (/^last\s+read/i.test(cleaned)) return;
+        if (/^\d{4}[-/]\d{2}[-/]\d{2}/.test(cleaned)) return;
+        scanlatorSet.add(cleaned);
+      };
+
+      attributeCandidates.forEach((attr) => {
+        const value = $link.attr(attr);
+        if (!value) return;
+        try {
+          const parsed = JSON.parse(value);
+          if (Array.isArray(parsed)) {
+            parsed.forEach((entry) => {
+              if (typeof entry === "string") {
+                pushScanlator(entry);
+              } else if (entry && typeof entry.name === "string") {
+                pushScanlator(entry.name);
+              }
+            });
+          } else if (typeof parsed === "object" && parsed !== null) {
+            const possibleName =
+              typeof parsed.name === "string"
+                ? parsed.name
+                : typeof parsed.label === "string"
+                  ? parsed.label
+                  : undefined;
+            if (possibleName) {
+              pushScanlator(possibleName);
+            }
+          } else if (typeof parsed === "string") {
+            pushScanlator(parsed);
+          }
+        } catch {
+          value
+            .split(/[,|/]/)
+            .map((segment) => segment.trim())
+            .filter(Boolean)
+            .forEach((segment) => pushScanlator(segment));
+        }
+      });
+
+      $link
+        .find("[data-credits], [data-credit], [data-group], [data-team]")
+        .each((_, element) => {
+          const text = $(element).text();
+          pushScanlator(text);
+        });
+
+      $link
+        .find("span, small, div")
+        .get()
+        .forEach((node) => {
+          const text = $(node).text().replace(/\s+/g, " ").trim();
+          if (!text) return;
+          if (/chapter\s+\d+/i.test(text)) return;
+          if (/last\s+read/i.test(text)) return;
+          if (/\d{4}[-/]\d{2}[-/]\d{2}/.test(text)) return;
+          if (/^\d+(?:\.\d+)?$/.test(text)) return;
+          if (/^(?:vol|volume)\s+/i.test(text)) return;
+          if (/^\w+\s+ago$/i.test(text)) return;
+          if (/^\d+\s+(?:minutes|minute|hours|hour|days|day)\s+ago$/i.test(text)) return;
+          if (text.length <= 2) return;
+          // Prefer texts that explicitly mention scans/translation/groups
+          if (/(scan|group|team|translat)/i.test(text)) {
+            pushScanlator(text);
+            return;
+          }
+          // As a fallback, if we have no scanlators yet, allow short names without numbers
+          if (scanlatorSet.size === 0 && !/\d/.test(text)) {
+            pushScanlator(text);
+          }
+        });
 
       // Remove all unwanted elements
       const $clone = $link.clone();
@@ -384,49 +552,61 @@ export class WeebCentralScraper {
             number: chapterNumber,
             publishedAt: publishedAt || new Date().toISOString(),
             languageCode: "en",
+            scanlators: Array.from(scanlatorSet),
           });
         }
       }
     });
 
     // Site lists oldest first, so reverse to get newest first (latest to oldest)
-    return chapters.reverse();
+    const ordered = chapters.reverse();
+
+    if (this.cache) {
+      this.cache
+        .set(CHAPTER_CACHE_NAMESPACE, cacheKey, ordered, CHAPTER_CACHE_TTL_MS)
+        .catch((error) => {
+          console.warn(`Failed to cache chapters for ${seriesId}:`, error);
+        });
+    }
+
+    return ordered;
   }
 
   async getChapterPages(chapterId: string): Promise<ChapterPages> {
-    const url = `${BASE_URL}/chapters/${chapterId}/images?reading_style=long_strip`;
-
-    const html = await this.rateLimiter.throttle(async () => {
-      const response = await fetch(url, { headers: HEADERS });
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-      return response.text();
-    });
-
-    const $ = cheerio.load(html);
-    const pages: ChapterPages["pages"] = [];
-
-    $('section[x-data] img, section img[src*="manga"]').each((i, el) => {
-      const src = $(el).attr("src");
-      if (src && src.includes("manga") && !src.includes("logo")) {
-        // Extract dimensions if available
-        const width = $(el).attr("width");
-        const height = $(el).attr("height");
-
-        pages.push({
-          index: i,
-          url: src,
-          width: width ? parseInt(width) : undefined,
-          height: height ? parseInt(height) : undefined,
-        });
-      }
-    });
+    const pages = await this.fetchChapterPageList(chapterId);
 
     return {
       chapterId,
       mangaId: "", // Not available from this endpoint
       pages,
+    };
+  }
+
+  async getChapterPagesChunk(
+    mangaId: string,
+    chapterId: string,
+    chunk: number,
+    chunkSize: number,
+  ): Promise<ChapterPagesChunk> {
+    const pages = await this.fetchChapterPageList(chapterId);
+    const totalPages = pages.length;
+    const totalChunks = Math.max(1, Math.ceil(totalPages / chunkSize));
+    const start = chunk * chunkSize;
+    const end = Math.min(totalPages, start + chunkSize);
+    const slice = pages.slice(start, end).map((page, index) => ({
+      ...page,
+      index: start + index,
+    }));
+
+    return {
+      chapterId,
+      mangaId,
+      chunk,
+      chunkSize,
+      totalChunks,
+      totalPages,
+      pages: slice,
+      hasMore: end < totalPages,
     };
   }
 }

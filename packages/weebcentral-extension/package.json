@@ -6,8 +6,8 @@
   "main": "dist/bundle.cjs",
   "types": "dist/index.d.ts",
   "scripts": {
-    "build": "tsc -p . && node build.mjs",
-    "clean": "rm -rf dist"
+    "build": "node build.mjs && tsc --emitDeclarationOnly",
+    "clean": "rm -rf dist tsconfig.tsbuildinfo"
   },
   "keywords": [
     "manga",

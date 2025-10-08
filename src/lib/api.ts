@@ -37,41 +37,85 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+interface ApiRequestOptions extends RequestInit {
+  allowStatuses?: number[];
+}
+
+async function request<T>(path: string, init: ApiRequestOptions = {}): Promise<T> {
   const url = `${API_BASE}${path}`;
-  const method = init?.method || 'GET';
+  const { allowStatuses, ...fetchInit } = init;
+  const method = fetchInit.method || "GET";
   const startTime = Date.now();
 
   // Log the outgoing request
   logger.apiCall(url, method, {
     component: 'API',
     action: 'request',
-    requestSize: init?.body ? JSON.stringify(init.body).length : 0,
+    requestSize: fetchInit?.body ? JSON.stringify(fetchInit.body).length : 0,
   });
 
   try {
     const response = await fetch(url, {
-      ...init,
+      ...fetchInit,
       headers: {
         accept: "application/json",
-        ...(init?.headers ?? {}),
+        ...(fetchInit?.headers ?? {}),
       },
       cache: "no-store",
     });
 
     const duration = Date.now() - startTime;
-    const responseSize = Number(response.headers.get('content-length')) || 0;
+    const responseSize = Number(response.headers.get("content-length")) || 0;
+    const isAllowedStatus =
+      !response.ok && allowStatuses?.includes(response.status);
 
-    // Log the response
-    logger.apiResponse(url, method, response.status, duration, {
-      component: 'API',
-      action: 'response',
-      responseSize,
-    });
+    if (isAllowedStatus) {
+      logger.info(
+        `API ${method} ${url} returned allowed status ${response.status}`,
+        {
+          component: "API",
+          action: "allowed-status",
+          url,
+          method,
+          statusCode: response.status,
+          duration,
+          responseSize,
+        },
+      );
+    } else {
+      // Log the response
+      logger.apiResponse(url, method, response.status, duration, {
+        component: "API",
+        action: "response",
+        responseSize,
+      });
+    }
 
     if (!response.ok) {
+      if (isAllowedStatus) {
+        return undefined as T;
+      }
+
       const detailText = await response.text().catch(() => undefined);
       const cleanedDetail = sanitizeErrorDetail(detailText);
+
+      // Try to extract user-friendly error message from JSON response
+      let userMessage = cleanedDetail || response.statusText;
+      if (cleanedDetail) {
+        try {
+          const parsed = JSON.parse(detailText || '{}');
+          // Extract the most specific error message available
+          if (parsed.detail && typeof parsed.detail === 'string') {
+            userMessage = parsed.detail;
+          } else if (parsed.error && typeof parsed.error === 'string') {
+            userMessage = parsed.error;
+          } else if (parsed.message && typeof parsed.message === 'string') {
+            userMessage = parsed.message;
+          }
+        } catch {
+          // Not JSON or couldn't parse, use cleaned detail
+        }
+      }
 
       logger.error(`API request failed: ${response.status} ${response.statusText}`, {
         component: 'API',
@@ -80,11 +124,11 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
         method,
         statusCode: response.status,
         duration,
-        error: new Error(cleanedDetail || response.statusText),
+        error: new Error(userMessage),
       });
 
       throw new ApiError(
-        `API request failed: ${response.status} ${response.statusText}${cleanedDetail ? ` - ${cleanedDetail}` : ""}`,
+        userMessage,
         response.status,
         response.statusText,
         cleanedDetail,
@@ -110,6 +154,20 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   } catch (error) {
     const duration = Date.now() - startTime;
 
+    if (
+      error instanceof Error &&
+      ("name" in error && error.name === "AbortError")
+    ) {
+      logger.debug(`API request aborted: ${method} ${url}`, {
+        component: "API",
+        action: "abort",
+        url,
+        method,
+        duration,
+      });
+      throw error;
+    }
+
     if (error instanceof ApiError) {
       logger.apiError(url, method, error, duration, {
         component: 'API',
@@ -132,6 +190,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export interface CatalogueItem {
   id: string;
+  slug?: string;
   title: string;
   altTitles?: string[];
   coverUrl?: string;
@@ -189,6 +248,7 @@ export interface MangaDetailsResponse {
 
 export interface MangaDetails {
   id: string;
+  slug?: string;
   title: string;
   description?: string;
   coverUrl?: string;
@@ -212,10 +272,15 @@ export interface ChapterSummary {
   volume?: string;
   publishedAt?: string;
   languageCode?: string;
+  scanlators?: string[];
 }
 
-export async function fetchMangaDetails(
-  id: string,
+function looksLikeSlug(identifier: string): boolean {
+  return /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(identifier);
+}
+
+export async function fetchMangaBySlug(
+  slug: string,
   extensionId?: string,
 ): Promise<MangaDetailsResponse> {
   const params = new URLSearchParams({ includeChapters: "true" });
@@ -224,12 +289,42 @@ export async function fetchMangaDetails(
   }
 
   return request<MangaDetailsResponse>(
-    `/manga/${encodeURIComponent(id)}?${params.toString()}`,
+    `/manga/by-slug/${encodeURIComponent(slug)}?${params.toString()}`,
+  );
+}
+
+export async function fetchMangaDetails(
+  identifier: string,
+  extensionId?: string,
+): Promise<MangaDetailsResponse> {
+  const params = new URLSearchParams({ includeChapters: "true" });
+  if (extensionId) {
+    params.set("extensionId", extensionId);
+  }
+
+  if (looksLikeSlug(identifier)) {
+    try {
+      return await fetchMangaBySlug(identifier, extensionId);
+    } catch (error) {
+      if (!(error instanceof ApiError) || error.status !== 404) {
+        throw error;
+      }
+      // Fall back to ID lookup if slug lookup failed.
+    }
+  }
+
+  return request<MangaDetailsResponse>(
+    `/manga/${encodeURIComponent(identifier)}?${params.toString()}`,
   );
 }
 
 export interface ChapterPagesResponse {
   pages: ChapterPages;
+  extensionId?: string;
+}
+
+export interface ChapterPagesChunkResponse {
+  chunk: ChapterPagesChunk;
   extensionId?: string;
 }
 
@@ -263,6 +358,47 @@ export async function fetchChapterPages(
   );
 }
 
+export interface ChapterPagesChunk {
+  chapterId: string;
+  mangaId: string;
+  chunk: number;
+  chunkSize: number;
+  totalChunks: number;
+  totalPages: number;
+  pages: ChapterPages["pages"];
+  hasMore: boolean;
+}
+
+export async function fetchChapterPagesChunk(
+  mangaId: string,
+  chapterId: string,
+  chunk: number,
+  chunkSize: number,
+  extensionId?: string,
+  options?: {
+    signal?: AbortSignal;
+  },
+): Promise<ChapterPagesChunk> {
+  const params = new URLSearchParams({
+    size: String(chunkSize),
+  });
+
+  if (extensionId) {
+    params.set("extensionId", extensionId);
+  }
+
+  const query = params.toString();
+  const suffix = query.length > 0 ? `?${query}` : "";
+
+  const response = await request<ChapterPagesChunkResponse>(
+    `/manga/${encodeURIComponent(mangaId)}/chapters/${encodeURIComponent(chapterId)}/pages/chunk/${chunk}${suffix}`,
+    {
+      signal: options?.signal,
+    },
+  );
+
+  return response.chunk;
+}
 export interface ManagedExtension {
   id: string;
   name: string;
@@ -596,6 +732,12 @@ export interface ReadingProgressData {
   lastReadAt: number;
 }
 
+export interface EnrichedReadingProgress extends ReadingProgressData {
+  manga: MangaDetails | null;
+  error: string | null;
+  extensionId?: string;
+}
+
 export async function saveReadingProgress(
   mangaId: string,
   chapterId: string,
@@ -619,20 +761,29 @@ export async function getReadingProgress(
   mangaId: string,
   chapterId: string
 ): Promise<ReadingProgressData | null> {
-  try {
-    return await request<ReadingProgressData>(
-      `/reading-progress/${encodeURIComponent(mangaId)}/${encodeURIComponent(chapterId)}`
-    );
-  } catch (error) {
-    if (error instanceof ApiError && error.status === 404) {
-      return null;
-    }
-    throw error;
-  }
+  const result = await request<ReadingProgressData | undefined>(
+    `/reading-progress/${encodeURIComponent(mangaId)}/${encodeURIComponent(chapterId)}`,
+    { allowStatuses: [404] }
+  );
+  return result ?? null;
 }
 
 export async function getAllReadingProgress(): Promise<ReadingProgressData[]> {
   return request<ReadingProgressData[]>("/reading-progress");
+}
+
+export async function getEnrichedReadingProgress(
+  limit?: number,
+): Promise<EnrichedReadingProgress[]> {
+  const params = new URLSearchParams();
+  if (typeof limit === "number" && Number.isFinite(limit) && limit > 0) {
+    params.set("limit", String(Math.floor(limit)));
+  }
+  const query = params.toString();
+  const suffix = query.length > 0 ? `?${query}` : "";
+  return request<EnrichedReadingProgress[]>(
+    `/reading-progress/enriched${suffix}`,
+  );
 }
 
 export async function clearChaptersCache(mangaId: string): Promise<void> {

@@ -3,6 +3,8 @@ import { NoExtensionsEmptyState } from "@/components/empty-states/no-extensions"
 import { API_CONFIG } from "@/lib/constants";
 import { MangaCard } from "@/components/manga/manga-card";
 
+export const dynamic = "force-dynamic";
+
 export default async function DiscoverPage() {
   let catalogue;
   try {

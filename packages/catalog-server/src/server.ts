@@ -4,7 +4,7 @@ import express, { type Request, type Response } from "express";
 import cors from "cors";
 import type { Server } from "node:http";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import type { ExtensionFilters } from "@jamra/extension-sdk";
+import type { ExtensionFilters, MangaDetails } from "@jamra/extension-sdk";
 import {
   CatalogDatabase,
   CatalogRepository,
@@ -642,10 +642,14 @@ export async function startCatalogServer(
       activeExtensionId = extension.id;
       res.json({ extension });
     } catch (error) {
+      // Get extension name for better error messaging
+      const extInfo = extensionManager.getExtension(id);
+      const extName = extInfo?.manifest.name || id;
+
       handleError(
         res,
         error,
-        "Failed to enable extension",
+        `Failed to enable ${extName} extension`,
         resolveExtensionErrorStatus(error)
       );
     }
@@ -844,9 +848,45 @@ export async function startCatalogServer(
         filters,
       });
 
+      if (repository && response.items.length > 0) {
+        try {
+          repository.upsertMangaSummaries(extensionId, response.items);
+        } catch (error) {
+          console.warn("Failed to cache catalogue items for slug lookup", error);
+        }
+      }
+
       res.json({ page, ...response, extensionId });
     } catch (error) {
       handleError(res, error, "Failed to fetch catalogue page");
+    }
+  });
+
+  app.get("/api/manga/by-slug/:slug", async (req, res) => {
+    const extensionId = ensureExtensionLoaded(req, res);
+    if (!extensionId) return;
+
+    try {
+      const includeChapters = req.query.includeChapters !== "false";
+      const result = await service.syncMangaBySlug(
+        extensionId,
+        req.params.slug,
+        { includeChapters },
+      );
+      res.json({
+        details: result.details,
+        chaptersFetched: result.chaptersFetched,
+        extensionId,
+      });
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.message.includes("could not be resolved")
+      ) {
+        res.status(404).json({ error: error.message });
+        return;
+      }
+      handleError(res, error, "Failed to fetch manga details by slug");
     }
   });
 
@@ -856,15 +896,30 @@ export async function startCatalogServer(
 
     try {
       const includeChapters = req.query.includeChapters !== "false";
-      const result = await service.syncManga(extensionId, req.params.id, {
-        includeChapters,
-      });
+      const identifier = req.params.id;
+      const slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+      const useSlug = slugPattern.test(identifier);
+
+      const result = useSlug
+        ? await service.syncMangaBySlug(extensionId, identifier, {
+            includeChapters,
+          })
+        : await service.syncManga(extensionId, identifier, {
+            includeChapters,
+          });
       res.json({
         details: result.details,
         chaptersFetched: result.chaptersFetched,
         extensionId,
       });
     } catch (error) {
+      if (
+        error instanceof Error &&
+        error.message.includes("could not be resolved")
+      ) {
+        res.status(404).json({ error: error.message });
+        return;
+      }
       handleError(res, error, "Failed to fetch manga details");
     }
   });
@@ -881,9 +936,52 @@ export async function startCatalogServer(
       );
       res.json({ ...result, extensionId });
     } catch (error) {
+      if (
+        error instanceof Error &&
+        error.message.includes("could not be resolved")
+      ) {
+        res.status(404).json({ error: error.message });
+        return;
+      }
       handleError(res, error, "Failed to fetch chapter pages");
     }
   });
+
+  app.get(
+    "/api/manga/:id/chapters/:chapterId/pages/chunk/:chunk",
+    async (req, res) => {
+      const extensionId = ensureExtensionLoaded(req, res);
+      if (!extensionId) return;
+
+      const chunkIndex = Number.parseInt(req.params.chunk, 10);
+      const chunkSize = Number.parseInt(req.query.size as string, 10) || 10;
+
+      if (Number.isNaN(chunkIndex) || chunkIndex < 0) {
+        res.status(400).json({ error: "Invalid chunk index" });
+        return;
+      }
+
+      try {
+        const result = await service.fetchChapterPagesChunk(
+          extensionId,
+          req.params.id,
+          req.params.chapterId,
+          chunkIndex,
+          chunkSize,
+        );
+        res.json({ ...result, extensionId });
+      } catch (error) {
+        if (
+          error instanceof Error &&
+          error.message.includes("could not be resolved")
+        ) {
+          res.status(404).json({ error: error.message });
+          return;
+        }
+        handleError(res, error, "Failed to fetch chapter pages chunk");
+      }
+    },
+  );
 
   // Clear chapter cache for a manga
   app.delete("/api/manga/:id/chapters", async (req, res) => {
@@ -986,6 +1084,115 @@ export async function startCatalogServer(
       res.json(allProgress);
     } catch (error) {
       handleError(res, error, "Failed to get all reading progress");
+    }
+  });
+
+  app.get("/api/reading-progress/enriched", async (req, res) => {
+    try {
+      if (!repository) {
+        res.status(503).json({ error: "Database not available" });
+        return;
+      }
+
+      const limitParam = getQueryParam(req, "limit");
+      const parsedLimit = limitParam ? Number.parseInt(limitParam, 10) : NaN;
+      const limit =
+        Number.isFinite(parsedLimit) && parsedLimit > 0
+          ? Math.min(Math.max(parsedLimit, 1), 50)
+          : 12;
+
+      const progressEntries = repository.getLatestReadingProgressPerManga();
+      const window = progressEntries.slice(0, limit);
+      const defaultExtensionId = resolveExtensionId(req);
+      const uniqueMangaIds = Array.from(
+        new Set(window.map((entry) => entry.mangaId))
+      );
+
+      type EnrichedRecord = {
+        manga: MangaDetails | null;
+        error: string | null;
+        extensionId?: string;
+      };
+
+      const enrichedMap = new Map<string, EnrichedRecord>();
+
+      await Promise.all(
+        uniqueMangaIds.map(async (mangaId) => {
+          let cached = repository.getMangaWithDetails(mangaId);
+          const extensionId = cached?.extensionId ?? defaultExtensionId;
+
+          const result: EnrichedRecord = {
+            manga: null,
+            error: null,
+            extensionId,
+          };
+
+          const commitResult = () => {
+            enrichedMap.set(mangaId, result);
+          };
+
+          if (cached?.details) {
+            result.manga = {
+              ...cached.details,
+              chapters: cached.details.chapters ?? cached.chapters,
+            };
+            commitResult();
+            return;
+          }
+
+          if (!extensionId) {
+            result.error =
+              "Extension not available for this manga. Enable the source to continue.";
+            commitResult();
+            return;
+          }
+
+          if (!host.isLoaded(extensionId)) {
+            result.error = `Extension ${extensionId} is not enabled.`;
+            commitResult();
+            return;
+          }
+
+          try {
+            const requiresChapterRefresh = !(cached?.chapters?.length ?? 0);
+            await service.syncManga(extensionId, mangaId, {
+              forceChapterRefresh: requiresChapterRefresh,
+            });
+            cached = repository.getMangaWithDetails(mangaId);
+            if (cached?.details) {
+              result.manga = {
+                ...cached.details,
+                chapters: cached.details.chapters ?? cached.chapters,
+              };
+            } else {
+              result.error = "Manga details not available after sync.";
+            }
+          } catch (error) {
+            console.error(
+              `Failed to hydrate manga ${mangaId} for reading progress`,
+              error
+            );
+            result.error =
+              error instanceof Error ? error.message : String(error);
+          }
+
+          commitResult();
+        })
+      );
+
+      const enriched = window.map((entry) => {
+        const record = enrichedMap.get(entry.mangaId);
+        return {
+          ...entry,
+          manga: record?.manga ?? null,
+          error: record?.error ?? null,
+          extensionId: record?.extensionId,
+        };
+      });
+
+      res.json(enriched);
+    } catch (error) {
+      handleError(res, error, "Failed to get enriched reading progress");
     }
   });
 

@@ -27,6 +27,14 @@ function now(): number {
   return Date.now();
 }
 
+const ALLOWED_MANGA_STATUSES = new Set<MangaDetails["status"]>([
+  "ongoing",
+  "completed",
+  "hiatus",
+  "cancelled",
+  "unknown",
+]);
+
 const EXTENSION_SELECT_COLUMNS = `
   id,
   name,
@@ -455,6 +463,7 @@ export class CatalogRepository {
     const stmt = this.db.prepare(`
       INSERT INTO manga (
         id,
+        slug,
         extension_id,
         title,
         alt_titles_json,
@@ -467,10 +476,11 @@ export class CatalogRepository {
         updated_at,
         last_synced_at,
         series_name
-      ) VALUES (@id, @extension_id, @title, @alt_titles_json, @description, @cover_url, @status,
+      ) VALUES (@id, @slug, @extension_id, @title, @alt_titles_json, @description, @cover_url, @status,
         @tags_json, @demographic, @language_code, @updated_at, @last_synced_at, @series_name)
       ON CONFLICT(id) DO UPDATE SET
         extension_id = excluded.extension_id,
+        slug = COALESCE(excluded.slug, manga.slug),
         title = excluded.title,
         alt_titles_json = excluded.alt_titles_json,
         description = excluded.description,
@@ -486,8 +496,10 @@ export class CatalogRepository {
 
     const run = this.db.transaction((entries: MangaSummary[]) => {
       for (const item of entries) {
+        const slugSource = item.slug ?? seriesNames?.get(item.id) ?? null;
         stmt.run({
           id: item.id,
+          slug: slugSource ? slugSource.trim().toLowerCase() : null,
           extension_id: extensionId,
           title: item.title,
           alt_titles_json: serialize(item.altTitles),
@@ -756,6 +768,256 @@ export class CatalogRepository {
       scrollPosition: number;
       lastReadAt: number;
     }>;
+  }
+
+  getLatestReadingProgressPerManga(): Array<{
+    mangaId: string;
+    chapterId: string;
+    currentPage: number;
+    totalPages: number;
+    scrollPosition: number;
+    lastReadAt: number;
+  }> {
+    return this.db
+      .prepare(
+        `
+      SELECT
+        mangaId,
+        chapterId,
+        currentPage,
+        totalPages,
+        scrollPosition,
+        lastReadAt
+      FROM (
+        SELECT
+          manga_id as mangaId,
+          chapter_id as chapterId,
+          current_page as currentPage,
+          total_pages as totalPages,
+          scroll_position as scrollPosition,
+          last_read_at as lastReadAt,
+          ROW_NUMBER() OVER (PARTITION BY manga_id ORDER BY last_read_at DESC) as rn
+        FROM reading_progress
+      )
+      WHERE rn = 1
+      ORDER BY lastReadAt DESC
+    `
+      )
+      .all() as Array<{
+      mangaId: string;
+      chapterId: string;
+      currentPage: number;
+      totalPages: number;
+      scrollPosition: number;
+      lastReadAt: number;
+    }>;
+  }
+
+  getMangaWithDetails(
+    mangaId: string
+  ): {
+    extensionId: string;
+    details: MangaDetails;
+    chapters: ChapterSummary[];
+    summaryLastSyncedAt?: number;
+  } | undefined {
+    const mangaRow = this.db
+      .prepare(
+        `
+        SELECT
+          id,
+          extension_id as extensionId,
+          slug,
+          title,
+          alt_titles_json as altTitlesJson,
+          description,
+          cover_url as coverUrl,
+          status,
+          tags_json as tagsJson,
+          demographic,
+          language_code as languageCode,
+          updated_at as updatedAt,
+          last_synced_at as lastSyncedAt,
+          series_name as seriesName
+        FROM manga
+        WHERE id = @manga_id
+        LIMIT 1
+      `
+      )
+      .get({ manga_id: mangaId }) as
+      | {
+          id: string;
+          extensionId: string;
+          slug: string | null;
+          title: string;
+          altTitlesJson: string | null;
+          description: string | null;
+          coverUrl: string | null;
+          status: string | null;
+          tagsJson: string | null;
+          demographic: string | null;
+          languageCode: string | null;
+          updatedAt: string | null;
+          lastSyncedAt: number | null;
+          seriesName: string | null;
+        }
+      | undefined;
+
+    if (!mangaRow) {
+      return undefined;
+    }
+
+    const detailsRow = this.db
+      .prepare(
+        `
+        SELECT
+          authors_json as authorsJson,
+          artists_json as artistsJson,
+          genres_json as genresJson,
+          links_json as linksJson,
+          rating,
+          year
+        FROM manga_details
+        WHERE manga_id = @manga_id
+        LIMIT 1
+      `
+      )
+      .get({ manga_id: mangaId }) as
+      | {
+          authorsJson: string | null;
+          artistsJson: string | null;
+          genresJson: string | null;
+          linksJson: string | null;
+          rating: number | null;
+          year: number | null;
+        }
+      | undefined;
+
+    const chapters = this.db
+      .prepare(
+        `
+        SELECT
+          id,
+          title,
+          chapter_number as chapterNumber,
+          volume,
+          language_code as languageCode,
+          published_at as publishedAt,
+          external_url as externalUrl
+        FROM chapters
+        WHERE manga_id = @manga_id
+        ORDER BY
+          CASE
+            WHEN published_at IS NOT NULL THEN 0
+            ELSE 1
+          END,
+          published_at DESC,
+          chapter_number DESC,
+          id DESC
+      `
+      )
+      .all({ manga_id: mangaId }) as Array<{
+      id: string;
+      title: string | null;
+      chapterNumber: string | null;
+      volume: string | null;
+      languageCode: string | null;
+      publishedAt: string | null;
+      externalUrl: string | null;
+    }>;
+
+    const normalizedStatus = mangaRow.status?.toLowerCase() as
+      | MangaDetails["status"]
+      | undefined;
+    const status =
+      normalizedStatus && ALLOWED_MANGA_STATUSES.has(normalizedStatus)
+        ? normalizedStatus
+        : undefined;
+
+    const mangaDetails: MangaDetails = {
+      id: mangaRow.id,
+      slug: mangaRow.slug ?? undefined,
+      title: mangaRow.title,
+      altTitles: deserialize<string[]>(mangaRow.altTitlesJson) ?? undefined,
+      description: mangaRow.description ?? undefined,
+      coverUrl: mangaRow.coverUrl ?? undefined,
+      status,
+      tags: deserialize<string[]>(mangaRow.tagsJson) ?? undefined,
+      demographic: mangaRow.demographic ?? undefined,
+      languageCode: mangaRow.languageCode ?? undefined,
+      updatedAt: mangaRow.updatedAt ?? undefined,
+      authors: detailsRow
+        ? deserialize<string[]>(detailsRow.authorsJson) ?? undefined
+        : undefined,
+      artists: detailsRow
+        ? deserialize<string[]>(detailsRow.artistsJson) ?? undefined
+        : undefined,
+      genres: detailsRow
+        ? deserialize<string[]>(detailsRow.genresJson) ?? undefined
+        : undefined,
+      links: detailsRow
+        ? deserialize<Record<string, string>>(detailsRow.linksJson) ?? undefined
+        : undefined,
+      rating: detailsRow?.rating ?? undefined,
+      year: detailsRow?.year ?? undefined,
+    };
+
+    mangaDetails.chapters = chapters.map((chapter) => ({
+      id: chapter.id,
+      title: chapter.title ?? undefined,
+      number: chapter.chapterNumber ?? undefined,
+      volume: chapter.volume ?? undefined,
+      languageCode: chapter.languageCode ?? undefined,
+      publishedAt: chapter.publishedAt ?? undefined,
+      externalUrl: chapter.externalUrl ?? undefined,
+    }));
+
+    return {
+      extensionId: mangaRow.extensionId,
+      details: mangaDetails,
+      chapters: mangaDetails.chapters ?? [],
+      summaryLastSyncedAt: mangaRow.lastSyncedAt ?? undefined,
+    };
+  }
+
+  getMangaBySlug(
+    extensionId: string,
+    slug: string
+  ): {
+    id: string;
+    extensionId: string;
+    slug: string | null;
+    title: string;
+  } | undefined {
+    const lookupSlug = slug.trim().toLowerCase();
+
+    const row = this.db
+      .prepare(
+        `
+      SELECT
+        id,
+        extension_id as extensionId,
+        slug,
+        title
+      FROM manga
+      WHERE extension_id = @extension_id
+        AND slug = @slug
+      LIMIT 1
+    `
+      )
+      .get({
+        extension_id: extensionId,
+        slug: lookupSlug,
+      }) as
+      | {
+          id: string;
+          extensionId: string;
+          slug: string | null;
+          title: string;
+        }
+      | undefined;
+
+    return row ?? undefined;
   }
 
   getSeriesName(mangaId: string): string | undefined {

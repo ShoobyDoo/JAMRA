@@ -106,6 +106,10 @@ export function testLogging(): void {
 }
 
 // Export for use in browser console or other contexts
+type WindowWithTestLogger = Window & {
+  testLogging?: typeof testLogging;
+};
+
 if (typeof window !== 'undefined') {
-  (window as any).testLogging = testLogging;
+  (window as WindowWithTestLogger).testLogging = testLogging;
 }

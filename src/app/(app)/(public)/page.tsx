@@ -1,27 +1,20 @@
 import Link from "next/link";
-import { getAllReadingProgress, fetchMangaDetails } from "@/lib/api";
+import { getAllReadingProgress, getEnrichedReadingProgress } from "@/lib/api";
 import { ContinueReadingCard } from "@/components/manga/continue-reading-card";
+import { hydrateProgressWithDetails } from "@/lib/reading-history";
+
+export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  // Fetch reading history from API
-  const readingHistory = await getAllReadingProgress().catch(() => []);
-
-  // Fetch manga details for each progress entry
-  const enrichedHistory = await Promise.all(
-    readingHistory.map(async (progress) => {
-      try {
-        const { details } = await fetchMangaDetails(progress.mangaId);
-        return { ...progress, manga: details, error: null };
-      } catch (error) {
-        console.error(`Failed to fetch manga details for ${progress.mangaId}:`, error);
-        return {
-          ...progress,
-          manga: null,
-          error: error instanceof Error ? error.message : "Failed to fetch manga details"
-        };
-      }
-    })
-  );
+  const enrichedHistory = await (async () => {
+    try {
+      return await getEnrichedReadingProgress(12);
+    } catch (error) {
+      console.error("Failed to fetch enriched reading progress", error);
+      const readingHistory = await getAllReadingProgress().catch(() => []);
+      return hydrateProgressWithDetails(readingHistory);
+    }
+  })();
 
   if (enrichedHistory.length === 0) {
     return (

@@ -30,6 +30,9 @@ Implemented database-backed reading progress tracking that syncs progress across
 
 - **GET `/api/reading-progress`**: Get all progress (for Continue Reading feature)
   - Returns: `ReadingProgressData[]`
+- **GET `/api/reading-progress/enriched`**: Get progress with cached manga + chapter metadata
+  - Query params: `limit` (optional, defaults to 12, max 50)
+  - Returns: `EnrichedReadingProgress[]` (progress entry with `manga`, `error`, `extensionId`)
 
 ### 3. Frontend API Client (`src/lib/api.ts`)
 
@@ -37,6 +40,7 @@ Implemented database-backed reading progress tracking that syncs progress across
 - **`saveReadingProgress()`**: Calls POST endpoint
 - **`getReadingProgress()`**: Calls GET endpoint (returns null on 404)
 - **`getAllReadingProgress()`**: Calls GET all endpoint
+- **`getEnrichedReadingProgress()`**: Calls enriched endpoint for a single network fetch
 
 #### Type
 ```typescript
@@ -46,6 +50,12 @@ interface ReadingProgressData {
   currentPage: number;
   totalPages: number;
   lastReadAt: number;
+}
+
+interface EnrichedReadingProgress extends ReadingProgressData {
+  manga: MangaDetails | null;
+  error: string | null;
+  extensionId?: string;
 }
 ```
 

@@ -1,26 +1,59 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { Button } from "@mantine/core";
 import { BookOpen } from "lucide-react";
 import { getAllReadingProgress } from "@/lib/api";
-import type { ChapterSummary, ReadingProgressData } from "@/lib/api";
+import type { ReadingProgressData } from "@/lib/api";
+import type { ChapterWithSlug } from "@/lib/chapter-slug";
+import {
+  formatChapterTitle,
+  getChapterSortValue,
+  sortChaptersDesc,
+} from "@/lib/chapter-meta";
 
 interface ContinueReadingButtonProps {
-  chapters: ChapterSummary[];
+  chapters: ChapterWithSlug[];
+  mangaId: string;
   mangaSlug: string;
 }
 
 export function ContinueReadingButton({
   chapters,
+  mangaId,
   mangaSlug,
 }: ContinueReadingButtonProps) {
   const [lastReadChapter, setLastReadChapter] = useState<{
-    chapter: ChapterSummary;
+    chapter: ChapterWithSlug;
     progress: ReadingProgressData;
   } | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const sortedChapters = useMemo(
+    () => sortChaptersDesc(chapters),
+    [chapters],
+  );
+
+  const earliestChapter = useMemo(() => {
+    if (sortedChapters.length === 0) {
+      return null;
+    }
+
+    const numericCandidates = sortedChapters
+      .map((chapter) => ({
+        chapter,
+        value: getChapterSortValue(chapter),
+      }))
+      .filter((entry): entry is { chapter: ChapterWithSlug; value: number } => entry.value !== null)
+      .sort((a, b) => a.value - b.value);
+
+    if (numericCandidates.length > 0) {
+      return numericCandidates[0].chapter;
+    }
+
+    return sortedChapters[sortedChapters.length - 1];
+  }, [sortedChapters]);
 
   useEffect(() => {
     async function fetchLastRead() {
@@ -28,7 +61,7 @@ export function ContinueReadingButton({
         const allProgress = await getAllReadingProgress();
         // Filter to this manga's progress
         const mangaProgress = allProgress.filter(
-          (p) => p.mangaId === mangaSlug
+          (p) => p.mangaId === mangaId
         );
 
         if (mangaProgress.length === 0) {
@@ -42,7 +75,7 @@ export function ContinueReadingButton({
         );
 
         // Find the corresponding chapter
-        const chapter = chapters.find((ch) => ch.id === mostRecent.chapterId);
+        const chapter = sortedChapters.find((ch) => ch.id === mostRecent.chapterId);
         if (chapter) {
           setLastReadChapter({ chapter, progress: mostRecent });
         }
@@ -54,10 +87,39 @@ export function ContinueReadingButton({
     }
 
     fetchLastRead();
-  }, [mangaSlug, chapters]);
+  }, [mangaId, sortedChapters]);
 
-  if (loading || !lastReadChapter) {
+  if (loading) {
     return null;
+  }
+
+  if (!lastReadChapter) {
+    if (!earliestChapter) {
+      return null;
+    }
+
+    const startLabel =
+      formatChapterTitle(earliestChapter);
+
+    return (
+      <Link
+        href={`/read/${encodeURIComponent(mangaSlug)}/chapter/${encodeURIComponent(earliestChapter.slug)}`}
+        className="block"
+      >
+        <Button
+          fullWidth
+          size="lg"
+          leftSection={<BookOpen size={20} />}
+          variant="filled"
+          className="h-auto py-4"
+        >
+          <div className="flex flex-col items-start gap-1 text-left">
+            <span className="font-semibold">Start Reading</span>
+            <span className="text-xs opacity-90">{startLabel}</span>
+          </div>
+        </Button>
+      </Link>
+    );
   }
 
   const { chapter, progress } = lastReadChapter;
@@ -66,9 +128,13 @@ export function ContinueReadingButton({
     (progress.currentPage / progress.totalPages) * 100
   );
 
+  const pageQuery = new URLSearchParams({
+    page: String(progress.currentPage),
+  }).toString();
+
   return (
     <Link
-      href={`/read/${encodeURIComponent(mangaSlug)}/chapter/${encodeURIComponent(chapter.id)}`}
+      href={`/read/${encodeURIComponent(mangaSlug)}/chapter/${encodeURIComponent(chapter.slug)}?${pageQuery}`}
       className="block"
     >
       <Button
@@ -83,7 +149,7 @@ export function ContinueReadingButton({
             {isComplete ? "Read Again" : "Continue Reading"}
           </span>
           <span className="text-xs opacity-90">
-            {chapter.title ?? `Chapter ${chapter.number ?? chapter.id}`}
+            {formatChapterTitle(chapter)}
             {" · "}
             Page {progress.currentPage + 1} of {progress.totalPages}
             {" · "}

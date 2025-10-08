@@ -46,6 +46,7 @@ export interface CatalogueResponse {
 
 export interface MangaSummary {
   id: string;
+  slug?: string;
   title: string;
   altTitles?: string[];
   coverUrl?: string;
@@ -75,6 +76,7 @@ export interface ChapterSummary {
   languageCode?: LanguageCode;
   publishedAt?: string;
   externalUrl?: string;
+  scanlators?: string[];
 }
 
 export interface PageImage {
@@ -89,6 +91,17 @@ export interface ChapterPages {
   chapterId: string;
   mangaId: string;
   pages: PageImage[];
+}
+
+export interface ChapterPagesChunk {
+  chapterId: string;
+  mangaId: string;
+  chunk: number;
+  chunkSize: number;
+  totalChunks: number;
+  totalPages: number;
+  pages: PageImage[];
+  hasMore: boolean;
 }
 
 export type FilterValue =
@@ -165,6 +178,14 @@ export interface ChapterListRequest {
 export interface ChapterPagesRequest {
   mangaId: string;
   chapterId: string;
+  signal?: AbortSignal;
+}
+
+export interface ChapterPagesChunkRequest {
+  mangaId: string;
+  chapterId: string;
+  chunk: number;
+  chunkSize: number;
   signal?: AbortSignal;
 }
 

@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { TextInput, Paper, Text, Loader } from "@mantine/core";
 import { Search, X } from "lucide-react";
 import { useDebouncedValue } from "@mantine/hooks";
 import { fetchCataloguePage } from "@/lib/api";
-import { useNavigationStore } from "@/store/navigation";
+import { slugify } from "@/lib/slug";
 import type { MangaSummary } from "@/lib/api";
 
 function normalizeText(value: string): string {
@@ -57,7 +58,6 @@ export function SearchBar() {
   const [results, setResults] = useState<MangaSummary[]>([]);
   const [loading, setLoading] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
-  const setNavigating = useNavigationStore((state) => state.setNavigating);
   const router = useRouter();
   const dropdownRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -128,13 +128,13 @@ export function SearchBar() {
   );
 
   const handleResultClick = useCallback(
-    (mangaId: string) => {
+    (manga: MangaSummary) => {
       setShowDropdown(false);
       setQuery("");
-      setNavigating(true);
-      router.push(`/manga/${encodeURIComponent(mangaId)}`);
+      const destination = slugify(manga.slug ?? manga.title) ?? manga.id;
+      router.push(`/manga/${encodeURIComponent(destination)}`);
     },
-    [router, setNavigating]
+    [router]
   );
 
   const handleClear = useCallback(() => {
@@ -196,16 +196,18 @@ export function SearchBar() {
             {results.map((manga) => (
               <button
                 key={manga.id}
-                onClick={() => handleResultClick(manga.id)}
-                className="flex items-start gap-3 p-3 hover:bg-accent transition-colors text-left border-b border-border last:border-b-0"
+                onClick={() => handleResultClick(manga)}
+                className="flex cursor-pointer items-start gap-3 p-3 hover:bg-accent transition-colors text-left border-b border-border last:border-b-0"
               >
                 <div className="relative h-16 w-12 flex-shrink-0 overflow-hidden rounded bg-muted">
                   {manga.coverUrl ? (
-                    <img
+                    <Image
                       src={manga.coverUrl}
                       alt={manga.title}
+                      fill
+                      sizes="48px"
+                      className="object-cover"
                       loading="lazy"
-                      className="h-full w-full object-cover"
                     />
                   ) : (
                     <div className="flex h-full items-center justify-center text-xs text-muted-foreground">

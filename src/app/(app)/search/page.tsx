@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { Suspense, useState, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { Button, Select, MultiSelect, Pagination, Loader } from "@mantine/core";
+import { Button, Select, MultiSelect, Pagination, Skeleton } from "@mantine/core";
+import SearchLoading from "./loading";
 import { Filter, X } from "lucide-react";
 import { fetchCataloguePage } from "@/lib/api";
 import type { CatalogueItem } from "@/lib/api";
@@ -61,7 +62,7 @@ const EXCLUDE_GENRE_OPTIONS = [
   ...GENRE_OPTIONS,
 ];
 
-export default function SearchPage() {
+function SearchPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const query = searchParams.get("q") || "";
@@ -226,8 +227,18 @@ export default function SearchPage() {
       )}
 
       {loading && (
-        <div className="flex justify-center py-12">
-          <Loader size="lg" />
+        <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6">
+          {Array.from({ length: 10 }).map((_, index) => (
+            <div
+              key={index}
+              className="rounded-lg border border-border bg-card p-3 space-y-3"
+            >
+              <Skeleton height={160} radius="md" />
+              <Skeleton height={14} width="85%" />
+              <Skeleton height={12} width="60%" />
+              <Skeleton height={10} width="70%" />
+            </div>
+          ))}
         </div>
       )}
 
@@ -265,5 +276,13 @@ export default function SearchPage() {
         </>
       )}
     </div>
+  );
+}
+
+export default function SearchPage() {
+  return (
+    <Suspense fallback={<SearchLoading />}>
+      <SearchPageContent />
+    </Suspense>
   );
 }

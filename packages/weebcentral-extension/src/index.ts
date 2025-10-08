@@ -97,6 +97,16 @@ const extension: ExtensionModule = {
       return pages;
     },
 
+    async fetchChapterPagesChunk(context, request) {
+      scraper.setCache(context.cache);
+      return scraper.getChapterPagesChunk(
+        request.mangaId,
+        request.chapterId,
+        request.chunk,
+        request.chunkSize,
+      );
+    },
+
     async getFilters() {
       const filters: ExtensionFilters = {
         definitions: [

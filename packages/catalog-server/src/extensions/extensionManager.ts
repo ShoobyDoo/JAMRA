@@ -54,7 +54,7 @@ export class ExtensionManager {
         });
       } catch (error) {
         console.error(
-          `Failed to load extension ${extension.id} during startup.`,
+          `Failed to load extension ${extension.name || extension.id} (${extension.id}) during startup.`,
           error,
         );
       }

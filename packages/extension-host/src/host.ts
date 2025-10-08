@@ -3,6 +3,8 @@ import type {
   CatalogueResponse,
   ChapterListRequest,
   ChapterPages,
+  ChapterPagesChunk,
+  ChapterPagesChunkRequest,
   ChapterPagesRequest,
   ExtensionContext,
   ExtensionHandlers,
@@ -336,6 +338,51 @@ export class ExtensionHost {
       );
     }
     return handler(buildInvocationContext(record, options), request);
+  }
+
+  async invokeChapterPagesChunk(
+    id: string,
+    request: ChapterPagesChunkRequest,
+    options?: ExtensionInvocationOptions,
+  ): Promise<ChapterPagesChunk> {
+    const record = this.ensureExtension(id);
+    const handler = record.handlers.fetchChapterPagesChunk;
+    if (handler) {
+      return handler(buildInvocationContext(record, options), request);
+    }
+
+    const full = await this.invokeChapterPages(
+      id,
+      {
+        mangaId: request.mangaId,
+        chapterId: request.chapterId,
+        signal: request.signal,
+      },
+      options,
+    );
+    const { chunk, chunkSize } = request;
+    const startIndex = chunk * chunkSize;
+    const endIndex = startIndex + chunkSize;
+    const totalPages = full.pages.length;
+    const totalChunks = Math.max(1, Math.ceil(totalPages / chunkSize));
+
+    const slice = full.pages
+      .slice(startIndex, endIndex)
+      .map((page, index) => ({
+        ...page,
+        index: startIndex + index,
+      }));
+
+    return {
+      chapterId: full.chapterId,
+      mangaId: full.mangaId,
+      chunk,
+      chunkSize,
+      totalChunks,
+      totalPages,
+      pages: slice,
+      hasMore: endIndex < totalPages,
+    };
   }
 
   async getFilters(

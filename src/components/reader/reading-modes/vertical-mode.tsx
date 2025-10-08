@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { useReaderSettings } from "@/store/reader-settings";
@@ -13,27 +13,93 @@ interface VerticalModeProps {
     url: string;
     width?: number;
     height?: number;
-  }>;
+  } | null>;
   currentPage: number;
+  totalPages: number;
   onPageChange: (pageIndex: number) => void;
-  nextChapter?: { id: string; title?: string; number?: string } | null;
-  prevChapter?: { id: string; title?: string; number?: string } | null;
+  nextChapter?: { id: string; slug: string; title?: string; number?: string } | null;
+  prevChapter?: { id: string; slug: string; title?: string; number?: string } | null;
   mangaId?: string;
+  mangaSlug?: string;
 }
+
+const OVERSCAN = 3;
+const DEFAULT_PLACEHOLDER_HEIGHT = 900;
 
 export function VerticalMode({
   pages,
   currentPage,
+  totalPages,
   onPageChange,
   nextChapter,
   prevChapter,
   mangaId,
+  mangaSlug,
 }: VerticalModeProps) {
   const router = useRouter();
+  const routeSlug = mangaSlug ?? mangaId;
   const { backgroundColor, gapSize, pageFit, scrollSpeed, customWidth } = useReaderSettings();
   const containerRef = useRef<HTMLDivElement>(null);
   const pageRefs = useRef<Map<number, HTMLDivElement>>(new Map());
+  const intersectionObserverRef = useRef<IntersectionObserver | null>(null);
+  const resizeObserverRef = useRef<ResizeObserver | null>(null);
+  const visibleIndexesRef = useRef<Set<number>>(new Set());
+  const measurementsRef = useRef<Map<number, number>>(new Map());
+  const [, forceMeasurementUpdate] = useState(0);
   const isScrollingProgrammatically = useRef(false);
+  const currentPageRef = useRef(currentPage);
+  const [virtualWindow, setVirtualWindow] = useState(() => {
+    const maxIndex = Math.max(totalPages - 1, 0);
+    const normalizedCurrent = Math.min(Math.max(currentPage, 0), maxIndex);
+    return {
+      start: Math.max(0, normalizedCurrent - OVERSCAN),
+      end: Math.min(maxIndex, normalizedCurrent + OVERSCAN),
+    };
+  });
+
+  useEffect(() => {
+    currentPageRef.current = currentPage;
+  }, [currentPage]);
+
+  const recomputeWindow = useCallback(
+    (extraIndex?: number) => {
+      const indexes = new Set(visibleIndexesRef.current);
+      if (typeof extraIndex === "number" && extraIndex >= 0) {
+        indexes.add(extraIndex);
+      }
+
+      const maxIndex = Math.max(totalPages - 1, 0);
+      const normalizedCurrent = Math.min(Math.max(currentPage, 0), maxIndex);
+
+      if (indexes.size === 0) {
+        const start = Math.max(0, normalizedCurrent - OVERSCAN);
+        const end = Math.min(maxIndex, normalizedCurrent + OVERSCAN);
+        setVirtualWindow((prev) =>
+          prev.start === start && prev.end === end ? prev : { start, end },
+        );
+        return;
+      }
+
+      const sorted = Array.from(indexes).sort((a, b) => a - b);
+      const start = Math.max(0, Math.min(sorted[0], maxIndex) - OVERSCAN);
+      const end = Math.min(
+        maxIndex,
+        Math.max(sorted[sorted.length - 1], 0) + OVERSCAN,
+      );
+      setVirtualWindow((prev) =>
+        prev.start === start && prev.end === end ? prev : { start, end },
+      );
+    },
+    [currentPage, totalPages],
+  );
+
+  useEffect(() => {
+    recomputeWindow(currentPage);
+  }, [currentPage, recomputeWindow]);
+
+  useEffect(() => {
+    recomputeWindow(currentPage);
+  }, [pages, currentPage, recomputeWindow]);
 
   // Scroll to current page when it changes externally
   useEffect(() => {
@@ -46,48 +112,122 @@ export function VerticalMode({
     }
   }, [currentPage]);
 
-  // Track which page is currently visible
+  // Track which page is visible & update virtual window
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
 
     const observer = new IntersectionObserver(
       (entries) => {
+        let windowChanged = false;
+
         entries.forEach((entry) => {
+          const index = Number(entry.target.getAttribute("data-page-index"));
+          if (Number.isNaN(index)) return;
+
           if (entry.isIntersecting) {
-            const pageIndex = Number(entry.target.getAttribute("data-page-index"));
-            if (!isNaN(pageIndex) && pageIndex !== currentPage) {
+            if (!visibleIndexesRef.current.has(index)) {
+              visibleIndexesRef.current.add(index);
+              windowChanged = true;
+            }
+
+            if (
+              !isScrollingProgrammatically.current &&
+              index !== currentPageRef.current
+            ) {
               isScrollingProgrammatically.current = true;
-              onPageChange(pageIndex);
-              // Reset flag after a short delay
-              setTimeout(() => {
+              onPageChange(index);
+              window.setTimeout(() => {
                 isScrollingProgrammatically.current = false;
               }, 100);
             }
+          } else if (visibleIndexesRef.current.delete(index)) {
+            windowChanged = true;
           }
         });
+
+        if (windowChanged) {
+          recomputeWindow();
+        }
       },
       {
         root: container,
-        threshold: 0.5, // Consider page visible when 50% is in view
-      }
+        threshold: 0.45,
+      },
     );
 
-    // Observe all page elements
-    pageRefs.current.forEach((element) => {
-      observer.observe(element);
+    intersectionObserverRef.current = observer;
+    pageRefs.current.forEach((element) => observer.observe(element));
+
+    return () => {
+      observer.disconnect();
+      intersectionObserverRef.current = null;
+    };
+  }, [onPageChange, recomputeWindow]);
+
+  // Observe page size changes to build placeholder heights
+  useEffect(() => {
+    if (typeof ResizeObserver === "undefined") return;
+
+    const resizeObserver = new ResizeObserver((entries) => {
+      let updated = false;
+      for (const entry of entries) {
+        const index = Number(entry.target.getAttribute("data-page-index"));
+        if (Number.isNaN(index)) continue;
+
+        const height = entry.contentRect.height;
+        if (!height || height <= 0) continue;
+
+        const currentHeight = measurementsRef.current.get(index);
+        if (currentHeight !== height) {
+          measurementsRef.current.set(index, height);
+          updated = true;
+        }
+      }
+
+      if (updated) {
+        forceMeasurementUpdate((value) => value + 1);
+      }
     });
 
-    return () => observer.disconnect();
-  }, [currentPage, onPageChange]);
+    resizeObserverRef.current = resizeObserver;
+    pageRefs.current.forEach((element) => resizeObserver.observe(element));
 
-  const setPageRef = useCallback((index: number, element: HTMLDivElement | null) => {
-    if (element) {
-      pageRefs.current.set(index, element);
-    } else {
-      pageRefs.current.delete(index);
-    }
+    return () => {
+      resizeObserver.disconnect();
+      resizeObserverRef.current = null;
+    };
   }, []);
+
+  const setPageRef = useCallback(
+    (index: number, element: HTMLDivElement | null) => {
+      const existing = pageRefs.current.get(index);
+      if (existing && existing !== element) {
+        intersectionObserverRef.current?.unobserve(existing);
+        resizeObserverRef.current?.unobserve(existing);
+        pageRefs.current.delete(index);
+      }
+
+      if (element) {
+        pageRefs.current.set(index, element);
+        if (intersectionObserverRef.current) {
+          intersectionObserverRef.current.observe(element);
+        }
+        if (resizeObserverRef.current) {
+          resizeObserverRef.current.observe(element);
+        }
+      } else {
+        if (pageRefs.current.has(index)) {
+          pageRefs.current.delete(index);
+        }
+        if (visibleIndexesRef.current.delete(index)) {
+          recomputeWindow(currentPage);
+        }
+        measurementsRef.current.delete(index);
+      }
+    },
+    [currentPage, recomputeWindow],
+  );
 
   const getImageWidth = () => {
     switch (pageFit) {
@@ -135,6 +275,13 @@ export function VerticalMode({
     return () => container.removeEventListener("wheel", handleWheel);
   }, [scrollSpeed]);
 
+  const isWithinWindow = useCallback(
+    (index: number) => index >= virtualWindow.start && index <= virtualWindow.end,
+    [virtualWindow.end, virtualWindow.start],
+  );
+
+  const imageWidthValue = getImageWidth();
+
   return (
     <div
       ref={containerRef}
@@ -146,61 +293,89 @@ export function VerticalMode({
     >
       <div className="flex flex-col items-center">
         {/* Previous chapter indicator at top */}
-        {prevChapter && mangaId && (
+        {prevChapter && routeSlug && (
           <div className="flex flex-col items-center justify-center gap-4 py-12">
             <button
-              onClick={() => router.push(`/read/${encodeURIComponent(mangaId)}/chapter/${encodeURIComponent(prevChapter.id)}?page=last`)}
+              onClick={() =>
+                router.push(
+                  `/read/${encodeURIComponent(routeSlug)}/chapter/${encodeURIComponent(prevChapter.slug)}?page=last`,
+                )
+              }
               className="flex flex-col items-center gap-2 rounded-lg bg-primary px-6 py-4 text-primary-foreground transition hover:bg-primary/90"
             >
               <ChevronDown className="h-6 w-6 rotate-180" />
               <span className="text-sm font-medium">Previous Chapter</span>
               <span className="text-xs opacity-80">
-                {prevChapter.title || `Chapter ${prevChapter.number || prevChapter.id}`}
+                {prevChapter.title || `Chapter ${prevChapter.number || prevChapter.slug}`}
               </span>
             </button>
           </div>
         )}
 
-        {pages.map((page, index) => (
-          <div
-            key={page.index}
-            ref={(el) => setPageRef(page.index, el)}
-            data-page-index={page.index}
-            className="flex w-full items-center justify-center"
-            style={{
-              marginBottom: index < pages.length - 1 ? gapSize : 0,
-            }}
-          >
-            <Image
-              src={page.url}
-              alt={`Page ${page.index + 1}`}
-              width={page.width ?? 1080}
-              height={page.height ?? 1920}
+        {pages.map((page, arrayIndex) => {
+          const pageIndex = page?.index ?? arrayIndex;
+          const shouldRenderImage = page !== null && isWithinWindow(pageIndex);
+          const measuredHeight =
+            measurementsRef.current.get(pageIndex) ?? page?.height ?? DEFAULT_PLACEHOLDER_HEIGHT;
+          const eagerLoad = pageIndex <= currentPage + 2;
+
+          return (
+            <div
+              key={pageIndex}
+              ref={(el) => setPageRef(pageIndex, el)}
+              data-page-index={pageIndex}
+              className="flex w-full items-center justify-center"
               style={{
-                width: getImageWidth(),
-                height: "auto",
-                maxWidth: "100%",
-                display: "block",
+                marginBottom: pageIndex < totalPages - 1 ? gapSize : 0,
+                minHeight: shouldRenderImage ? measuredHeight : undefined,
               }}
-              className="select-none"
-              quality={95}
-              unoptimized
-              loading={index <= currentPage + 2 ? "eager" : "lazy"}
-            />
-          </div>
-        ))}
+            >
+              {shouldRenderImage && page ? (
+                <Image
+                  src={page.url}
+                  alt={`Page ${page.index + 1}`}
+                  width={page.width ?? 1080}
+                  height={page.height ?? 1920}
+                  style={{
+                    width: imageWidthValue,
+                    height: "auto",
+                    maxWidth: "100%",
+                    display: "block",
+                  }}
+                  className="select-none"
+                  quality={95}
+                  unoptimized
+                  loading={eagerLoad ? "eager" : "lazy"}
+                />
+              ) : (
+                <div
+                  className="w-full max-w-full select-none rounded-md bg-muted/30"
+                  style={{
+                    height: measuredHeight,
+                    width: imageWidthValue,
+                    maxWidth: "100%",
+                  }}
+                />
+              )}
+            </div>
+          );
+        })}
 
         {/* End of chapter indicator */}
         <div className="flex flex-col items-center justify-center gap-4 py-12">
-          {nextChapter && mangaId ? (
+          {nextChapter && routeSlug ? (
             <button
-              onClick={() => router.push(`/read/${encodeURIComponent(mangaId)}/chapter/${encodeURIComponent(nextChapter.id)}`)}
+              onClick={() =>
+                router.push(
+                  `/read/${encodeURIComponent(routeSlug)}/chapter/${encodeURIComponent(nextChapter.slug)}`,
+                )
+              }
               className="flex flex-col items-center gap-2 rounded-lg bg-primary px-6 py-4 text-primary-foreground transition hover:bg-primary/90"
             >
               <ChevronDown className="h-6 w-6" />
               <span className="text-sm font-medium">Next Chapter</span>
               <span className="text-xs opacity-80">
-                {nextChapter.title || `Chapter ${nextChapter.number || nextChapter.id}`}
+                {nextChapter.title || `Chapter ${nextChapter.number || nextChapter.slug}`}
               </span>
             </button>
           ) : (

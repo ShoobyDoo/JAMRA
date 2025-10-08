@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "main": "electron/dist/main.cjs",
   "engines": {
     "node": ">=24",
     "pnpm": ">=8"
@@ -13,13 +14,20 @@
     "build": "pnpm run run build all",
     "start": "pnpm run run start web",
     "lint": "eslint",
+    "test": "node --import tsx ./test/index.ts",
     "extension:demo": "node scripts/run-example-extension.mjs",
     "catalog-server:dev": "pnpm run run bootstrap api",
     "catalog-server:start": "pnpm run run start api",
     "backend:build": "pnpm run run build backend",
-    "desktop:dev": "pnpm run run bootstrap desktop",
+    "desktop:dev": "pnpm run desktop:refresh && pnpm run run bootstrap desktop",
+    "desktop:refresh": "bash scripts/refresh-electron.sh",
     "sqlite:refresh": "bash scripts/refresh-sqlite.sh",
-    "postinstall": "node scripts/postinstall.mjs"
+    "postinstall": "node scripts/postinstall.mjs",
+    "dist": "pnpm build && electron-builder",
+    "dist:mac": "pnpm build && electron-builder --mac",
+    "dist:win": "pnpm build && electron-builder --win",
+    "dist:linux": "pnpm build && electron-builder --linux",
+    "dist:all": "pnpm build && electron-builder -mwl"
   },
   "dependencies": {
     "@mantine/core": "8.3.3",
@@ -45,6 +53,7 @@
     "concurrently": "^9.2.1",
     "cross-env": "^10.1.0",
     "electron": "^38.2.0",
+    "electron-builder": "^26.0.12",
     "eslint": "^9.36.0",
     "eslint-config-next": "15.5.4",
     "eslint-plugin-react-hooks": "^6.1.0",
@@ -54,5 +63,102 @@
     "tailwindcss": "^4.1.14",
     "tsx": "^4.19.1",
     "typescript": "^5.9.3"
+  },
+  "build": {
+    "appId": "com.jamra.app",
+    "productName": "JAMRA",
+    "directories": {
+      "output": "dist-electron",
+      "buildResources": "build"
+    },
+    "files": [
+      "electron/dist/**/*",
+      "packages/*/dist/**/*",
+      ".next/**/*",
+      "node_modules/**/*",
+      "!node_modules/.pnpm",
+      "!**/*.map",
+      "!**/*.ts"
+    ],
+    "extraResources": [
+      {
+        "from": "packages/catalog-server/dist/extensions/registries",
+        "to": "extensions/registries"
+      }
+    ],
+    "asarUnpack": [
+      "node_modules/better-sqlite3/**/*"
+    ],
+    "afterPack": "./scripts/afterPack.js",
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": ["x64", "arm64"]
+        },
+        {
+          "target": "zip",
+          "arch": ["x64", "arm64"]
+        }
+      ],
+      "category": "public.app-category.entertainment",
+      "icon": "build/icon.icns",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist"
+    },
+    "dmg": {
+      "contents": [
+        {
+          "x": 130,
+          "y": 220
+        },
+        {
+          "x": 410,
+          "y": 220,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ]
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64", "ia32"]
+        },
+        {
+          "target": "portable",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "deleteAppDataOnUninstall": false
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": ["x64", "arm64"]
+        },
+        {
+          "target": "deb",
+          "arch": ["x64", "arm64"]
+        },
+        {
+          "target": "rpm",
+          "arch": ["x64", "arm64"]
+        }
+      ],
+      "icon": "build/icons",
+      "category": "Entertainment",
+      "maintainer": "JAMRA Team"
+    }
   }
 }

@@ -6,14 +6,17 @@ import { ExpandableDescription } from "@/components/manga/expandable-description
 import { GenrePills } from "@/components/manga/genre-pills";
 import { ContinueReadingButton } from "@/components/manga/continue-reading-button";
 import { ClearChaptersButton } from "@/components/manga/clear-chapters-button";
+import { withChapterSlugs } from "@/lib/chapter-slug";
+import { decodeRouteParam, type MangaRouteParams } from "@/lib/routes";
+import { logger } from "@/lib/logger";
 
 interface MangaPageProps {
-  params: Promise<{ slug: string }>;
+  params: Promise<MangaRouteParams>;
 }
 
 export default async function MangaPage({ params }: MangaPageProps) {
   const { slug: rawSlug } = await params;
-  const slug = decodeURIComponent(rawSlug ?? "");
+  const slug = decodeRouteParam(rawSlug);
 
   if (!slug) return notFound();
 
@@ -21,14 +24,22 @@ export default async function MangaPage({ params }: MangaPageProps) {
   try {
     data = await fetchMangaDetails(slug);
   } catch (error) {
-    console.error("Failed to fetch manga details", error);
+    logger.error("Failed to fetch manga details", {
+      component: "manga-page",
+      action: "fetch-details",
+      error: error instanceof Error ? error : new Error(String(error)),
+      slug,
+    });
     return notFound();
   }
 
   const { details } = data;
   if (!details) return notFound();
+  if (!details.id) return notFound();
 
-  const chapters = details.chapters ?? [];
+  const chapters = withChapterSlugs(details.chapters ?? []);
+  const mangaId = details.id;
+  const canonicalSlug = details.slug ?? slug;
 
   return (
     <div className="space-y-6 p-6">
@@ -138,11 +149,19 @@ export default async function MangaPage({ params }: MangaPageProps) {
               available.
             </p>
           </div>
-          <ClearChaptersButton mangaId={slug} />
+          <ClearChaptersButton mangaId={mangaId} />
         </div>
 
-        <ContinueReadingButton chapters={chapters} mangaSlug={slug} />
-        <ChapterList chapters={chapters} mangaSlug={slug} />
+        <ContinueReadingButton
+          chapters={chapters}
+          mangaId={mangaId}
+          mangaSlug={canonicalSlug}
+        />
+        <ChapterList
+          chapters={chapters}
+          mangaId={mangaId}
+          mangaSlug={canonicalSlug}
+        />
       </div>
     </div>
   );

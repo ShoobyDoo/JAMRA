@@ -26,3 +26,38 @@ export const routes: Route[] = [
   { path: "/settings", label: "Settings", icon: Settings, inSidebar: false },
   { path: "/sign-in", label: "Sign in", icon: LogIn, inSidebar: false },
 ];
+
+export type MangaRouteParams = {
+  slug: string;
+};
+
+export type ReaderRouteParams = {
+  slug: string;
+  chapterSlug: string;
+};
+
+export type RouteSearchParams = Record<string, string | string[] | undefined>;
+
+export function decodeRouteParam(value: string | undefined): string {
+  if (!value) return "";
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
+export function getSearchParam(
+  params: RouteSearchParams | undefined,
+  key: string,
+): string | undefined {
+  if (!params) return undefined;
+  const value = params[key];
+  if (typeof value === "string") {
+    return value;
+  }
+  if (Array.isArray(value)) {
+    return value[0];
+  }
+  return undefined;
+}

@@ -12,21 +12,25 @@ interface PagedModeProps {
     url: string;
     width?: number;
     height?: number;
-  }>;
+  } | null>;
   currentPage: number;
+  totalPages: number;
   onPageChange: (pageIndex: number) => void;
-  nextChapter?: { id: string; title?: string; number?: string } | null;
-  prevChapter?: { id: string; title?: string; number?: string } | null;
+  nextChapter?: { id: string; slug: string; title?: string; number?: string } | null;
+  prevChapter?: { id: string; slug: string; title?: string; number?: string } | null;
   mangaId?: string;
+  mangaSlug?: string;
 }
 
 export function PagedMode({
   pages,
   currentPage,
+  totalPages,
   onPageChange,
   nextChapter,
   prevChapter,
   mangaId,
+  mangaSlug,
 }: PagedModeProps) {
   const router = useRouter();
   const { pageFit, backgroundColor, readingMode, customWidth } = useReaderSettings();
@@ -39,6 +43,7 @@ export function PagedMode({
   const [showDragCursor, setShowDragCursor] = useState(false);
 
   const currentPageData = pages[currentPage];
+  const routeSlug = mangaSlug ?? mangaId;
   const isRTL = readingMode === "paged-rtl";
 
   // Update container dimensions
@@ -58,7 +63,7 @@ export function PagedMode({
   }, []);
 
   const isFirstPage = currentPage === 0;
-  const isLastPage = currentPage === pages.length - 1;
+  const isLastPage = currentPage === totalPages - 1;
 
   const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!containerRef.current || isDragging.current) return;
@@ -75,11 +80,11 @@ export function PagedMode({
         }
         // At first page, clicking back side does nothing (prevChapter indicator shows instead)
       } else {
-        if (currentPage < pages.length - 1) {
+        if (currentPage < totalPages - 1) {
           onPageChange(currentPage + 1);
-        } else if (nextChapter && mangaId) {
+        } else if (nextChapter && routeSlug) {
           // Auto-advance to next chapter
-          router.push(`/read/${encodeURIComponent(mangaId)}/chapter/${encodeURIComponent(nextChapter.id)}`);
+          router.push(`/read/${encodeURIComponent(routeSlug)}/chapter/${encodeURIComponent(nextChapter.slug)}`);
         }
       }
     } else {
@@ -89,11 +94,11 @@ export function PagedMode({
         }
         // At first page, clicking back side does nothing (prevChapter indicator shows instead)
       } else {
-        if (currentPage < pages.length - 1) {
+        if (currentPage < totalPages - 1) {
           onPageChange(currentPage + 1);
-        } else if (nextChapter && mangaId) {
+        } else if (nextChapter && routeSlug) {
           // Auto-advance to next chapter
-          router.push(`/read/${encodeURIComponent(mangaId)}/chapter/${encodeURIComponent(nextChapter.id)}`);
+          router.push(`/read/${encodeURIComponent(routeSlug)}/chapter/${encodeURIComponent(nextChapter.slug)}`);
         }
       }
     }
@@ -151,10 +156,10 @@ export function PagedMode({
           // RTL mode: drag left = next page, drag right = prev page
           if (dragDelta < 0) {
             // Dragged left = next page
-            if (currentPage < pages.length - 1) {
+            if (currentPage < totalPages - 1) {
               onPageChange(currentPage + 1);
-            } else if (nextChapter && mangaId) {
-              router.push(`/read/${encodeURIComponent(mangaId)}/chapter/${encodeURIComponent(nextChapter.id)}`);
+            } else if (nextChapter && routeSlug) {
+              router.push(`/read/${encodeURIComponent(routeSlug)}/chapter/${encodeURIComponent(nextChapter.slug)}`);
             }
           } else if (dragDelta > 0 && currentPage > 0) {
             // Dragged right = previous page
@@ -164,10 +169,10 @@ export function PagedMode({
           // LTR mode: drag right = prev page, drag left = next page
           if (dragDelta < 0) {
             // Dragged left = next page
-            if (currentPage < pages.length - 1) {
+            if (currentPage < totalPages - 1) {
               onPageChange(currentPage + 1);
-            } else if (nextChapter && mangaId) {
-              router.push(`/read/${encodeURIComponent(mangaId)}/chapter/${encodeURIComponent(nextChapter.id)}`);
+            } else if (nextChapter && routeSlug) {
+              router.push(`/read/${encodeURIComponent(routeSlug)}/chapter/${encodeURIComponent(nextChapter.slug)}`);
             }
           } else if (dragDelta > 0 && currentPage > 0) {
             // Dragged right = previous page
@@ -193,7 +198,7 @@ export function PagedMode({
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseup", handleMouseUp);
     };
-  }, [currentPage, pages.length, onPageChange, nextChapter, mangaId, router, isRTL]);
+  }, [currentPage, totalPages, onPageChange, nextChapter, routeSlug, router, isRTL]);
 
   const getImageStyles = (): React.CSSProperties => {
     if (!currentPageData) return {};
@@ -278,15 +283,19 @@ export function PagedMode({
     "dark-gray": "bg-gray-900",
   };
 
-  if (!currentPageData) {
-    return (
-      <div
-        ref={containerRef}
-        className={`flex h-full w-full items-center justify-center ${backgroundColors[backgroundColor]}`}
-      >
-        <p className="text-muted-foreground">No page data</p>
+  const renderLoading = () => (
+    <div
+      ref={containerRef}
+      className={`flex h-full w-full items-center justify-center ${backgroundColors[backgroundColor]}`}
+    >
+      <div className="rounded-lg border border-border/40 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+        Loading page…
       </div>
-    );
+    </div>
+  );
+
+  if (!currentPageData) {
+    return renderLoading();
   }
 
   return (
@@ -316,17 +325,17 @@ export function PagedMode({
       </div>
 
       {/* Previous chapter indicator (left side for LTR, right side for RTL) */}
-      {isFirstPage && prevChapter && mangaId && (
+      {isFirstPage && prevChapter && routeSlug && (
         <div
           className={`absolute ${isRTL ? "right-0" : "left-0"} top-0 bottom-0 flex items-center px-6 z-20`}
         >
           <button
-            onClick={() => router.push(`/read/${encodeURIComponent(mangaId)}/chapter/${encodeURIComponent(prevChapter.id)}?page=last`)}
+            onClick={() => router.push(`/read/${encodeURIComponent(routeSlug)}/chapter/${encodeURIComponent(prevChapter.slug)}?page=last`)}
             className="flex flex-col items-center gap-2 rounded-lg bg-black/80 px-4 py-3 text-white transition hover:bg-black/90"
           >
             {isRTL ? <ChevronRight className="h-6 w-6" /> : <ChevronLeft className="h-6 w-6" />}
             <span className="text-xs text-center">
-              {prevChapter.title || `Chapter ${prevChapter.number || prevChapter.id}`}
+              {prevChapter.title || `Chapter ${prevChapter.number || prevChapter.slug}`}
             </span>
             <span className="text-xs text-white/60">Previous Chapter</span>
           </button>
@@ -338,14 +347,14 @@ export function PagedMode({
         <div
           className={`absolute ${isRTL ? "left-0" : "right-0"} top-0 bottom-0 flex items-center px-6 z-20`}
         >
-          {nextChapter && mangaId ? (
+          {nextChapter && routeSlug ? (
             <button
-              onClick={() => router.push(`/read/${encodeURIComponent(mangaId)}/chapter/${encodeURIComponent(nextChapter.id)}`)}
+              onClick={() => router.push(`/read/${encodeURIComponent(routeSlug)}/chapter/${encodeURIComponent(nextChapter.slug)}`)}
               className="flex flex-col items-center gap-2 rounded-lg bg-black/80 px-4 py-3 text-white transition hover:bg-black/90"
             >
               {isRTL ? <ChevronLeft className="h-6 w-6" /> : <ChevronRight className="h-6 w-6" />}
               <span className="text-xs text-center">
-                {nextChapter.title || `Chapter ${nextChapter.number || nextChapter.id}`}
+                {nextChapter.title || `Chapter ${nextChapter.number || nextChapter.slug}`}
               </span>
               <span className="text-xs text-white/60">Click to continue</span>
             </button>

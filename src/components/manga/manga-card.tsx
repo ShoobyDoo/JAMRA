@@ -1,29 +1,23 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { Loader } from "@mantine/core";
 import type { CatalogueItem } from "@/lib/api";
+import { slugify } from "@/lib/slug";
 
 interface MangaCardProps {
   item: CatalogueItem;
 }
 
 export function MangaCard({ item }: MangaCardProps) {
-  const [isNavigating, setIsNavigating] = useState(false);
+  const computedSlug = slugify(item.slug ?? item.title);
+  const destination = computedSlug ?? item.id;
 
   return (
     <Link
-      href={`/manga/${encodeURIComponent(item.id)}`}
-      onClick={() => setIsNavigating(true)}
-      className="group overflow-hidden rounded-lg border border-border bg-card shadow-sm transition hover:-translate-y-1 hover:shadow-lg relative"
+      href={`/manga/${encodeURIComponent(destination)}`}
+      className="group relative overflow-hidden rounded-lg border border-border bg-card shadow-sm transition hover:-translate-y-1 hover:shadow-lg cursor-pointer"
     >
-      {isNavigating && (
-        <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-10 flex items-center justify-center">
-          <Loader size="md" />
-        </div>
-      )}
       <div className="relative aspect-[3/4] w-full overflow-hidden bg-muted">
         {item.coverUrl ? (
           <Image

@@ -4,9 +4,8 @@ import type { PropsWithChildren } from "react";
 import { AppShell } from "@mantine/core";
 import { Sidebar } from "@/components/nav/sidebar";
 import { Topbar } from "@/components/topbar/topbar";
-import { GlobalLoadingOverlay } from "@/components/global-loading-overlay";
-import { NavigationListener } from "@/components/navigation-listener";
 import { useUIStore } from "@/store/ui";
+import { ScrollButtons } from "@/components/ui/scroll-buttons";
 import {
   SIDEBAR_WIDTH,
   HEADER_HEIGHT,
@@ -19,7 +18,6 @@ export function AppLayout({ children }: PropsWithChildren) {
 
   return (
     <>
-      <NavigationListener />
       <AppShell
         header={{ height: HEADER_HEIGHT }}
         navbar={{
@@ -50,12 +48,12 @@ export function AppLayout({ children }: PropsWithChildren) {
         <Sidebar />
       </AppShell.Navbar>
       <AppShell.Main className="relative overflow-y-auto">
-        <GlobalLoadingOverlay scope="content" />
         <div className={`relative mx-auto w-full ${CONTENT_MAX_WIDTH} px-4 py-6`}>
           {children}
         </div>
+        <ScrollButtons />
       </AppShell.Main>
-     </AppShell>
+    </AppShell>
     </>
   );
 }

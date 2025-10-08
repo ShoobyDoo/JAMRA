@@ -226,6 +226,41 @@ const MIGRATIONS: Migration[] = [
       `);
     },
   },
+  {
+    id: 8,
+    up: (db) => {
+      const columns = db
+        .prepare(`PRAGMA table_info(manga)`)
+        .all() as Array<{
+        name: string;
+      }>;
+      const existing = new Set(columns.map((column) => column.name));
+
+      if (!existing.has("slug")) {
+        db.exec(`ALTER TABLE manga ADD COLUMN slug TEXT;`);
+      }
+
+      db.exec(`
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_manga_extension_slug
+          ON manga (extension_id, slug)
+          WHERE slug IS NOT NULL;
+      `);
+
+      db.exec(`
+        CREATE INDEX IF NOT EXISTS idx_manga_slug_lookup
+          ON manga (slug)
+          WHERE slug IS NOT NULL;
+      `);
+
+      db.exec(`
+        UPDATE manga
+        SET slug = lower(series_name)
+        WHERE slug IS NULL
+          AND series_name IS NOT NULL
+          AND length(series_name) > 0;
+      `);
+    },
+  },
 ];
 
 export function runMigrations(db: Database.Database): void {

@@ -1,7 +1,13 @@
+"use client";
+
 import Link from "next/link";
 import Image from "next/image";
+import { useMemo } from "react";
 import { AlertCircle } from "lucide-react";
 import type { MangaDetails } from "@/lib/api";
+import { slugify } from "@/lib/slug";
+import { withChapterSlugs } from "@/lib/chapter-slug";
+import { formatChapterTitle, sortChaptersAsc } from "@/lib/chapter-meta";
 
 interface ContinueReadingCardProps {
   manga: MangaDetails | null;
@@ -42,6 +48,15 @@ export function ContinueReadingCard({
   } else {
     timeAgo = lastReadDate.toLocaleDateString();
   }
+
+  const chaptersWithSlugs = useMemo(
+    () => withChapterSlugs(manga?.chapters ?? []),
+    [manga?.chapters],
+  );
+  const sortedChaptersAsc = useMemo(
+    () => sortChaptersAsc(chaptersWithSlugs),
+    [chaptersWithSlugs],
+  );
 
   // Error state - show unavailable manga
   if (error || !manga) {
@@ -89,20 +104,26 @@ export function ContinueReadingCard({
   }
 
   // Find the current chapter info
-  const currentChapter = manga.chapters?.find((ch) => ch.id === currentChapterId);
+  const currentChapter = chaptersWithSlugs.find((ch) => ch.id === currentChapterId);
 
   // Calculate chapter progress
-  const totalChapters = manga.chapters?.length ?? 0;
-  const currentChapterIndex = manga.chapters?.findIndex((ch) => ch.id === currentChapterId) ?? 0;
-  const readChapters = currentChapterIndex + 1; // +1 because we're currently reading this chapter
+  const totalChapters = sortedChaptersAsc.length;
+  const currentChapterIndex = sortedChaptersAsc.findIndex((ch) => ch.id === currentChapterId);
+  const readChapters = currentChapterIndex >= 0 ? currentChapterIndex + 1 : 0; // +1 because we're currently reading this chapter
   const chapterProgress = totalChapters > 0 ? (readChapters / totalChapters) * 100 : 0;
 
   // Calculate page progress percentage
   const pageProgress = totalPages > 0 ? ((currentPage + 1) / totalPages) * 100 : 0;
 
+  const destination = slugify(manga.slug ?? manga.title) ?? mangaId;
+
+  const pageQuery = new URLSearchParams({
+    page: String(currentPage),
+  }).toString();
+
   return (
     <Link
-      href={`/read/${manga.id}/chapter/${currentChapterId}`}
+      href={`/read/${encodeURIComponent(destination)}/chapter/${encodeURIComponent(currentChapter?.slug ?? currentChapterId)}?${pageQuery}`}
       className="group relative overflow-hidden rounded-lg border border-border bg-card shadow-sm transition hover:shadow-md"
     >
       <div className="flex gap-4 p-4">
@@ -143,7 +164,7 @@ export function ContinueReadingCard({
               {manga.title}
             </h3>
             <p className="text-sm text-muted-foreground">
-              {currentChapter?.title || `Chapter ${currentChapter?.number || currentChapterId}`}
+              {currentChapter ? formatChapterTitle(currentChapter) : `Chapter ${currentChapterId}`}
             </p>
             <p className="text-xs text-muted-foreground">
               Page {currentPage + 1} of {totalPages} • {timeAgo}
@@ -185,12 +206,6 @@ export function ContinueReadingCard({
         </div>
       </div>
 
-      {/* Continue Reading Overlay */}
-      <div className="absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition group-hover:bg-black/10 group-hover:opacity-100">
-        <div className="rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-lg">
-          Continue Reading
-        </div>
-      </div>
     </Link>
   );
 }
