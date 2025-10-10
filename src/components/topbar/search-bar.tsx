@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { TextInput, Paper, Text, Loader } from "@mantine/core";
+import { notifications } from "@mantine/notifications";
 import { Search, X } from "lucide-react";
 import { useDebouncedValue } from "@mantine/hooks";
 import { fetchCataloguePage } from "@/lib/api";
@@ -92,9 +93,16 @@ export function SearchBar() {
         setResults(ranked);
         setShowDropdown(ranked.length > 0);
       })
-      .catch(() => {
+      .catch((error) => {
         setResults([]);
         setShowDropdown(false);
+        notifications.show({
+          title: "Search failed",
+          message: "Could not perform search. Please try again.",
+          color: "red",
+          autoClose: 4000,
+        });
+        console.error("Search failed:", error);
       })
       .finally(() => setLoading(false));
   }, [debouncedQuery]);

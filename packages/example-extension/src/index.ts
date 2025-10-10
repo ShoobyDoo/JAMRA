@@ -94,7 +94,7 @@ const extension: ExtensionModule = {
       return {
         mangaId: request.mangaId,
         chapterId: request.chapterId,
-        pages: Array.from({ length: 3 }).map((_, index) => ({
+        images: Array.from({ length: 3 }).map((_, index) => ({
           index,
           url: `https://picsum.photos/seed/${request.chapterId}-${index}/1080/1920`,
           width: 1080,

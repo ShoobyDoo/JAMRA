@@ -23,6 +23,7 @@ import {
   Tooltip,
 } from "@mantine/core";
 import { useDebouncedValue } from "@mantine/hooks";
+import { notifications } from "@mantine/notifications";
 import {
   ManagedExtension,
   acknowledgeExtensionUpdate,
@@ -137,8 +138,19 @@ export function ExtensionsManager({
       await navigator.clipboard.writeText(text);
       setCopiedField(fieldId);
       setTimeout(() => setCopiedField(null), 2000);
+      notifications.show({
+        message: "Copied to clipboard",
+        color: "green",
+        autoClose: 2000,
+      });
     } catch (err) {
       console.error('Failed to copy:', err);
+      notifications.show({
+        title: "Failed to copy",
+        message: err instanceof Error ? err.message : "Unknown error",
+        color: "red",
+        autoClose: 4000,
+      });
     }
   };
 
@@ -245,6 +257,12 @@ export function ExtensionsManager({
       setInstallPath("");
       setAutoEnable(true);
       void refreshExtensions(true);
+      notifications.show({
+        title: "Extension installed",
+        message: `${extension.name} has been installed successfully`,
+        color: "green",
+        autoClose: 3000,
+      });
     } catch (err) {
       setInstallError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -259,6 +277,11 @@ export function ExtensionsManager({
       const updated = await enableExtension(extension.id);
       updateExtensionState(updated);
       void refreshExtensions(true);
+      notifications.show({
+        message: `${extension.name} enabled successfully`,
+        color: "green",
+        autoClose: 3000,
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -275,6 +298,11 @@ export function ExtensionsManager({
         updateExtensionState(updated);
       }
       void refreshExtensions(true);
+      notifications.show({
+        message: `${extension.name} disabled successfully`,
+        color: "yellow",
+        autoClose: 3000,
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -298,6 +326,12 @@ export function ExtensionsManager({
       setExtensions((prev) =>
         prev.filter((item) => item.id !== uninstallTarget.id),
       );
+      notifications.show({
+        title: "Extension uninstalled",
+        message: `${uninstallTarget.name} has been removed`,
+        color: "blue",
+        autoClose: 3000,
+      });
       setUninstallTarget(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -318,6 +352,23 @@ export function ExtensionsManager({
     try {
       const updated = await checkExtensionUpdates(extension.id);
       updateExtensionState(updated);
+
+      // Notify if update is available
+      const latest = updated.updateState?.latest;
+      if (latest && compareVersions(latest.version, updated.version) > 0) {
+        notifications.show({
+          title: "Update available",
+          message: `${extension.name} v${latest.version} is available`,
+          color: "violet",
+          autoClose: 4000,
+        });
+      } else {
+        notifications.show({
+          message: `${extension.name} is up to date`,
+          color: "green",
+          autoClose: 3000,
+        });
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       if (message.includes("/api/extensions/")) {
@@ -343,6 +394,11 @@ export function ExtensionsManager({
         latest.version,
       );
       updateExtensionState(updated);
+      notifications.show({
+        message: "Update marked as read",
+        color: "blue",
+        autoClose: 3000,
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -371,6 +427,12 @@ export function ExtensionsManager({
       });
       updateExtensionState(updated);
       void refreshExtensions(true);
+      notifications.show({
+        title: "Extension updated",
+        message: `${extension.name} updated to v${latest.version}`,
+        color: "green",
+        autoClose: 3000,
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -419,6 +481,11 @@ export function ExtensionsManager({
       );
       updateExtensionState(updated);
       closeSettingsModal();
+      notifications.show({
+        message: "Settings saved successfully",
+        color: "green",
+        autoClose: 3000,
+      });
     } catch (err) {
       setSettingsModal((current) =>
         current
@@ -478,6 +545,12 @@ export function ExtensionsManager({
       setActiveTab("installed");
       void refreshExtensions(true);
       setInstallCandidate(null);
+      notifications.show({
+        title: "Extension installed",
+        message: `${installCandidate.extension.name} has been installed successfully`,
+        color: "green",
+        autoClose: 3000,
+      });
     } catch (err) {
       setMarketplaceInstallError(
         err instanceof Error ? err.message : String(err),

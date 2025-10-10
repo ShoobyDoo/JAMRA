@@ -6,6 +6,8 @@ import { ExpandableDescription } from "@/components/manga/expandable-description
 import { GenrePills } from "@/components/manga/genre-pills";
 import { ContinueReadingButton } from "@/components/manga/continue-reading-button";
 import { ClearChaptersButton } from "@/components/manga/clear-chapters-button";
+import { OfflineMangaProvider } from "@/components/manga/offline-manga-context";
+import { OfflineDownloadControls } from "@/components/manga/offline-download-controls";
 import { withChapterSlugs } from "@/lib/chapter-slug";
 import { decodeRouteParam, type MangaRouteParams } from "@/lib/routes";
 import { logger } from "@/lib/logger";
@@ -140,29 +142,38 @@ export default async function MangaPage({ params }: MangaPageProps) {
         </div>
       </div>
 
-      <div className="space-y-3">
-        <div className="flex items-start justify-between">
-          <div>
-            <h2 className="text-xl font-semibold">Chapters</h2>
-            <p className="text-sm text-muted-foreground">
-              {chapters.length} chapter{chapters.length === 1 ? "" : "s"}{" "}
-              available.
-            </p>
+      <OfflineMangaProvider
+        extensionId={data.extensionId}
+        mangaId={mangaId}
+        mangaSlug={canonicalSlug}
+        mangaTitle={details.title}
+        chapters={chapters}
+      >
+        <div className="space-y-3">
+          <div className="flex items-start justify-between">
+            <div>
+              <h2 className="text-xl font-semibold">Chapters</h2>
+              <p className="text-sm text-muted-foreground">
+                {chapters.length} chapter{chapters.length === 1 ? "" : "s"}{" "}
+                available.
+              </p>
+            </div>
+            <ClearChaptersButton mangaId={mangaId} />
           </div>
-          <ClearChaptersButton mangaId={mangaId} />
-        </div>
 
-        <ContinueReadingButton
-          chapters={chapters}
-          mangaId={mangaId}
-          mangaSlug={canonicalSlug}
-        />
-        <ChapterList
-          chapters={chapters}
-          mangaId={mangaId}
-          mangaSlug={canonicalSlug}
-        />
-      </div>
+          <ContinueReadingButton
+            chapters={chapters}
+            mangaId={mangaId}
+            mangaSlug={canonicalSlug}
+          />
+          <OfflineDownloadControls />
+          <ChapterList
+            chapters={chapters}
+            mangaId={mangaId}
+            mangaSlug={canonicalSlug}
+          />
+        </div>
+      </OfflineMangaProvider>
     </div>
   );
 }

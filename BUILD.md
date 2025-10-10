@@ -39,6 +39,10 @@ This guide explains how to build distributable packages for Windows, macOS, and 
   # Arch
   sudo pacman -S base-devel sqlite
   ```
+- **On macOS hosts** (cross-building Linux artifacts):
+  ```bash
+  brew install rpm dpkg fakeroot p7zip
+  ```
 
 ## Icons
 
@@ -75,6 +79,10 @@ pnpm run dist:win
 # Linux (AppImage, DEB, and RPM packages)
 pnpm run dist:linux
 ```
+This command first runs `electron-builder` for the AppImage and DEB targets, then invokes `scripts/package-rpm.mjs` to stage the Fedora/RHEL RPMs for both x86_64 and aarch64. You can regenerate the RPMs without rebuilding the Electron app by running:
+```bash
+pnpm run rpm:package
+```
 
 ### Build for All Platforms
 ```bash
@@ -96,9 +104,12 @@ dist-electron/
 ├── JAMRA-0.1.0-mac.zip          # macOS portable
 ├── JAMRA Setup 0.1.0.exe        # Windows installer
 ├── JAMRA 0.1.0.exe              # Windows portable
-├── JAMRA-0.1.0.AppImage         # Linux universal
-├── jamra_0.1.0_amd64.deb        # Debian/Ubuntu package
-└── jamra-0.1.0.x86_64.rpm       # Fedora/RHEL package
+├── JAMRA-0.1.0.AppImage         # Linux universal (x64)
+├── JAMRA-0.1.0-arm64.AppImage   # Linux universal (arm64)
+├── jamra_0.1.0_amd64.deb        # Debian/Ubuntu package (x64)
+├── jamra_0.1.0_arm64.deb        # Debian/Ubuntu package (arm64)
+├── jamra-0.1.0.x86_64.rpm       # Fedora/RHEL package (x64)
+└── jamra-0.1.0.aarch64.rpm      # Fedora/RHEL package (arm64)
 ```
 
 ## Platform-Specific Notes

@@ -25,6 +25,7 @@
     "@jamra/extension-host": "workspace:*",
     "@jamra/extension-registry": "workspace:*",
     "@jamra/extension-sdk": "workspace:*",
+    "@jamra/offline-storage": "workspace:*",
     "cors": "^2.8.5",
     "express": "^4.21.2"
   },

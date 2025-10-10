@@ -90,7 +90,7 @@ export interface PageImage {
 export interface ChapterPages {
   chapterId: string;
   mangaId: string;
-  pages: PageImage[];
+  images: PageImage[];
 }
 
 export interface ChapterPagesChunk {
@@ -100,7 +100,7 @@ export interface ChapterPagesChunk {
   chunkSize: number;
   totalChunks: number;
   totalPages: number;
-  pages: PageImage[];
+  images: PageImage[];
   hasMore: boolean;
 }
 

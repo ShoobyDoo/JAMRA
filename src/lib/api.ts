@@ -791,3 +791,237 @@ export async function clearChaptersCache(mangaId: string): Promise<void> {
     method: "DELETE",
   });
 }
+
+/**
+ * DANGER ZONE: Nuclear option to clear all user data
+ * (reading progress, cached manga, etc.) but preserves installed extensions.
+ *
+ * Only available in development mode.
+ */
+export async function nukeUserData(): Promise<{ success: boolean; message: string }> {
+  return request<{ success: boolean; message: string }>("/danger/nuke-user-data", {
+    method: "POST",
+  });
+}
+
+// ============================================================================
+// Offline Storage API
+// ============================================================================
+
+export type DownloadStatus = "queued" | "downloading" | "completed" | "failed" | "paused";
+
+export interface OfflineQueuedDownload {
+  id: number;
+  extensionId: string;
+  mangaId: string;
+  mangaSlug: string;
+  chapterId?: string;
+  status: DownloadStatus;
+  priority: number;
+  queuedAt: number;
+  startedAt?: number;
+  completedAt?: number;
+  errorMessage?: string;
+  progressCurrent: number;
+  progressTotal: number;
+}
+
+export interface OfflineChapterMetadata {
+  chapterId: string;
+  slug: string;
+  number?: string;
+  title?: string;
+  displayTitle: string;
+  volume?: string;
+  publishedAt?: string;
+  languageCode?: string;
+  scanlators?: string[];
+  folderName: string;
+  totalPages: number;
+  downloadedAt: number;
+  sizeBytes: number;
+}
+
+export interface OfflineMangaMetadata {
+  version: 1;
+  downloadedAt: number;
+  lastUpdatedAt: number;
+  mangaId: string;
+  slug: string;
+  extensionId: string;
+  title: string;
+  description?: string;
+  coverUrl?: string;
+  coverPath: string;
+  authors?: string[];
+  artists?: string[];
+  genres?: string[];
+  tags?: string[];
+  rating?: number;
+  year?: number;
+  status?: string;
+  demographic?: string;
+  altTitles?: string[];
+  chapters: OfflineChapterMetadata[];
+}
+
+interface QueueChapterDownloadResponse {
+  queueId: number;
+  success: boolean;
+}
+
+interface QueueMangaDownloadResponse {
+  queueIds: number[];
+  success: boolean;
+}
+
+interface OfflineChapterStatusResponse {
+  isDownloaded: boolean;
+}
+
+interface OfflineChaptersResponse {
+  chapters: OfflineChapterMetadata[];
+}
+
+interface OfflineMangaResponse {
+  manga: OfflineMangaMetadata;
+}
+
+interface OfflineQueueResponse {
+  queue: OfflineQueuedDownload[];
+}
+
+export async function queueChapterDownload(
+  extensionId: string,
+  mangaId: string,
+  chapterId: string,
+  priority = 0
+): Promise<QueueChapterDownloadResponse> {
+  return request<QueueChapterDownloadResponse>("/offline/download/chapter", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      extensionId,
+      mangaId,
+      chapterId,
+      priority,
+    }),
+  });
+}
+
+export async function queueMangaDownload(
+  extensionId: string,
+  mangaId: string,
+  options: { chapterIds?: string[]; priority?: number } = {}
+): Promise<QueueMangaDownloadResponse> {
+  return request<QueueMangaDownloadResponse>("/offline/download/manga", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      extensionId,
+      mangaId,
+      chapterIds: options.chapterIds,
+      priority: options.priority ?? 0,
+    }),
+  });
+}
+
+export async function getOfflineChapterStatus(
+  extensionId: string,
+  mangaId: string,
+  chapterId: string
+): Promise<boolean> {
+  const params = new URLSearchParams({ extensionId });
+  const response = await request<OfflineChapterStatusResponse>(
+    `/offline/manga/${encodeURIComponent(mangaId)}/chapters/${encodeURIComponent(chapterId)}/status?${params.toString()}`,
+  );
+  return response.isDownloaded;
+}
+
+export async function getOfflineChapters(
+  extensionId: string,
+  mangaId: string
+): Promise<OfflineChapterMetadata[]> {
+  const params = new URLSearchParams({ extensionId });
+  const response = await request<OfflineChaptersResponse>(
+    `/offline/manga/${encodeURIComponent(mangaId)}/chapters?${params.toString()}`,
+  );
+  return response.chapters;
+}
+
+export async function getOfflineMangaMetadata(
+  extensionId: string,
+  mangaId: string
+): Promise<OfflineMangaMetadata | null> {
+  const params = new URLSearchParams({ extensionId });
+  const response = await request<OfflineMangaResponse | undefined>(
+    `/offline/manga/${encodeURIComponent(mangaId)}?${params.toString()}`,
+    { allowStatuses: [404] },
+  );
+  return response?.manga ?? null;
+}
+
+export async function getOfflineQueue(): Promise<OfflineQueuedDownload[]> {
+  const response = await request<OfflineQueueResponse>("/offline/queue");
+  return response.queue;
+}
+
+interface OfflineDownloadProgressResponse {
+  progress: {
+    queueId: number;
+    mangaTitle: string;
+    chapterTitle?: string;
+    status: DownloadStatus;
+    progressCurrent: number;
+    progressTotal: number;
+    progressPercent: number;
+    downloadedBytes: number;
+    totalBytes: number;
+    speedBytesPerSecond?: number;
+    estimatedTimeRemainingMs?: number;
+    errorMessage?: string;
+  };
+}
+
+export async function getOfflineDownloadProgress(
+  queueId: number
+): Promise<OfflineDownloadProgressResponse["progress"] | null> {
+  const response = await request<OfflineDownloadProgressResponse | undefined>(
+    `/offline/queue/${encodeURIComponent(String(queueId))}`,
+    { allowStatuses: [404] },
+  );
+  return response?.progress ?? null;
+}
+
+export async function cancelOfflineDownload(queueId: number): Promise<{ success: boolean }> {
+  return request<{ success: boolean }>(
+    `/offline/queue/${encodeURIComponent(String(queueId))}/cancel`,
+    {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+    },
+  );
+}
+
+export async function deleteOfflineChapter(
+  extensionId: string,
+  mangaId: string,
+  chapterId: string
+): Promise<void> {
+  const params = new URLSearchParams({ extensionId });
+  await request(
+    `/offline/manga/${encodeURIComponent(mangaId)}/chapters/${encodeURIComponent(chapterId)}?${params.toString()}`,
+    { method: "DELETE" },
+  );
+}
+
+export async function deleteOfflineManga(
+  extensionId: string,
+  mangaId: string
+): Promise<void> {
+  const params = new URLSearchParams({ extensionId });
+  await request(
+    `/offline/manga/${encodeURIComponent(mangaId)}?${params.toString()}`,
+    { method: "DELETE" },
+  );
+}

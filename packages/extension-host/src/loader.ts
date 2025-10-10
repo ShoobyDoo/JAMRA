@@ -39,16 +39,21 @@ async function resolveModule(
   // Log structure for debugging
   if (typeof factoryOrModule === "object" && factoryOrModule !== null) {
     const keys = Object.keys(factoryOrModule);
+    const moduleWithDefault = factoryOrModule as Record<string, unknown>;
+    const hasDefault = 'default' in factoryOrModule;
+    const defaultValue = hasDefault ? moduleWithDefault.default : null;
+    const defaultKeys = defaultValue !== null && typeof defaultValue === 'object' && defaultValue !== null
+      ? Object.keys(defaultValue as Record<string, unknown>)
+      : null;
+
     console.error('[ExtensionLoader] ✗ Module structure:', {
       keys,
       hasManifest: 'manifest' in factoryOrModule,
       hasHandlers: 'handlers' in factoryOrModule,
       firstLevelKeys: keys,
       // Check nested defaults
-      hasDefault: 'default' in factoryOrModule,
-      defaultKeys: 'default' in factoryOrModule && typeof (factoryOrModule as any).default === 'object'
-        ? Object.keys((factoryOrModule as any).default)
-        : null,
+      hasDefault,
+      defaultKeys,
     });
   }
 

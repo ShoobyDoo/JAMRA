@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { notifications } from "@mantine/notifications";
 import { routes } from "@/lib/routes";
 import { logger } from "@/lib/logger";
 
@@ -39,6 +40,9 @@ export function AppWarmup(): null {
     const controller = new AbortController();
     const { signal } = controller;
 
+    let failedCount = 0;
+    const totalTargets = apiWarmupTargets.length;
+
     apiWarmupTargets.forEach((target) => {
       void fetch(target, { signal })
         .then(() => {
@@ -55,6 +59,18 @@ export function AppWarmup(): null {
             target,
             error,
           });
+
+          failedCount++;
+
+          // Show notification if all API warmup calls fail
+          if (failedCount === totalTargets) {
+            notifications.show({
+              title: "API Connection Issue",
+              message: "Could not connect to the API server. Some features may not work properly.",
+              color: "yellow",
+              autoClose: 5000,
+            });
+          }
         });
     });
 

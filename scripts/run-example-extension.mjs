@@ -65,7 +65,7 @@ async function main() {
         chapterId: chapters[0].id,
       });
       console.log(
-        `Loaded ${pages.pages.length} pages for chapter ${chapters[0].id}`,
+        `Loaded ${pages.images.length} pages for chapter ${chapters[0].id}`,
       );
     }
   } finally {

@@ -646,7 +646,7 @@ export class CatalogRepository {
 
     this.db.transaction(() => {
       deleteStmt.run({ chapter_id: payload.chapterId });
-      for (const page of payload.pages) {
+      for (const page of payload.images) {
         insertStmt.run({
           chapter_id: payload.chapterId,
           manga_id: mangaId,
@@ -1047,5 +1047,33 @@ export class CatalogRepository {
         manga_id: mangaId,
         series_name: seriesName,
       });
+  }
+
+  /**
+   * Nuclear option: Clears all user data (reading progress, cached manga, etc.)
+   * but preserves installed extensions.
+   *
+   * WARNING: This is destructive and cannot be undone!
+   */
+  nukeUserData(): void {
+    // Use a transaction to ensure atomicity
+    const transaction = this.db.transaction(() => {
+      // Clear reading progress
+      this.db.prepare("DELETE FROM reading_progress").run();
+
+      // Clear cached content
+      this.db.prepare("DELETE FROM chapter_pages").run();
+      this.db.prepare("DELETE FROM chapters").run();
+      this.db.prepare("DELETE FROM manga_details").run();
+      this.db.prepare("DELETE FROM manga").run();
+
+      // Clear extension cache
+      this.db.prepare("DELETE FROM extension_cache").run();
+
+      // Clear sync state
+      this.db.prepare("DELETE FROM sync_state").run();
+    });
+
+    transaction();
   }
 }

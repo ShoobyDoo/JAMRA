@@ -90,17 +90,20 @@ Packages build in dependency order:
 
 The catalog database uses `better-sqlite3` which requires native bindings:
 
-1. **Node 24.x works out-of-box** - prebuilt binaries are distributed
-2. **Automatic Electron compatibility** - `pnpm install` runs a postinstall hook that ensures both Node 24 (web) and Electron 38 bindings are available
-3. **Manual rebuild** - run `pnpm sqlite:refresh --electron` to rebuild bindings after Node version changes
-4. **Fallback** - set `JAMRA_DISABLE_SQLITE=1` to skip persistence during development
+1. **Automatic setup** - `pnpm install` rebuilds bindings for both Node 24 and Electron 38
+2. **Automatic cleanup** - Postinstall removes conflicting bindings that cause ABI mismatch
+3. **Just works** - `pnpm desktop:dev` automatically ensures Electron bindings are ready
+4. **Advanced rebuild** - Use `pnpm sqlite:refresh --electron` for manual control
+5. **Fallback** - Set `JAMRA_DISABLE_SQLITE=1` to skip persistence during development
 
-The postinstall script ([scripts/postinstall.sh](scripts/postinstall.sh)) automatically:
-- Copies Electron ABI 139 binding to `node-v139` location (required for Electron to find it)
-- Preserves Node 24 ABI 137 binding for web development
-- Removes `build/Release/better_sqlite3.node` to force library selection from `lib/binding/`
+**How it works:**
+- `electron-builder install-app-deps` rebuilds native modules for Electron (ABI 139)
+- `scripts/fix-sqlite-bindings.mjs` removes `build/` directory to force `lib/binding/` usage
+- This prevents the common ABI mismatch error when starting Electron
 
-See [docs/sqlite-setup.md](docs/sqlite-setup.md) for platform-specific toolchain requirements.
+**Troubleshooting:**
+- If you get ABI errors, run `pnpm desktop:refresh` to reset bindings
+- See [docs/sqlite-setup.md](docs/sqlite-setup.md) for platform-specific toolchain requirements
 
 ## Coding Conventions
 

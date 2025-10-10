@@ -9,6 +9,7 @@ import {
   PanelLeft,
   ChevronLeft,
   ChevronRight,
+  RotateCw,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { SearchBar } from "./search-bar";
@@ -69,6 +70,17 @@ export function Topbar() {
               onClick={() => router.forward()}
             >
               <ChevronRight size={16} />
+            </ActionIcon>
+          </Tooltip>
+          <Tooltip label="Reload page">
+            <ActionIcon
+              variant="default"
+              radius="md"
+              size="sm"
+              aria-label="Reload page"
+              onClick={() => window.location.reload()}
+            >
+              <RotateCw size={16} />
             </ActionIcon>
           </Tooltip>
         </Group>

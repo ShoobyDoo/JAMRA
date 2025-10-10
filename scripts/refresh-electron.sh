@@ -1,36 +1,44 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Refresh Electron environment for desktop:dev
+# This ensures native modules and extensions are ready
+
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-echo ">> Rebuilding native modules against Electron"
-pnpm exec electron-rebuild
+echo ">> Refreshing Electron environment..."
 
-# Remove conflicting Node binding to force Electron to use correct ABI
-rm -f "$ROOT_DIR/node_modules/.pnpm/better-sqlite3@*/node_modules/better-sqlite3/build/Release/better_sqlite3.node"
-echo "✓ Removed conflicting SQLite binding"
+# 1. Rebuild native modules for Electron
+echo "   Rebuilding native modules..."
+cd "$ROOT_DIR"
+pnpm exec electron-builder install-app-deps --arch=arm64 --platform=darwin 2>&1 | grep -v "deprecated" || true
 
-echo ">> Rebuilding @jamra/weebcentral-extension bundle"
+# 2. Fix SQLite bindings (remove conflicting build/ directory)
+node "$ROOT_DIR/scripts/fix-sqlite-bindings.mjs"
+
+# 3. Rebuild WeebCentral extension
+echo ">> Rebuilding WeebCentral extension..."
 pnpm --filter @jamra/weebcentral-extension build
 
+# 4. Update manifest checksum
 BUNDLE_PATH="$ROOT_DIR/packages/weebcentral-extension/dist/bundle.cjs"
 if [[ ! -f "$BUNDLE_PATH" ]]; then
-  echo "Bundle not found at $BUNDLE_PATH" >&2
+  echo "⚠ Bundle not found at $BUNDLE_PATH" >&2
   exit 1
 fi
 
 CHECKSUM=$(shasum -a 256 "$BUNDLE_PATH" | awk '{print $1}')
-echo ">> bundle.cjs SHA-256: $CHECKSUM"
+echo "   Bundle SHA-256: $CHECKSUM"
 
-# Auto-update the official registry manifest
 MANIFEST_PATH="$ROOT_DIR/packages/catalog-server/src/extensions/registries/official.json"
 if command -v jq &> /dev/null; then
-  # Update the checksum for com.weebcentral.manga extension
   jq --arg checksum "$CHECKSUM" \
     '(.extensions[] | select(.id == "com.weebcentral.manga") | .versions[0].checksum.value) = $checksum' \
     "$MANIFEST_PATH" > "$MANIFEST_PATH.tmp" && mv "$MANIFEST_PATH.tmp" "$MANIFEST_PATH"
-  echo "✓ Updated official.json with new checksum"
+  echo "✓ Updated official.json checksum"
 else
-  echo "⚠ jq not found - skipping manifest update. Manual update required."
-  echo "Update the WeebCentral checksum in $MANIFEST_PATH to: $CHECKSUM"
+  echo "⚠ jq not found - manual checksum update required in $MANIFEST_PATH"
 fi
+
+echo ""
+echo "✓ Electron environment ready"

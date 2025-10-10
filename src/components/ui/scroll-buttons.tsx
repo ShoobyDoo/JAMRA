@@ -47,6 +47,16 @@ export function ScrollButtons() {
 
   return (
     <div className="fixed bottom-6 right-6 z-40 flex flex-col gap-2">
+      {showScrollTop && (
+        <button
+          type="button"
+          onClick={scrollToTop}
+          className="rounded-full bg-background/95 p-3 text-primary shadow-lg ring-1 ring-border transition hover:bg-background hover:scale-105 hover:"
+          aria-label="Scroll to top"
+        >
+          <ChevronUp className="h-5 w-5" />
+        </button>
+      )}
       {showScrollBottom && (
         <button
           type="button"
@@ -57,16 +67,7 @@ export function ScrollButtons() {
           <ChevronDown className="h-5 w-5" />
         </button>
       )}
-      {showScrollTop && (
-        <button
-          type="button"
-          onClick={scrollToTop}
-          className="rounded-full bg-primary p-3 text-primary-foreground shadow-lg ring-1 ring-border/50 transition hover:scale-105"
-          aria-label="Scroll to top"
-        >
-          <ChevronUp className="h-5 w-5" />
-        </button>
-      )}
+      
     </div>
   );
 }

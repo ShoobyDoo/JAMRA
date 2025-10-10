@@ -1,100 +1,152 @@
 # Manga Slug Architecture
 
+## ✅ IMPLEMENTATION STATUS: **COMPLETE**
+
+**Implemented**: October 2024
+**Approach**: Human-readable URLs with stable ID persistence
+
+JAMRA presents user-friendly manga URLs like `/manga/one-piece` while preserving stable source identifiers for persistence, caching, and reading progress. Slugs flow from extensions through the SDK, are normalized and indexed in the database, and can be resolved back to IDs at the API/service layers.
+
+---
+
 ## Overview
 
-JAMRA now presents human-readable manga URLs such as `/manga/one-piece` while
-preserving the stable source identifiers used for persistence, caching, and
-reading progress. Slugs travel from the extension through the SDK, are
-normalized and indexed in the catalog database, and can be resolved back to an
-ID at the API/service layers. The frontend prefers slugs for routing but always
-records reading progress against the immutable ID.
+### URL Structure
 
-## Extension & SDK
+- **Frontend**: `/manga/{slug}` and `/read/{slug}/chapter/{chapterSlug}`
+- **Persistence**: All database records use stable manga IDs
+- **Resolution**: Service layer converts slugs → IDs transparently
 
-- `packages/weebcentral-extension/src/scraper.ts` populates `slug` beside `id`
-  in catalogue/search results and manga details. The slug is derived from the
-  `/series/{id}/{name}` segment, lower‑cased, and cached for reuse.
-- `packages/extension-sdk/src/types.ts` adds an optional `slug?: string` field
-  to `MangaSummary`, which flows through to `MangaDetails` so every consumer of
-  SDK types can expose a slug without breaking older extensions.
+### Benefits
 
-## Persistence Layer
+- ✅ **SEO-friendly URLs**: `/manga/one-piece` vs `/manga/2d6cc7e0-6ee8-4...`
+- ✅ **User-shareable links**: Easy to read and remember
+- ✅ **Stable persistence**: IDs don't change when titles are updated
+- ✅ **Backward compatible**: Old ID-based URLs still work
 
-- Migration `008` (`packages/catalog-db/src/migrations.ts`) adds a `slug` column
-  to the `manga` table, normalizes existing `series_name` values to lower-case
-  slugs, and creates:
-  - `idx_manga_extension_slug` – unique on `(extension_id, slug)` when present;
-  - `idx_manga_slug_lookup` – non-unique helper index for slug lookups.
-- `CatalogRepository.upsertMangaSummaries` lower-cases incoming slugs (or
-  optional `seriesNames`) before storing them. When backfilling via catalogue
-  responses we now persist slugs immediately to support deep links.
-- `CatalogRepository.getMangaBySlug(extensionId, slug)` provides a normalized
-  lookup that returns the associated ID and metadata for downstream services.
+---
 
-## Catalog Service
+## Implementation
 
-- `CatalogService.resolveMangaId` accepts either an ID or slug. Resolution flow:
-  1. Check the local database via `getMangaBySlug`.
-  2. If it still looks like a slug, run `host.invokeSearch` (falling back to
-     catalogue when search is unavailable), match against returned slugs or
-     slugified titles, persist any matches, and return the resolved ID.
-  3. Otherwise treat the identifier as the original ID (legacy flow).
-- `CatalogService.syncMangaBySlug` and `syncChapterPages` call
-  `resolveMangaId` and emit a clear error when a slug cannot be resolved so the
-  API can respond with HTTP 404.
-- `/api/catalog` calls now invoke `repository.upsertMangaSummaries` inside the
-  route so that every catalogue/search response seeds slug mappings even before
-  a detail fetch occurs.
+### Extension & SDK
 
-## API Surface
+**Extension** (`packages/weebcentral-extension/src/scraper.ts`)
+- Populates `slug` field in catalogue/search results and manga details
+- Derives slug from `/series/{id}/{name}` segment, normalized to lowercase
 
-- `GET /api/manga/by-slug/:slug` resolves the slug via the service and returns
-  full details plus chapters. Errors from `resolveMangaId` become 404 responses.
-- `GET /api/manga/:id` auto-detects slug-like identifiers (lowercase + hyphen
-  pattern) and delegates to `syncMangaBySlug`, preserving backward compatibility
-  for existing ID URLs.
-- `GET /api/manga/:id/chapters/:chapterId/pages` reuses the same detection so
-  progressive chapter routes work with either slug or ID.
-- `DELETE /api/manga/:id/chapters` still expects an ID; the UI always passes the
-  canonical ID when clearing caches.
+**SDK Types** (`packages/extension-sdk/src/types.ts`)
+- `MangaSummary` has optional `slug?: string` field
+- Flows through to `MangaDetails` without breaking older extensions
 
-## Frontend Integration
+### Persistence Layer
 
-- `src/lib/api.ts` exposes `fetchMangaBySlug` and updates `fetchMangaDetails`
-  to try the slug endpoint first (with graceful fallback to the ID route).
-- `src/app/(app)/manga/[slug]/page.tsx` and
-  `src/app/read/[slug]/chapter/[number]/page.tsx` resolve the canonical ID from
-  the slug, then reuse that ID for chapter/page fetches and reading progress.
-- Reader components now distinguish between the persistent `mangaId` (for
-  progress) and `mangaSlug` (for navigation URLs). All in-reader navigation,
-  including prefetching and auto-advance, uses the slug.
-- Search results, cards, breadcrumbs, and continue-reading UI link to
-  `/manga/{slug}` while transparently falling back to the ID if a slug is
-  unavailable.
+**Database Migration 008** (`packages/catalog-db/src/migrations.ts`)
+- Adds `slug` column to `manga` table
+- Creates `idx_manga_extension_slug` - unique on `(extension_id, slug)`
+- Creates `idx_manga_slug_lookup` - non-unique helper index
+- Normalizes existing `series_name` values to slugs
 
-## Backward Compatibility & Edge Cases
+**Repository** (`packages/catalog-db/src/catalogRepository.ts:983`)
+- `getMangaBySlug(extensionId, slug)` - Lookups normalized slug
+- `upsertMangaSummaries()` - Lower-cases and stores slugs on insert/update
 
-- Existing ID URLs remain valid: both `/manga/{id}` and `/read/{id}/chapter/...`
-  work because the API and reader resolve identifiers dynamically.
-- Slugs are normalized to lower-case and de-duped per extension. If a slug
-  cannot be resolved via cached data, the service makes a best-effort search and
-  caches the mapping for future requests; otherwise users receive a 404.
-- Reading progress continues to use the stable ID in both the API payloads and
-  the Zustand store, so historical progress records are unaffected by the new
-  routing.
+### Service Layer
 
-## Validation Checklist
+**Catalog Service** (`packages/catalog-service/src/catalogService.ts:243`)
 
-- [ ] Catalogue/search responses persist slugs to the database.
-- [ ] `/manga/{slug}` returns details and chapters for a slug-only deep link.
-- [ ] `/read/{slug}/chapter/{id}` loads pages and updates reading progress.
-- [ ] Legacy `/manga/{id}` and `/read/{id}/...` URLs continue to work.
-- [ ] Slug collisions across extensions are rejected by
-      `idx_manga_extension_slug`.
-- [ ] Error handling surfaces a 404 when a slug cannot be resolved.
+`resolveMangaId(extensionId, identifier)` resolution flow:
+1. Check database via `getMangaBySlug()`
+2. If not found and looks like slug, search via `host.invokeSearch()`
+3. Match against returned slugs or slugified titles
+4. Persist matches for future requests
+5. Return resolved ID or throw error
 
-## Follow-up Considerations
+All service methods (`syncMangaBySlug`, `syncChapterPages`, `fetchChapterPagesChunk`) use `resolveMangaId()` internally.
 
-- Extend telemetry/metrics to track slug resolution misses.
-- Provide a migration command to retroactively seed slugs for existing library
-  items sourced from other extensions once they ship slug support.
+### API Layer
+
+**Server Endpoints** (`packages/catalog-server/src/server.ts`)
+- `GET /api/manga/by-slug/:slug` - Explicit slug resolution endpoint
+- `GET /api/manga/:id` - Auto-detects slugs (lowercase + hyphen pattern) and delegates to `syncMangaBySlug()`
+- `GET /api/manga/:id/chapters/:chapterId/pages/chunk/:chunk` - Supports both IDs and slugs
+
+**Error Handling**
+- Slug not found → HTTP 404 with clear error message
+- Invalid slug format → Treated as ID (backward compat)
+
+### Frontend
+
+**API Client** (`src/lib/api.ts`)
+- `fetchMangaBySlug()` - Dedicated slug fetch function
+- `fetchMangaDetails()` - Tries slug endpoint first, falls back to ID route
+
+**Pages**
+- `src/app/(app)/manga/[slug]/page.tsx` - Manga details by slug
+- `src/app/read/[slug]/chapter/[chapterSlug]/page.tsx` - Reader by slug
+
+**Components**
+- Reader distinguishes `mangaId` (for progress) from `mangaSlug` (for navigation)
+- All navigation links use slugs when available, fall back to IDs
+- Search results, cards, continue-reading UI link to `/manga/{slug}`
+
+---
+
+## Key Features
+
+### Normalization
+
+- Slugs normalized to lowercase
+- Deduplicated per extension via unique index
+- Chapter slugs generated from chapter numbers/titles
+
+### Fallback Chain
+
+1. Try slug lookup in database
+2. Try search/catalogue match
+3. Persist new mapping
+4. Fall back to treating identifier as ID
+
+### Backward Compatibility
+
+- Existing `/manga/{id}` URLs continue to work
+- Reading progress uses stable IDs (unaffected by slug changes)
+- Extensions without slug support automatically get slugified titles
+
+---
+
+## Edge Cases
+
+### Slug Collisions
+
+- Unique index prevents collision within same extension
+- Different extensions can have same slug (scoped by `extension_id`)
+
+### Resolution Failures
+
+- Slug not in DB → Search fallback → 404 if not found
+- Service emits clear error: `"Manga slug 'xyz' could not be resolved to an ID."`
+- Frontend displays 404 page
+
+### Title Changes
+
+- Slug remains unchanged in database
+- Reading progress persists via stable ID
+- Old bookmarks/shares continue to work
+
+---
+
+## Validation
+
+- ✅ Catalogue/search responses persist slugs
+- ✅ `/manga/{slug}` returns details and chapters
+- ✅ `/read/{slug}/chapter/{slug}` loads pages and tracks progress
+- ✅ Legacy `/manga/{id}` URLs continue to work
+- ✅ Slug collisions rejected by unique index
+- ✅ 404 error on unresolved slugs
+
+---
+
+## References
+
+- Related: `docs/architecture/lazy-page-loading.md` - Uses slug resolution in chunk endpoints
+- Related: `docs/manga-reader-features.md` - Reader navigation with slugs

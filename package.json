@@ -1,6 +1,8 @@
 {
   "name": "jamra",
   "version": "0.1.0",
+  "description": "Extensible manga reader with SQLite-backed catalog and desktop shell",
+  "author": "JAMRA Team",
   "private": true,
   "type": "module",
   "main": "electron/dist/main.cjs",
@@ -22,16 +24,19 @@
     "desktop:dev": "pnpm run desktop:refresh && pnpm run run bootstrap desktop",
     "desktop:refresh": "bash scripts/refresh-electron.sh",
     "sqlite:refresh": "bash scripts/refresh-sqlite.sh",
-    "postinstall": "node scripts/postinstall.mjs",
+    "postinstall": "electron-builder install-app-deps && node scripts/fix-sqlite-bindings.mjs",
     "dist": "pnpm build && electron-builder",
     "dist:mac": "pnpm build && electron-builder --mac",
     "dist:win": "pnpm build && electron-builder --win",
-    "dist:linux": "pnpm build && electron-builder --linux",
-    "dist:all": "pnpm build && electron-builder -mwl"
+    "dist:linux": "pnpm build && electron-builder --linux AppImage --linux deb && node scripts/package-rpm.mjs",
+    "rpm:package": "node scripts/package-rpm.mjs",
+    "dist:all": "pnpm build && electron-builder -mwl && node scripts/package-rpm.mjs"
   },
   "dependencies": {
     "@mantine/core": "8.3.3",
     "@mantine/hooks": "8.3.3",
+    "@mantine/modals": "^8.3.3",
+    "@mantine/notifications": "^8.3.3",
     "lucide-react": "^0.544.0",
     "next": "15.5.4",
     "react": "19.2.0",
@@ -87,18 +92,25 @@
       }
     ],
     "asarUnpack": [
-      "node_modules/better-sqlite3/**/*"
+      "node_modules/better-sqlite3/**/*",
+      "node_modules/.pnpm/better-sqlite3@*/node_modules/better-sqlite3/**/*"
     ],
-    "afterPack": "./scripts/afterPack.js",
+    "afterPack": "./scripts/afterPack.mjs",
     "mac": {
       "target": [
         {
           "target": "dmg",
-          "arch": ["x64", "arm64"]
+          "arch": [
+            "x64",
+            "arm64"
+          ]
         },
         {
           "target": "zip",
-          "arch": ["x64", "arm64"]
+          "arch": [
+            "x64",
+            "arm64"
+          ]
         }
       ],
       "category": "public.app-category.entertainment",
@@ -126,11 +138,16 @@
       "target": [
         {
           "target": "nsis",
-          "arch": ["x64", "ia32"]
+          "arch": [
+            "x64",
+            "ia32"
+          ]
         },
         {
           "target": "portable",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ],
       "icon": "build/icon.ico"
@@ -145,15 +162,17 @@
       "target": [
         {
           "target": "AppImage",
-          "arch": ["x64", "arm64"]
+          "arch": [
+            "x64",
+            "arm64"
+          ]
         },
         {
           "target": "deb",
-          "arch": ["x64", "arm64"]
-        },
-        {
-          "target": "rpm",
-          "arch": ["x64", "arm64"]
+          "arch": [
+            "x64",
+            "arm64"
+          ]
         }
       ],
       "icon": "build/icons",

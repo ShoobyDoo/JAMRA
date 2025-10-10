@@ -38,7 +38,7 @@ export class WeebCentralScraper {
   private rateLimiter: RateLimiter;
   private seriesCache: Map<string, SeriesMetadata> = new Map();
   private cache?: ExtensionCache;
-  private chapterPagesCache: Map<string, { pages: ChapterPages["pages"]; fetchedAt: number }> = new Map();
+  private chapterPagesCache: Map<string, { images: ChapterPages["images"]; fetchedAt: number }> = new Map();
 
   constructor(rateLimiter: RateLimiter, cache?: ExtensionCache) {
     this.rateLimiter = rateLimiter;
@@ -49,11 +49,11 @@ export class WeebCentralScraper {
     this.cache = cache;
   }
 
-  private async fetchChapterPageList(chapterId: string): Promise<ChapterPages["pages"]> {
+  private async fetchChapterPageList(chapterId: string): Promise<ChapterPages["images"]> {
     const cached = this.chapterPagesCache.get(chapterId);
     const now = Date.now();
     if (cached && now - cached.fetchedAt < CHAPTER_PAGES_CACHE_TTL_MS) {
-      return cached.pages;
+      return cached.images;
     }
 
     const url = `${BASE_URL}/chapters/${chapterId}/images?reading_style=long_strip`;
@@ -67,7 +67,7 @@ export class WeebCentralScraper {
     });
 
     const $ = cheerio.load(html);
-    const pages: ChapterPages["pages"] = [];
+    const images: ChapterPages["images"] = [];
 
     $('section[x-data] img, section img[src*="manga"]').each((i, el) => {
       const src = $(el).attr("src");
@@ -75,7 +75,7 @@ export class WeebCentralScraper {
         const width = $(el).attr("width");
         const height = $(el).attr("height");
 
-        pages.push({
+        images.push({
           index: i,
           url: src,
           width: width ? parseInt(width) : undefined,
@@ -84,8 +84,8 @@ export class WeebCentralScraper {
       }
     });
 
-    this.chapterPagesCache.set(chapterId, { pages, fetchedAt: now });
-    return pages;
+    this.chapterPagesCache.set(chapterId, { images, fetchedAt: now });
+    return images;
   }
 
   async getHotUpdates(page: number = 1): Promise<CatalogueResult> {
@@ -573,12 +573,12 @@ export class WeebCentralScraper {
   }
 
   async getChapterPages(chapterId: string): Promise<ChapterPages> {
-    const pages = await this.fetchChapterPageList(chapterId);
+    const images = await this.fetchChapterPageList(chapterId);
 
     return {
       chapterId,
       mangaId: "", // Not available from this endpoint
-      pages,
+      images,
     };
   }
 
@@ -588,12 +588,12 @@ export class WeebCentralScraper {
     chunk: number,
     chunkSize: number,
   ): Promise<ChapterPagesChunk> {
-    const pages = await this.fetchChapterPageList(chapterId);
-    const totalPages = pages.length;
+    const images = await this.fetchChapterPageList(chapterId);
+    const totalPages = images.length;
     const totalChunks = Math.max(1, Math.ceil(totalPages / chunkSize));
     const start = chunk * chunkSize;
     const end = Math.min(totalPages, start + chunkSize);
-    const slice = pages.slice(start, end).map((page, index) => ({
+    const slice = images.slice(start, end).map((page, index) => ({
       ...page,
       index: start + index,
     }));
@@ -605,7 +605,7 @@ export class WeebCentralScraper {
       chunkSize,
       totalChunks,
       totalPages,
-      pages: slice,
+      images: slice,
       hasMore: end < totalPages,
     };
   }
