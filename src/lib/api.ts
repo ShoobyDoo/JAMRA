@@ -318,6 +318,25 @@ export async function fetchMangaDetails(
   );
 }
 
+/**
+ * Refresh cached manga data from the source extension.
+ * Useful when images fail to load or cached data is stale.
+ */
+export async function refreshMangaCache(
+  identifier: string,
+  extensionId?: string,
+): Promise<MangaDetailsResponse> {
+  const params = new URLSearchParams();
+  if (extensionId) {
+    params.set("extensionId", extensionId);
+  }
+
+  return request<MangaDetailsResponse>(
+    `/manga/${encodeURIComponent(identifier)}/refresh?${params.toString()}`,
+    { method: "POST" },
+  );
+}
+
 export interface ChapterPagesResponse {
   pages: ChapterPages;
   extensionId?: string;

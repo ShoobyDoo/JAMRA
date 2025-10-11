@@ -24,6 +24,7 @@ import {
   type OfflineMangaMetadata,
   type OfflineQueuedDownload,
 } from "@/lib/api";
+import { useOfflineEvents } from "@/hooks/use-offline-events";
 
 export interface OfflineMangaContextValue {
   extensionId?: string;
@@ -58,7 +59,6 @@ export interface OfflineMangaProviderProps {
   mangaTitle: string;
   chapters: ChapterWithSlug[];
   children: ReactNode;
-  pollIntervalMs?: number;
 }
 
 export function OfflineMangaProvider({
@@ -68,7 +68,6 @@ export function OfflineMangaProvider({
   mangaTitle,
   chapters,
   children,
-  pollIntervalMs = 3000,
 }: OfflineMangaProviderProps) {
   const [loading, setLoading] = useState<boolean>(Boolean(extensionId));
   const [offlineAvailable, setOfflineAvailable] = useState<boolean>(Boolean(extensionId));
@@ -77,9 +76,6 @@ export function OfflineMangaProvider({
   const [queueItems, setQueueItems] = useState<OfflineQueuedDownload[]>([]);
   const [pendingChapterIds, setPendingChapterIds] = useState<Set<string>>(() => new Set());
   const [queueingManga, setQueueingManga] = useState(false);
-
-  const previousQueueCount = useRef(0);
-  const pollingHandle = useRef<number | null>(null);
 
   const offlineChaptersMap = useMemo(() => {
     return new Map(offlineChapters.map((chapter) => [chapter.chapterId, chapter]));
@@ -120,13 +116,6 @@ export function OfflineMangaProvider({
       next.delete(chapterId);
       return next;
     });
-  }, []);
-
-  const clearPolling = useCallback(() => {
-    if (pollingHandle.current !== null) {
-      window.clearInterval(pollingHandle.current);
-      pollingHandle.current = null;
-    }
   }, []);
 
   const refreshOfflineChapters = useCallback(async () => {
@@ -190,7 +179,6 @@ export function OfflineMangaProvider({
       setOfflineMetadata(null);
       setQueueItems([]);
       setLoading(false);
-      clearPolling();
       return;
     }
 
@@ -218,59 +206,95 @@ export function OfflineMangaProvider({
     return () => {
       cancelled = true;
     };
-  }, [extensionId, refreshOfflineChapters, refreshQueue, clearPolling]);
+  }, [extensionId, refreshOfflineChapters, refreshQueue]);
 
-  useEffect(() => {
-    if (!extensionId || pollIntervalMs <= 0) {
-      clearPolling();
-      return;
-    }
+  // Use SSE for real-time updates instead of polling
+  useOfflineEvents({
+    enabled: Boolean(extensionId),
+    onEvent: useCallback((event) => {
+      // Only process events for this manga
+      if (event.mangaId && event.mangaId !== mangaId) {
+        return;
+      }
 
-    let cancelled = false;
+      switch (event.type) {
+        case "download-started":
+        case "download-progress":
+          if (event.queueId !== undefined) {
+            setQueueItems((prev) => {
+              const existing = prev.find((item) => item.id === event.queueId);
+              if (!existing) {
+                // Refresh queue to get the new item
+                refreshQueue().catch(console.error);
+                return prev;
+              }
 
-    async function poll() {
-      try {
-        const queue = await refreshQueue();
-        if (cancelled) {
-          return;
-        }
+              return prev.map((item) => {
+                if (item.id === event.queueId) {
+                  return {
+                    ...item,
+                    status: "downloading" as const,
+                    progressCurrent: event.progressCurrent ?? item.progressCurrent,
+                    progressTotal: event.progressTotal ?? item.progressTotal,
+                  };
+                }
+                return item;
+              });
+            });
+          }
+          break;
 
-        const currentCount = queue.length;
-        const previous = previousQueueCount.current;
-        previousQueueCount.current = currentCount;
+        case "download-completed":
+          if (event.queueId !== undefined) {
+            // Remove completed item from queue
+            setQueueItems((prev) => prev.filter((item) => item.id !== event.queueId));
 
-        if (previous > 0 && currentCount === 0) {
-          await refreshOfflineChapters().catch((error) => {
+            // Refresh offline chapters to show newly downloaded content
+            refreshOfflineChapters().catch((error) => {
+              if (!(error instanceof ApiError && error.status === 503)) {
+                console.error("Failed to refresh offline chapters after download completed", error);
+              }
+            });
+          }
+          break;
+
+        case "download-failed":
+          if (event.queueId !== undefined) {
+            setQueueItems((prev) =>
+              prev.map((item) => {
+                if (item.id === event.queueId) {
+                  return {
+                    ...item,
+                    status: "failed" as const,
+                    errorMessage: event.error,
+                  };
+                }
+                return item;
+              })
+            );
+          }
+          break;
+
+        case "chapter-deleted":
+          if (event.chapterId) {
+            refreshOfflineChapters().catch((error) => {
+              if (!(error instanceof ApiError && error.status === 503)) {
+                console.error("Failed to refresh offline chapters after chapter deleted", error);
+              }
+            });
+          }
+          break;
+
+        case "manga-deleted":
+          refreshOfflineChapters().catch((error) => {
             if (!(error instanceof ApiError && error.status === 503)) {
-              console.error("Failed to refresh offline chapters after queue drained", error);
+              console.error("Failed to refresh offline chapters after manga deleted", error);
             }
           });
-        }
-      } catch (error) {
-        if (error instanceof ApiError && error.status === 503) {
-          // Offline storage not available; stop polling to avoid noisy logs.
-          setOfflineAvailable(false);
-          clearPolling();
-        } else {
-          console.error("Failed to poll offline queue", error);
-        }
+          break;
       }
-    }
-
-    poll().catch((error) => {
-      console.error("Initial offline queue poll failed", error);
-    });
-
-    clearPolling();
-    pollingHandle.current = window.setInterval(() => {
-      void poll();
-    }, pollIntervalMs);
-
-    return () => {
-      cancelled = true;
-      clearPolling();
-    };
-  }, [extensionId, pollIntervalMs, refreshQueue, refreshOfflineChapters, clearPolling]);
+    }, [mangaId, refreshQueue, refreshOfflineChapters]),
+  });
 
   const queueChapter = useCallback(
     async (chapterId: string, options: { priority?: number } = {}) => {

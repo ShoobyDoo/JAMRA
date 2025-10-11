@@ -282,9 +282,9 @@ export interface DownloadQueueRow {
  */
 export type OfflineStorageEvent =
   | { type: "download-started"; queueId: number; mangaId: string; chapterId?: string }
-  | { type: "download-progress"; queueId: number; progressCurrent: number; progressTotal: number }
+  | { type: "download-progress"; queueId: number; mangaId: string; chapterId?: string; progressCurrent: number; progressTotal: number }
   | { type: "download-completed"; queueId: number; mangaId: string; chapterId?: string }
-  | { type: "download-failed"; queueId: number; error: string }
+  | { type: "download-failed"; queueId: number; mangaId: string; chapterId?: string; error: string }
   | { type: "chapter-deleted"; mangaId: string; chapterId: string }
   | { type: "manga-deleted"; mangaId: string }
   | { type: "cleanup-performed"; deletedBytes: number; deletedChapters: number };

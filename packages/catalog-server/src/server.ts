@@ -405,6 +405,9 @@ export async function startCatalogServer(
   ) => {
     const detail = error instanceof Error ? error.message : String(error);
     console.error(message, detail);
+    if (error instanceof Error && error.stack) {
+      console.error("Stack trace:", error.stack);
+    }
     res.status(status).json({ error: message, detail });
   };
 
@@ -933,7 +936,7 @@ export async function startCatalogServer(
     try {
       const includeChapters = req.query.includeChapters !== "false";
       const identifier = req.params.id;
-      const slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+      const slugPattern = /^[a-zA-Z0-9]+(?:-[a-zA-Z0-9]+)*$/;
       const useSlug = slugPattern.test(identifier);
 
       const result = useSlug
@@ -957,6 +960,42 @@ export async function startCatalogServer(
         return;
       }
       handleError(res, error, "Failed to fetch manga details");
+    }
+  });
+
+  // Refresh cached manga data (useful when images fail to load or data is stale)
+  app.post("/api/manga/:id/refresh", async (req, res) => {
+    const extensionId = ensureExtensionLoaded(req, res);
+    if (!extensionId) return;
+
+    try {
+      const identifier = req.params.id;
+      const slugPattern = /^[a-zA-Z0-9]+(?:-[a-zA-Z0-9]+)*$/;
+      const useSlug = slugPattern.test(identifier);
+
+      // Force refresh by re-fetching from extension
+      const result = useSlug
+        ? await service.syncMangaBySlug(extensionId, identifier, {
+            includeChapters: true,
+          })
+        : await service.syncManga(extensionId, identifier, {
+            includeChapters: true,
+          });
+
+      res.json({
+        details: result.details,
+        refreshed: true,
+        extensionId,
+      });
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.message.includes("could not be resolved")
+      ) {
+        res.status(404).json({ error: error.message });
+        return;
+      }
+      handleError(res, error, "Failed to refresh manga cache");
     }
   });
 
@@ -1610,6 +1649,51 @@ export async function startCatalogServer(
     } catch (error) {
       handleError(res, error, "Failed to get storage stats");
     }
+  });
+
+  // Server-Sent Events endpoint for real-time download progress
+  app.get("/api/offline/events", async (req, res) => {
+    if (!downloadWorker) {
+      res.status(503).json({ error: "Offline storage not available" });
+      return;
+    }
+
+    // Set headers for SSE
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+    res.setHeader("X-Accel-Buffering", "no"); // Disable nginx buffering
+
+    // Send initial connection event
+    res.write("event: connected\n");
+    res.write(`data: ${JSON.stringify({ timestamp: Date.now() })}\n\n`);
+
+    // Listen to download worker events
+    const unsubscribe = downloadWorker.on((event) => {
+      try {
+        res.write(`event: ${event.type}\n`);
+        res.write(`data: ${JSON.stringify(event)}\n\n`);
+      } catch (error) {
+        console.error("Error writing SSE event:", error);
+      }
+    });
+
+    // Send heartbeat every 15 seconds to keep connection alive
+    const heartbeat = setInterval(() => {
+      try {
+        res.write("event: heartbeat\n");
+        res.write(`data: ${JSON.stringify({ timestamp: Date.now() })}\n\n`);
+      } catch (error) {
+        console.error("Error sending heartbeat:", error);
+        clearInterval(heartbeat);
+      }
+    }, 15000);
+
+    // Clean up on client disconnect
+    req.on("close", () => {
+      clearInterval(heartbeat);
+      unsubscribe();
+    });
   });
 
   // Serve offline page images

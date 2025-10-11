@@ -622,6 +622,15 @@ export class CatalogRepository {
     mangaId: string,
     payload: ChapterPages,
   ): void {
+    // Validate payload structure
+    if (!payload || typeof payload !== 'object') {
+      throw new Error('Invalid chapter pages payload: expected object');
+    }
+
+    if (!payload.images || !Array.isArray(payload.images)) {
+      throw new Error(`Invalid chapter pages payload: images is not iterable (got ${typeof payload.images})`);
+    }
+
     const deleteStmt = this.db.prepare(
       `DELETE FROM chapter_pages WHERE chapter_id = @chapter_id`,
     );

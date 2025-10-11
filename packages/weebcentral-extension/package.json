@@ -6,7 +6,8 @@
   "main": "dist/bundle.cjs",
   "types": "dist/index.d.ts",
   "scripts": {
-    "build": "node build.mjs && tsc --emitDeclarationOnly",
+    "build": "node build.mjs && tsc --emitDeclarationOnly && npm run postbuild",
+    "postbuild": "mkdir -p ../../.jamra-data/extensions && cp dist/bundle.cjs ../../.jamra-data/extensions/com_weebcentral_manga@1.0.0.cjs",
     "clean": "rm -rf dist tsconfig.tsbuildinfo"
   },
   "keywords": [

@@ -50,41 +50,78 @@ export class WeebCentralScraper {
   }
 
   private async fetchChapterPageList(chapterId: string): Promise<ChapterPages["images"]> {
+    console.log(`[WeebCentral] fetchChapterPageList called for chapter ${chapterId}`);
+
     const cached = this.chapterPagesCache.get(chapterId);
     const now = Date.now();
     if (cached && now - cached.fetchedAt < CHAPTER_PAGES_CACHE_TTL_MS) {
+      console.log(`[WeebCentral] Using cached pages for chapter ${chapterId} (${cached.images.length} images)`);
       return cached.images;
     }
 
     const url = `${BASE_URL}/chapters/${chapterId}/images?reading_style=long_strip`;
+    console.log(`[WeebCentral] Fetching chapter pages from ${url}`);
 
     const html = await this.rateLimiter.throttle(async () => {
       const response = await fetch(url, { headers: HEADERS });
+      console.log(`[WeebCentral] HTTP Response: ${response.status} ${response.statusText}`);
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
       return response.text();
     });
 
+    console.log(`[WeebCentral] HTML fetched, length: ${html.length}`);
+
     const $ = cheerio.load(html);
     const images: ChapterPages["images"] = [];
 
-    $('section[x-data] img, section img[src*="manga"]').each((i, el) => {
-      const src = $(el).attr("src");
-      if (src && src.includes("manga") && !src.includes("logo")) {
-        const width = $(el).attr("width");
-        const height = $(el).attr("height");
+    // Count all section and img tags for debugging
+    console.log(`[WeebCentral] DOM stats: ${$('section').length} sections, ${$('img').length} images`);
 
-        images.push({
-          index: i,
-          url: src,
-          width: width ? parseInt(width) : undefined,
-          height: height ? parseInt(height) : undefined,
-        });
-      }
-    });
+    // Try multiple selectors to find images
+    const selectors = [
+      'section[x-data] img',
+      'section img',
+      'img[src*="official.lowee.us"]',
+      'img[src*="manga"]',
+      'img[alt*="Page"]',
+      'img',
+    ];
+
+    for (const selector of selectors) {
+      if (images.length > 0) break; // Stop if we found images
+
+      console.log(`[WeebCentral] Trying selector: ${selector}`);
+      $(selector).each((i, el) => {
+        const src = $(el).attr("src");
+        console.log(`[WeebCentral]   Found img #${i}: src=${src?.substring(0, 50)}...`);
+
+        if (src && !src.includes("logo") && !src.includes("icon") && !src.includes("avatar") && !src.includes("broken_image")) {
+          const width = $(el).attr("width");
+          const height = $(el).attr("height");
+
+          images.push({
+            index: images.length,
+            url: src,
+            width: width ? parseInt(width) : undefined,
+            height: height ? parseInt(height) : undefined,
+          });
+        }
+      });
+
+      console.log(`[WeebCentral]   Result: ${images.length} images after selector ${selector}`);
+    }
+
+    console.log(`[WeebCentral] Final result: Found ${images.length} images for chapter ${chapterId}`);
+
+    if (images.length === 0) {
+      console.warn(`[WeebCentral] No images found for chapter ${chapterId}. HTML length: ${html.length}`);
+      console.warn(`[WeebCentral] HTML preview: ${html.substring(0, 500)}`);
+    }
 
     this.chapterPagesCache.set(chapterId, { images, fetchedAt: now });
+    console.log(`[WeebCentral] Returning ${images.length} images`);
     return images;
   }
 
@@ -114,8 +151,13 @@ export class WeebCentralScraper {
       // Get title from data-tip attribute
       const title = $article.attr("data-tip") || $article.find("img").first().attr("alt")?.replace(" cover", "") || "";
 
-      // Get cover image
-      const thumbnail = $article.find("img").first().attr("src");
+      // Get cover image - try multiple sources
+      let thumbnail = $article.find("img").first().attr("src");
+
+      // If src is not found, try data-src (lazy loading)
+      if (!thumbnail) {
+        thumbnail = $article.find("img").first().attr("data-src");
+      }
 
       if (seriesHref && title) {
         const match = seriesHref.match(/\/series\/([^\/]+)\/(.+)/);
@@ -136,7 +178,8 @@ export class WeebCentralScraper {
             id,
             slug: name,
             title,
-            coverUrl: thumbnail || `https://temp.compsci88.com/cover/fallback/${id}.jpg`,
+            // Use correct fallback pattern if thumbnail not found
+            coverUrl: thumbnail || `https://temp.compsci88.com/cover/normal/${id}.webp`,
           });
         }
       }
@@ -221,8 +264,13 @@ export class WeebCentralScraper {
         title = $article.find("img").first().attr("alt")?.replace(" cover", "") || "";
       }
 
-      // Get thumbnail
-      const thumbnail = $article.find("img").first().attr("src");
+      // Get thumbnail - try multiple sources
+      let thumbnail = $article.find("img").first().attr("src");
+
+      // If src is not found, try data-src (lazy loading)
+      if (!thumbnail) {
+        thumbnail = $article.find("img").first().attr("data-src");
+      }
 
       if (href && title) {
         const match = href.match(/\/series\/([^\/]+)\/(.+)/);
@@ -239,7 +287,8 @@ export class WeebCentralScraper {
             id,
             slug: name,
             title,
-            coverUrl: thumbnail || `https://temp.compsci88.com/cover/fallback/${id}.jpg`,
+            // Use correct fallback pattern if thumbnail not found
+            coverUrl: thumbnail || `https://temp.compsci88.com/cover/normal/${id}.webp`,
           });
         }
       }
@@ -269,9 +318,11 @@ export class WeebCentralScraper {
 
     const chapterPromise = this.getChapterList(mangaId);
     const url = `${BASE_URL}/series/${mangaId}/${metadata.name}`;
+    console.log(`[WeebCentral] Fetching manga details from: ${url}`);
 
     const html = await this.rateLimiter.throttle(async () => {
       const response = await fetch(url, { headers: HEADERS });
+      console.log(`[WeebCentral] Manga details response: ${response.status} ${response.statusText}`);
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
@@ -331,12 +382,25 @@ export class WeebCentralScraper {
       chapters = [];
     }
 
+    // Try to extract cover image from the page
+    let coverUrl = $('img[alt*="cover"], img.cover, meta[property="og:image"]').first().attr("src");
+
+    // If not found in img tags, try meta tag
+    if (!coverUrl) {
+      coverUrl = $('meta[property="og:image"]').attr("content");
+    }
+
+    // Use correct fallback pattern if cover not found
+    if (!coverUrl) {
+      coverUrl = `https://temp.compsci88.com/cover/normal/${mangaId}.webp`;
+    }
+
     return {
       id: mangaId,
       slug: metadata?.name,
       title,
       description,
-      coverUrl: `https://temp.compsci88.com/cover/fallback/${mangaId}.jpg`,
+      coverUrl,
       authors,
       artists: artists.length > 0 ? artists : authors,
       chapters,
@@ -377,9 +441,11 @@ export class WeebCentralScraper {
     }
 
     const url = `${BASE_URL}/series/${seriesId}/full-chapter-list`;
+    console.log(`[WeebCentral] Fetching chapter list from: ${url}`);
 
     const html = await this.rateLimiter.throttle(async () => {
       const response = await fetch(url, { headers: HEADERS });
+      console.log(`[WeebCentral] Chapter list response: ${response.status} ${response.statusText}`);
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
@@ -575,9 +641,19 @@ export class WeebCentralScraper {
   async getChapterPages(chapterId: string): Promise<ChapterPages> {
     const images = await this.fetchChapterPageList(chapterId);
 
+    // Ensure images is always an array
+    if (!images || !Array.isArray(images)) {
+      console.error(`[WeebCentral] fetchChapterPageList returned invalid data for chapter ${chapterId}:`, images);
+      return {
+        chapterId,
+        mangaId: "",
+        images: [],
+      };
+    }
+
     return {
       chapterId,
-      mangaId: "", // Not available from this endpoint
+      mangaId: "",
       images,
     };
   }

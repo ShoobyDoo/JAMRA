@@ -1,13 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import { useMemo } from "react";
 import { AlertCircle } from "lucide-react";
 import type { MangaDetails } from "@/lib/api";
 import { slugify } from "@/lib/slug";
 import { withChapterSlugs } from "@/lib/chapter-slug";
 import { formatChapterTitle, sortChaptersAsc } from "@/lib/chapter-meta";
+import { AutoRefreshImage } from "@/components/ui/auto-refresh-image";
 
 interface ContinueReadingCardProps {
   manga: MangaDetails | null;
@@ -17,6 +17,7 @@ interface ContinueReadingCardProps {
   totalPages: number;
   lastReadAt: number;
   error?: string | null;
+  extensionId?: string;
 }
 
 export function ContinueReadingCard({
@@ -27,6 +28,7 @@ export function ContinueReadingCard({
   totalPages,
   lastReadAt,
   error,
+  extensionId,
 }: ContinueReadingCardProps) {
   // Format last read time
   const lastReadDate = new Date(lastReadAt);
@@ -130,12 +132,15 @@ export function ContinueReadingCard({
         {/* Cover Image */}
         <div className="relative h-32 w-24 flex-shrink-0 overflow-hidden rounded-md bg-muted">
           {manga.coverUrl ? (
-            <Image
+            <AutoRefreshImage
               src={manga.coverUrl}
               alt={manga.title}
               fill
               className="object-cover transition group-hover:scale-105"
               sizes="96px"
+              mangaId={mangaId}
+              extensionId={extensionId}
+              fallbackSrc="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Crect width='100' height='100' fill='%23ddd'/%3E%3C/svg%3E"
             />
           ) : (
             <div className="flex h-full items-center justify-center text-muted-foreground">

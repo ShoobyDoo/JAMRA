@@ -222,8 +222,27 @@ export class DownloadWorker {
       item.chapterId!
     );
 
+    // Validate chapter pages
+    if (!chapterPages || !chapterPages.images || !Array.isArray(chapterPages.images)) {
+      throw new Error(`Invalid chapter pages response: images is ${chapterPages?.images === undefined ? 'undefined' : typeof chapterPages?.images}`);
+    }
+
+    if (chapterPages.images.length === 0) {
+      throw new Error("No pages found for this chapter");
+    }
+
     const totalPages = chapterPages.images.length;
     this.repository.updateQueueProgress(item.id, 0, totalPages);
+
+    // Emit initial progress event
+    this.emit({
+      type: "download-progress",
+      queueId: item.id,
+      mangaId: item.mangaId,
+      chapterId: item.chapterId,
+      progressCurrent: 0,
+      progressTotal: totalPages,
+    });
 
     // Download chapter
     await this.downloadChapterPages(
@@ -237,6 +256,8 @@ export class DownloadWorker {
         this.emit({
           type: "download-progress",
           queueId: item.id,
+          mangaId: item.mangaId,
+          chapterId: item.chapterId,
           progressCurrent: current,
           progressTotal: total,
         });
@@ -290,6 +311,8 @@ export class DownloadWorker {
           this.emit({
             type: "download-progress",
             queueId: item.id,
+            mangaId: item.mangaId,
+            chapterId: chapter.id,
             progressCurrent,
             progressTotal,
           });
@@ -407,13 +430,19 @@ export class DownloadWorker {
       pageData: page,
     }));
 
-    // Process in batches
+    // Process in batches with real-time progress updates
     for (let i = 0; i < downloads.length; i += this.concurrency) {
       const batch = downloads.slice(i, i + this.concurrency);
 
+      // Download pages concurrently but report progress individually
       const results = await Promise.all(
         batch.map(async ({ url, destPath, pageData }) => {
           const result = await this.imageDownloader.download(url, destPath);
+
+          // Report progress immediately after each page completes
+          completed++;
+          onProgress(completed, pages.length);
+
           return {
             index: pageData.index,
             originalUrl: url,
@@ -427,8 +456,6 @@ export class DownloadWorker {
       );
 
       pageMetadata.push(...results);
-      completed += batch.length;
-      onProgress(completed, pages.length);
     }
 
     // Save chapter metadata
@@ -512,6 +539,8 @@ export class DownloadWorker {
     this.emit({
       type: "download-failed",
       queueId: item.id,
+      mangaId: item.mangaId,
+      chapterId: item.chapterId,
       error: errorMessage,
     });
   }

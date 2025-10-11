@@ -9,6 +9,7 @@ import { SIDEBAR_WIDTH } from "@/lib/constants";
 import { User, Settings, LogOut, LogIn } from "lucide-react";
 import { Box, Button, Divider, Menu, Stack } from "@mantine/core";
 import { usePathname } from "next/navigation";
+import { GlobalDownloadStatus } from "@/components/downloads/global-download-status";
 
 export function Sidebar() {
   const { collapsed } = useUIStore();
@@ -123,6 +124,8 @@ export function Sidebar() {
           </Stack>
         </Box>
       </Box>
+
+      <GlobalDownloadStatus />
 
       <Divider className="flex-shrink-0" />
 
