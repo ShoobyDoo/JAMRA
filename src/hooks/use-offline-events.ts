@@ -54,7 +54,7 @@ export function useOfflineEvents(options: UseOfflineEventsOptions = {}) {
             setConnected(false);
             return;
           }
-        } catch (error) {
+        } catch {
           if (cancelled) return;
           // Network error - will retry
           console.warn("[Offline Events] Failed to check offline storage availability, will retry");
@@ -136,7 +136,7 @@ export function useOfflineEvents(options: UseOfflineEventsOptions = {}) {
             connect();
           }, delay);
         };
-      } catch (error) {
+      } catch {
         console.warn("[Offline Events] Failed to connect to SSE stream, offline features may not be available");
         setConnected(false);
       }

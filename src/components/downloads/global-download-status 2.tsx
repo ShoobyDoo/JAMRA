@@ -1,14 +1,12 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Box, Collapse, Progress, Text, ActionIcon, ScrollArea, Button } from "@mantine/core";
-import { ChevronDown, ChevronUp, Download, X, ArrowRight } from "lucide-react";
+import { Box, Collapse, Progress, Text, ActionIcon, ScrollArea } from "@mantine/core";
+import { ChevronDown, ChevronUp, Download, X } from "lucide-react";
 import { useUIStore } from "@/store/ui";
-import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { getOfflineQueue, cancelOfflineDownload, type OfflineQueuedDownload } from "@/lib/api";
 import { useOfflineEvents, type OfflineDownloadEvent } from "@/hooks/use-offline-events";
-import { MIN_SIDEBAR_WIDTH } from "@/store/ui";
 
 interface DownloadsByManga {
   [mangaId: string]: {
@@ -19,22 +17,20 @@ interface DownloadsByManga {
 
 export function GlobalDownloadStatus() {
   const { collapsed: sidebarCollapsed } = useUIStore();
-  const sidebarWidth = useUIStore((state) => state.sidebarWidth);
-  const router = useRouter();
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(true);
   const [downloads, setDownloads] = useState<OfflineQueuedDownload[]>([]);
-
-  // Calculate available width for content (sidebar width - padding)
-  const contentWidth = sidebarCollapsed ? 0 : Math.max(MIN_SIDEBAR_WIDTH, sidebarWidth) - 16; // 16px total horizontal padding
+  const [loading, setLoading] = useState(true);
 
   // Load initial queue
   useEffect(() => {
     getOfflineQueue()
       .then((queue) => {
         setDownloads(queue);
+        setLoading(false);
       })
       .catch((error) => {
         console.error("Failed to load download queue:", error);
+        setLoading(false);
       });
   }, []);
 
@@ -109,6 +105,12 @@ export function GlobalDownloadStatus() {
     return acc;
   }, {} as DownloadsByManga);
 
+  const hasDownloads = downloads.length > 0;
+
+  if (!hasDownloads && !loading) {
+    return null;
+  }
+
   const handleCancel = async (queueId: number) => {
     try {
       await cancelOfflineDownload(queueId);
@@ -138,52 +140,12 @@ export function GlobalDownloadStatus() {
         )}
       </button>
 
-      {!sidebarCollapsed && (
-        <Box px="xs" py="sm" className="border-t border-border">
-          <Button
-            variant="subtle"
-            size="compact-sm"
-            fullWidth
-            justify="space-between"
-            onClick={() => router.push("/downloads")}
-            rightSection={<ArrowRight size={12} />}
-            styles={{
-              label: {
-                fontSize: '0.75rem',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-              }
-            }}
-          >
-            View All Downloads
-          </Button>
-        </Box>
-      )}
-
       <Collapse in={expanded && !sidebarCollapsed}>
-        <ScrollArea.Autosize
-          mah={300}
-          className="border-t border-border"
-          scrollbarSize={6}
-        >
-          <Box pt="xs" px="xs" pb={0} style={{ maxWidth: contentWidth }}>
+        <ScrollArea.Autosize mah={300} className="border-t border-border">
+          <Box p="xs">
             {Object.entries(downloadsByManga).map(([mangaId, { mangaSlug, downloads: mangaDownloads }]) => (
-              <Box key={mangaId} mb="sm" style={{ maxWidth: '100%' }}>
-                <Text
-                  size="xs"
-                  fw={600}
-                  c="dimmed"
-                  mb={4}
-                  title={mangaSlug}
-                  style={{
-                    display: 'block',
-                    maxWidth: '100%',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
+              <Box key={mangaId} mb="sm">
+                <Text size="xs" fw={600} c="dimmed" mb={4} className="truncate" title={mangaSlug}>
                   {mangaSlug}
                 </Text>
                 <Box className="space-y-2">
@@ -193,35 +155,14 @@ export function GlobalDownloadStatus() {
                         ? Math.round((download.progressCurrent / download.progressTotal) * 100)
                         : 0;
 
-                    // Format chapter display - simplified logic
-                    let chapterDisplay = "Full manga";
-                    if (download.chapterId) {
-                      if (download.chapterNumber && download.chapterTitle) {
-                        chapterDisplay = `Ch. ${download.chapterNumber}: ${download.chapterTitle}`;
-                      } else if (download.chapterNumber) {
-                        chapterDisplay = `Chapter ${download.chapterNumber}`;
-                      } else if (download.chapterTitle) {
-                        chapterDisplay = download.chapterTitle;
-                      } else {
-                        // Fallback: show last 8 chars of ID
-                        chapterDisplay = `Ch. ${download.chapterId.slice(-8)}`;
-                      }
-                    }
-
                     return (
                       <Box
                         key={download.id}
                         className="rounded border border-border bg-background/50 p-2"
-                        style={{ maxWidth: '100%', overflow: 'hidden' }}
                       >
-                        <div className="flex items-start justify-between gap-2 mb-1" style={{ maxWidth: '100%' }}>
-                          <Text
-                            size="xs"
-                            className="flex-1"
-                            title={download.chapterId || "Full manga download"}
-                            style={{ maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-                          >
-                            {chapterDisplay}
+                        <div className="flex items-start justify-between gap-2 mb-1">
+                          <Text size="xs" className="flex-1 truncate">
+                            {download.chapterId ? `Ch. ${download.chapterId}` : "Full manga"}
                           </Text>
                           {download.status === "queued" && (
                             <ActionIcon
@@ -230,7 +171,6 @@ export function GlobalDownloadStatus() {
                               color="red"
                               onClick={() => handleCancel(download.id)}
                               aria-label="Cancel download"
-                              className="flex-shrink-0"
                             >
                               <X size={12} />
                             </ActionIcon>
@@ -240,11 +180,7 @@ export function GlobalDownloadStatus() {
                         {download.status === "downloading" && (
                           <>
                             <Progress size="xs" value={percent} mb={4} />
-                            <Text
-                              size="xs"
-                              c="dimmed"
-                              style={{ maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-                            >
+                            <Text size="xs" c="dimmed">
                               {download.progressCurrent} / {download.progressTotal} pages ({percent}%)
                             </Text>
                           </>
@@ -257,12 +193,7 @@ export function GlobalDownloadStatus() {
                         )}
 
                         {download.status === "failed" && (
-                          <Text
-                            size="xs"
-                            c="red"
-                            title={download.errorMessage}
-                            style={{ maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-                          >
+                          <Text size="xs" c="red">
                             Failed: {download.errorMessage || "Unknown error"}
                           </Text>
                         )}

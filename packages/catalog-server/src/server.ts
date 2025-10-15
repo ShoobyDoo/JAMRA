@@ -31,6 +31,10 @@ import {
   OfflineRepository,
   DownloadWorker,
 } from "@jamra/offline-storage";
+import {
+  CoverCacheManager,
+  type CoverCacheSettings,
+} from "./services/coverCacheManager.js";
 
 export interface CatalogServerOptions {
   port?: number;
@@ -77,6 +81,40 @@ function coerceSettings(
     return payload as Record<string, unknown>;
   }
   throw new Error("Invalid settings payload; expected an object or null.");
+}
+
+function arraysEqual(a?: string[], b?: string[]): boolean {
+  if (!a || !b) return false;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i += 1) {
+    if (a[i] !== b[i]) return false;
+  }
+  return true;
+}
+
+function sanitizeCoverUrls(urls: Iterable<string | undefined>): string[] {
+  const seen = new Set<string>();
+  const ordered: string[] = [];
+  for (const raw of urls) {
+    if (!raw) continue;
+    if (!/^https?:\/\//i.test(raw)) continue;
+    if (seen.has(raw)) continue;
+    seen.add(raw);
+    ordered.push(raw);
+  }
+  return ordered;
+}
+
+function mergeCoverUrlOrder(
+  preferred: string[] | undefined,
+  provided: string[] | undefined,
+): string[] {
+  if (!preferred?.length) {
+    return sanitizeCoverUrls(provided ?? []);
+  }
+
+  const merged = [...preferred, ...(provided ?? [])];
+  return sanitizeCoverUrls(merged);
 }
 
 function resolveExtensionErrorStatus(error: unknown): number {
@@ -256,6 +294,92 @@ export async function startCatalogServer(
   });
 
   const repository = database ? new CatalogRepository(database.db) : undefined;
+  const coverCacheSettings = repository?.getAppSetting<CoverCacheSettings>(
+    "coverCacheSettings",
+  );
+  const coverCacheManager = repository
+    ? new CoverCacheManager(repository, coverCacheSettings ?? undefined)
+    : undefined;
+
+  if (coverCacheManager) {
+    try {
+      coverCacheManager.purgeExpired();
+    } catch (error) {
+      console.warn("Failed to purge expired cover cache entries", error);
+    }
+  }
+
+  const enrichMangaDetails = async (
+    extensionId: string,
+    details: MangaDetails,
+  ): Promise<void> => {
+    const providedUrls = sanitizeCoverUrls([
+      ...(details.coverUrls ?? []),
+      details.coverUrl,
+    ]);
+
+    const storedOrder = repository?.getMangaCoverUrls(extensionId, details.id);
+    let mergedUrls = providedUrls;
+    if (storedOrder && storedOrder.length > 0) {
+      mergedUrls = mergeCoverUrlOrder(storedOrder, providedUrls);
+    }
+
+    if (mergedUrls.length > 0) {
+      details.coverUrls = mergedUrls;
+      details.coverUrl = mergedUrls[0];
+      if (
+        repository &&
+        (!storedOrder || !arraysEqual(storedOrder, mergedUrls))
+      ) {
+        repository.updateMangaCoverUrls(extensionId, details.id, mergedUrls);
+      }
+    }
+
+    if (coverCacheManager) {
+      try {
+        const cached = await coverCacheManager.getCachedCover(
+          extensionId,
+          details.id,
+        );
+
+        if (cached) {
+          details.cachedCover = {
+            dataUrl: cached.dataUrl,
+            sourceUrl: cached.sourceUrl,
+            updatedAt: new Date(cached.updatedAt).toISOString(),
+            expiresAt: cached.expiresAt
+              ? new Date(cached.expiresAt).toISOString()
+              : undefined,
+            mimeType: cached.mimeType,
+            bytes: cached.bytes,
+          };
+        } else {
+          const urlsForCache = details.coverUrls?.length
+            ? details.coverUrls
+            : details.coverUrl
+            ? [details.coverUrl]
+            : [];
+
+          if (urlsForCache.length > 0) {
+            void coverCacheManager
+              .ensureCachedCover(extensionId, details.id, urlsForCache, {
+                title: details.title,
+                slug: details.slug,
+                urls: urlsForCache,
+              })
+              .catch((error) => {
+                console.warn(
+                  `Failed to prefetch cover for ${details.id}`,
+                  error,
+                );
+              });
+          }
+        }
+      } catch (error) {
+        console.warn(`Failed to resolve cached cover for ${details.id}`, error);
+      }
+    }
+  };
   const storage = database
     ? new ExtensionStorage(path.join(path.dirname(database.path), "extensions"))
     : undefined;
@@ -865,6 +989,86 @@ export async function startCatalogServer(
     }
   });
 
+  app.get("/api/system/cache-settings", (req, res) => {
+    if (!coverCacheManager) {
+      res.json({
+        settings: {
+          enabled: false,
+          ttlMs: 0,
+          maxEntries: 0,
+          fetchTimeoutMs: 8000,
+        },
+      });
+      return;
+    }
+
+    res.json({ settings: coverCacheManager.getSettings() });
+  });
+
+  app.patch("/api/system/cache-settings", (req, res) => {
+    if (!repository || !coverCacheManager) {
+      res
+        .status(503)
+        .json({ error: "Persistent storage is required for cache settings" });
+      return;
+    }
+
+    const updates: Partial<CoverCacheSettings> = {};
+    const body = req.body ?? {};
+
+    if (typeof body.enabled === "boolean") {
+      updates.enabled = body.enabled;
+    }
+
+    if (body.ttlMs !== undefined) {
+      const ttlMs = Number(body.ttlMs);
+      if (!Number.isFinite(ttlMs) || ttlMs < 0) {
+        res.status(400).json({ error: "ttlMs must be a non-negative number" });
+        return;
+      }
+      updates.ttlMs = ttlMs;
+    } else if (body.ttlDays !== undefined) {
+      const ttlDays = Number(body.ttlDays);
+      if (!Number.isFinite(ttlDays) || ttlDays < 0) {
+        res
+          .status(400)
+          .json({ error: "ttlDays must be a non-negative number" });
+        return;
+      }
+      updates.ttlMs = ttlDays * 24 * 60 * 60 * 1000;
+    }
+
+    if (body.maxEntries !== undefined) {
+      const maxEntries = Number(body.maxEntries);
+      if (!Number.isInteger(maxEntries) || maxEntries < 0) {
+        res
+          .status(400)
+          .json({ error: "maxEntries must be a non-negative integer" });
+        return;
+      }
+      updates.maxEntries = maxEntries;
+    }
+
+    if (body.fetchTimeoutMs !== undefined) {
+      const timeoutMs = Number(body.fetchTimeoutMs);
+      if (!Number.isFinite(timeoutMs) || timeoutMs < 0) {
+        res.status(400).json({
+          error: "fetchTimeoutMs must be a non-negative number",
+        });
+        return;
+      }
+      updates.fetchTimeoutMs = timeoutMs;
+    }
+
+    coverCacheManager.updateSettings(updates);
+    repository.setAppSetting(
+      "coverCacheSettings",
+      coverCacheManager.getSettings(),
+    );
+
+    res.json({ settings: coverCacheManager.getSettings() });
+  });
+
   app.get("/api/catalog", async (req, res) => {
     const extensionId = ensureExtensionLoaded(req, res);
     if (!extensionId) return;
@@ -886,6 +1090,80 @@ export async function startCatalogServer(
         query,
         filters,
       });
+
+      if (response.items.length > 0) {
+        for (const item of response.items) {
+          const providedUrls = sanitizeCoverUrls([
+            ...(item.coverUrls ?? []),
+            item.coverUrl,
+          ]);
+
+          let mergedUrls = providedUrls;
+          const storedOrder = repository?.getMangaCoverUrls(extensionId, item.id);
+          if (storedOrder && storedOrder.length > 0) {
+            mergedUrls = mergeCoverUrlOrder(storedOrder, providedUrls);
+          }
+
+          if (mergedUrls.length > 0) {
+            item.coverUrls = mergedUrls;
+            item.coverUrl = mergedUrls[0];
+            if (
+              repository &&
+              (!storedOrder || !arraysEqual(storedOrder, mergedUrls))
+            ) {
+              repository.updateMangaCoverUrls(extensionId, item.id, mergedUrls);
+            }
+          }
+
+          if (coverCacheManager) {
+            try {
+              const cached = await coverCacheManager.getCachedCover(
+                extensionId,
+                item.id,
+              );
+
+              if (cached) {
+                item.cachedCover = {
+                  dataUrl: cached.dataUrl,
+                  sourceUrl: cached.sourceUrl,
+                  updatedAt: new Date(cached.updatedAt).toISOString(),
+                  expiresAt: cached.expiresAt
+                    ? new Date(cached.expiresAt).toISOString()
+                    : undefined,
+                  mimeType: cached.mimeType,
+                  bytes: cached.bytes,
+                };
+              } else {
+                const urlsForCache = item.coverUrls?.length
+                  ? item.coverUrls
+                  : item.coverUrl
+                  ? [item.coverUrl]
+                  : [];
+
+                if (urlsForCache.length > 0) {
+                  void coverCacheManager
+                    .ensureCachedCover(extensionId, item.id, urlsForCache, {
+                      title: item.title,
+                      slug: item.slug,
+                      urls: urlsForCache,
+                    })
+                    .catch((error) => {
+                      console.warn(
+                        `Failed to prefetch cover for ${item.id}`,
+                        error,
+                      );
+                    });
+                }
+              }
+            } catch (error) {
+              console.warn(
+                `Failed to read cover cache for ${item.id}`,
+                error,
+              );
+            }
+          }
+        }
+      }
 
       if (repository && response.items.length > 0) {
         try {
@@ -912,6 +1190,7 @@ export async function startCatalogServer(
         req.params.slug,
         { includeChapters },
       );
+      await enrichMangaDetails(extensionId, result.details);
       res.json({
         details: result.details,
         chaptersFetched: result.chaptersFetched,
@@ -946,6 +1225,7 @@ export async function startCatalogServer(
         : await service.syncManga(extensionId, identifier, {
             includeChapters,
           });
+      await enrichMangaDetails(extensionId, result.details);
       res.json({
         details: result.details,
         chaptersFetched: result.chaptersFetched,
@@ -982,8 +1262,11 @@ export async function startCatalogServer(
             includeChapters: true,
           });
 
+      const details = result.details;
+      await enrichMangaDetails(extensionId, details);
+
       res.json({
-        details: result.details,
+        details,
         refreshed: true,
         extensionId,
       });
@@ -996,6 +1279,75 @@ export async function startCatalogServer(
         return;
       }
       handleError(res, error, "Failed to refresh manga cache");
+    }
+  });
+
+  app.post("/api/manga/:id/covers/report", async (req, res) => {
+    const extensionId = ensureExtensionLoaded(req, res);
+    if (!extensionId) return;
+
+    const payload = req.body ?? {};
+    const rawUrl = typeof payload.url === "string" ? payload.url.trim() : "";
+    const status = payload.status;
+    const attempted = Array.isArray(payload.attemptedUrls)
+      ? sanitizeCoverUrls(payload.attemptedUrls as string[])
+      : [];
+
+    if (!rawUrl) {
+      res.status(400).json({ error: "url is required" });
+      return;
+    }
+
+    if (status !== "success" && status !== "failure") {
+      res.status(400).json({ error: "status must be 'success' or 'failure'" });
+      return;
+    }
+
+    if (!repository) {
+      res.status(503).json({ error: "Persistent storage is not available" });
+      return;
+    }
+
+    const mangaId = req.params.id;
+
+    try {
+      if (status === "success") {
+        const preferred = sanitizeCoverUrls([rawUrl, ...attempted]);
+        const storedOrder = repository.getMangaCoverUrls(extensionId, mangaId) ?? [];
+        const merged = mergeCoverUrlOrder(preferred, storedOrder);
+        if (merged.length > 0) {
+          repository.updateMangaCoverUrls(extensionId, mangaId, merged);
+
+          if (coverCacheManager) {
+            void coverCacheManager
+              .ensureCachedCover(extensionId, mangaId, merged, {
+                urls: merged,
+              })
+              .catch((error) => {
+                console.warn(
+                  `Failed to refresh cover cache after success report for ${mangaId}`,
+                  error,
+                );
+              });
+          }
+        }
+      } else {
+        const storedOrder = repository.getMangaCoverUrls(extensionId, mangaId) ?? [];
+        const filteredStored = storedOrder.filter((entry) => entry !== rawUrl);
+        const newOrder = sanitizeCoverUrls([
+          ...attempted.filter((url) => url !== rawUrl),
+          ...filteredStored,
+          rawUrl,
+        ]);
+
+        if (newOrder.length > 0) {
+          repository.updateMangaCoverUrls(extensionId, mangaId, newOrder);
+        }
+      }
+
+      res.status(204).end();
+    } catch (error) {
+      handleError(res, error, "Failed to record cover report");
     }
   });
 
@@ -1636,6 +1988,46 @@ export async function startCatalogServer(
     }
   });
 
+  app.post("/api/offline/queue/:queueId/retry", async (req, res) => {
+    try {
+      if (!offlineStorageManager) {
+        res.status(503).json({ error: "Offline storage not available" });
+        return;
+      }
+
+      const queueId = Number.parseInt(req.params.queueId, 10);
+      if (Number.isNaN(queueId)) {
+        res.status(400).json({ error: "Invalid queue ID" });
+        return;
+      }
+
+      await offlineStorageManager.retryDownload(queueId);
+
+      res.json({ success: true });
+    } catch (error) {
+      if (error instanceof Error && error.message.includes("not found")) {
+        res.status(404).json({ error: error.message });
+        return;
+      }
+      handleError(res, error, "Failed to retry download");
+    }
+  });
+
+  app.post("/api/offline/queue/retry-frozen", async (_req, res) => {
+    try {
+      if (!offlineStorageManager) {
+        res.status(503).json({ error: "Offline storage not available" });
+        return;
+      }
+
+      const retriedIds = await offlineStorageManager.retryFrozenDownloads();
+
+      res.json({ success: true, retriedCount: retriedIds.length, retriedIds });
+    } catch (error) {
+      handleError(res, error, "Failed to retry frozen downloads");
+    }
+  });
+
   // Get storage statistics
   app.get("/api/offline/storage", async (_req, res) => {
     try {
@@ -1694,6 +2086,61 @@ export async function startCatalogServer(
       clearInterval(heartbeat);
       unsubscribe();
     });
+  });
+
+  // Get download history
+  app.get("/api/offline/history", async (req, res) => {
+    try {
+      if (!offlineStorageManager) {
+        res.status(503).json({ error: "Offline storage not available" });
+        return;
+      }
+
+      const limit = req.query.limit ? Number.parseInt(req.query.limit as string, 10) : undefined;
+      const history = await offlineStorageManager.getDownloadHistory(limit);
+
+      res.json({ history });
+    } catch (error) {
+      handleError(res, error, "Failed to get download history");
+    }
+  });
+
+  // Delete a download history item
+  app.delete("/api/offline/history/:historyId", async (req, res) => {
+    try {
+      if (!offlineStorageManager) {
+        res.status(503).json({ error: "Offline storage not available" });
+        return;
+      }
+
+      const historyId = Number.parseInt(req.params.historyId, 10);
+      if (Number.isNaN(historyId)) {
+        res.status(400).json({ error: "Invalid history ID" });
+        return;
+      }
+
+      await offlineStorageManager.deleteHistoryItem(historyId);
+
+      res.json({ success: true });
+    } catch (error) {
+      handleError(res, error, "Failed to delete history item");
+    }
+  });
+
+  // Clear all download history
+  app.delete("/api/offline/history", async (_req, res) => {
+    try {
+      if (!offlineStorageManager) {
+        res.status(503).json({ error: "Offline storage not available" });
+        return;
+      }
+
+      await offlineStorageManager.clearDownloadHistory();
+
+      res.json({ success: true });
+    } catch (error) {
+      handleError(res, error, "Failed to clear download history");
+    }
   });
 
   // Serve offline page images

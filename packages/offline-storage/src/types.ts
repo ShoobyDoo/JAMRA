@@ -108,7 +108,10 @@ export interface QueuedDownload {
   extensionId: string;
   mangaId: string;
   mangaSlug: string;
+  mangaTitle?: string;                 // Manga title for display
   chapterId?: string;                  // Undefined = download all chapters
+  chapterNumber?: string;              // Chapter number for display
+  chapterTitle?: string;               // Chapter title for display
   status: DownloadStatus;
   priority: number;                    // Higher = more important
   queuedAt: number;                    // Unix timestamp (ms)
@@ -262,7 +265,10 @@ export interface DownloadQueueRow {
   extension_id: string;
   manga_id: string;
   manga_slug: string;
+  manga_title: string | null;
   chapter_id: string | null;
+  chapter_number: string | null;
+  chapter_title: string | null;
   status: DownloadStatus;
   priority: number;
   queued_at: number;
@@ -271,6 +277,48 @@ export interface DownloadQueueRow {
   error_message: string | null;
   progress_current: number;
   progress_total: number;
+}
+
+/**
+ * Database row for download_history table
+ */
+export interface DownloadHistoryRow {
+  id: number;
+  extension_id: string;
+  manga_id: string;
+  manga_slug: string;
+  manga_title: string | null;
+  chapter_id: string | null;
+  chapter_number: string | null;
+  chapter_title: string | null;
+  status: DownloadStatus;
+  queued_at: number;
+  started_at: number | null;
+  completed_at: number;
+  error_message: string | null;
+  progress_current: number;
+  progress_total: number;
+}
+
+/**
+ * Download history item for API/UI
+ */
+export interface DownloadHistoryItem {
+  id: number;
+  extensionId: string;
+  mangaId: string;
+  mangaSlug: string;
+  mangaTitle?: string;
+  chapterId?: string;
+  chapterNumber?: string;
+  chapterTitle?: string;
+  status: DownloadStatus;
+  queuedAt: number;
+  startedAt?: number;
+  completedAt: number;
+  errorMessage?: string;
+  progressCurrent: number;
+  progressTotal: number;
 }
 
 // ============================================================================
@@ -285,6 +333,7 @@ export type OfflineStorageEvent =
   | { type: "download-progress"; queueId: number; mangaId: string; chapterId?: string; progressCurrent: number; progressTotal: number }
   | { type: "download-completed"; queueId: number; mangaId: string; chapterId?: string }
   | { type: "download-failed"; queueId: number; mangaId: string; chapterId?: string; error: string }
+  | { type: "download-retried"; queueId: number; mangaId: string; chapterId?: string }
   | { type: "chapter-deleted"; mangaId: string; chapterId: string }
   | { type: "manga-deleted"; mangaId: string }
   | { type: "cleanup-performed"; deletedBytes: number; deletedChapters: number };

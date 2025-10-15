@@ -36,10 +36,12 @@ pnpm desktop:dev            # Electron shell (starts API + Next internally)
 
 **Build commands**:
 ```bash
-pnpm backend:build          # Build backend packages + example extension
+pnpm backend:build          # Build backend packages (optimized parallel build, catalog-server always rebuilt)
 pnpm build                  # Build all (backend + Next.js)
 pnpm lint                   # Run ESLint (always run after code changes)
 ```
+
+> **Note**: `backend:build` uses an optimized parallel build pipeline. The catalog-server package is ALWAYS rebuilt from scratch (cache cleared) to ensure it's never stale. See [docs/build-optimization.md](docs/build-optimization.md) for details.
 
 **Extension testing**:
 ```bash

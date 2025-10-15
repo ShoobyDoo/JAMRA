@@ -83,15 +83,19 @@ export class OfflineStorageManager {
       }
     }
 
-    // Get manga details to resolve slug
+    // Get manga details to resolve slug and chapter info
     const mangaDetails = await this.catalogService.syncManga(extensionId, mangaId);
     const mangaSlug = sanitizeSlug(mangaDetails.details.slug || mangaDetails.details.title);
+    const chapter = mangaDetails.details.chapters?.find(c => c.id === chapterId);
 
     const queueId = this.repository.queueDownload({
       extension_id: extensionId,
       manga_id: mangaId,
       manga_slug: mangaSlug,
+      manga_title: mangaDetails.details.title,
       chapter_id: chapterId,
+      chapter_number: chapter?.number || null,
+      chapter_title: chapter?.title || null,
       status: "queued",
       priority: options.priority ?? 0,
       queued_at: Date.now(),
@@ -154,11 +158,74 @@ export class OfflineStorageManager {
       throw new Error(`Queue item ${queueId} not found`);
     }
 
-    if (item.status === "downloading") {
-      throw new Error("Cannot cancel download that is currently in progress");
+    // Allow cancellation of any download, including in-progress ones
+    // The download worker will handle cleanup when it detects the item is gone
+    this.repository.deleteQueueItem(queueId);
+
+    // Emit cancellation event
+    this.emit({
+      type: "download-failed",
+      queueId,
+      mangaId: item.mangaId,
+      chapterId: item.chapterId || undefined,
+      error: "Cancelled by user",
+    });
+  }
+
+  /**
+   * Retries a failed or frozen download by resetting it to queued status
+   */
+  async retryDownload(queueId: number): Promise<void> {
+    const item = this.repository.getQueueItem(queueId);
+    if (!item) {
+      throw new Error(`Queue item ${queueId} not found`);
     }
 
-    this.repository.deleteQueueItem(queueId);
+    // Reset to queued status and clear error
+    this.repository.updateQueueStatus(queueId, "queued", undefined);
+
+    // Emit event
+    this.emit({
+      type: "download-retried",
+      queueId,
+      mangaId: item.mangaId,
+      chapterId: item.chapterId || undefined,
+    });
+  }
+
+  /**
+   * Retries all frozen downloads (downloading status but no recent progress)
+   */
+  async retryFrozenDownloads(): Promise<number[]> {
+    const queue = this.repository.getQueuedDownloads();
+    const now = Date.now();
+    const frozenThreshold = 30000; // 30 seconds
+    const retriedIds: number[] = [];
+
+    for (const item of queue) {
+      if (item.status === "downloading" && item.startedAt) {
+        const timeSinceStart = now - item.startedAt;
+        // Consider frozen if downloading for 30+ seconds with no progress or very slow progress
+        const isFrozen =
+          (timeSinceStart > frozenThreshold && item.progressCurrent === 0) ||
+          (timeSinceStart > 120000 && item.progressTotal > 0 &&
+           (item.progressCurrent / item.progressTotal) < 0.1);
+
+        if (isFrozen) {
+          this.repository.updateQueueStatus(item.id, "queued", undefined);
+          retriedIds.push(item.id);
+
+          this.emit({
+            type: "download-retried",
+            queueId: item.id,
+            mangaId: item.mangaId,
+            chapterId: item.chapterId || undefined,
+          });
+        }
+      }
+    }
+
+    return retriedIds;
   }
 
   /**
@@ -173,6 +240,27 @@ export class OfflineStorageManager {
    */
   async resumeDownloads(): Promise<void> {
     this.repository.resumeAllDownloads();
+  }
+
+  /**
+   * Gets download history
+   */
+  async getDownloadHistory(limit?: number): Promise<import("./types.js").DownloadHistoryItem[]> {
+    return this.repository.getDownloadHistory(limit);
+  }
+
+  /**
+   * Deletes a download history item
+   */
+  async deleteHistoryItem(historyId: number): Promise<void> {
+    this.repository.deleteHistoryItem(historyId);
+  }
+
+  /**
+   * Clears all download history
+   */
+  async clearDownloadHistory(): Promise<void> {
+    this.repository.clearDownloadHistory();
   }
 
   // ==========================================================================

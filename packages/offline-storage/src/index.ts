@@ -29,6 +29,8 @@ export type {
   OfflineMangaRow,
   OfflineChapterRow,
   DownloadQueueRow,
+  DownloadHistoryRow,
+  DownloadHistoryItem,
   OfflineStorageEvent,
   OfflineStorageEventListener,
 } from "./types.js";

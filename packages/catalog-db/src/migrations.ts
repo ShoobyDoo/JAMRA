@@ -261,6 +261,49 @@ const MIGRATIONS: Migration[] = [
       `);
     },
   },
+  {
+    id: 9,
+    up: (db) => {
+      const columns = db
+        .prepare(`PRAGMA table_info(manga)`)
+        .all() as Array<{
+        name: string;
+      }>;
+      const existing = new Set(columns.map((column) => column.name));
+
+      if (!existing.has("cover_urls_json")) {
+        db.exec(`ALTER TABLE manga ADD COLUMN cover_urls_json TEXT;`);
+      }
+
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS manga_cover_cache (
+          manga_id TEXT NOT NULL,
+          extension_id TEXT NOT NULL,
+          cover_url TEXT NOT NULL,
+          data_base64 TEXT NOT NULL,
+          mime_type TEXT,
+          bytes INTEGER,
+          metadata_json TEXT,
+          updated_at INTEGER NOT NULL,
+          expires_at INTEGER,
+          PRIMARY KEY (manga_id, extension_id),
+          FOREIGN KEY (manga_id) REFERENCES manga(id) ON DELETE CASCADE,
+          FOREIGN KEY (extension_id) REFERENCES extensions(id) ON DELETE CASCADE
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_manga_cover_cache_expiry
+          ON manga_cover_cache (expires_at);
+      `);
+
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS app_settings (
+          key TEXT PRIMARY KEY,
+          value TEXT NOT NULL,
+          updated_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000)
+        );
+      `);
+    },
+  },
 ];
 
 export function runMigrations(db: Database.Database): void {

@@ -4,6 +4,7 @@ import Link from "next/link";
 import type { CatalogueItem } from "@/lib/api";
 import { slugify } from "@/lib/slug";
 import { AutoRefreshImage } from "@/components/ui/auto-refresh-image";
+import { resolveCoverSources } from "@/lib/cover-sources";
 
 interface MangaCardProps {
   item: CatalogueItem;
@@ -13,6 +14,7 @@ interface MangaCardProps {
 export function MangaCard({ item, extensionId }: MangaCardProps) {
   const computedSlug = slugify(item.slug ?? item.title);
   const destination = computedSlug ?? item.id;
+  const { primary, fallbacks } = resolveCoverSources(item);
 
   return (
     <Link
@@ -20,16 +22,16 @@ export function MangaCard({ item, extensionId }: MangaCardProps) {
       className="group relative overflow-hidden rounded-lg border border-border bg-card shadow-sm transition hover:-translate-y-1 hover:shadow-lg cursor-pointer"
     >
       <div className="relative aspect-[3/4] w-full overflow-hidden bg-muted">
-        {item.coverUrl ? (
+        {primary ? (
           <AutoRefreshImage
-            src={item.coverUrl}
+            src={primary}
+            fallbackUrls={fallbacks}
             alt={item.title}
             fill
             sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, (max-width: 1280px) 20vw, 16vw"
             className="object-cover transition duration-300 group-hover:scale-105"
             mangaId={item.id}
             extensionId={extensionId}
-            fallbackSrc="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Crect width='100' height='100' fill='%23ddd'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' fill='%23999' font-family='sans-serif' font-size='14'%3ENo cover%3C/text%3E%3C/svg%3E"
           />
         ) : (
           <div className="flex h-full items-center justify-center text-sm text-muted-foreground">

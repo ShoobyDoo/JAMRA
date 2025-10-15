@@ -6,7 +6,6 @@ import {
   useContext,
   useEffect,
   useMemo,
-  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -24,7 +23,7 @@ import {
   type OfflineMangaMetadata,
   type OfflineQueuedDownload,
 } from "@/lib/api";
-import { useOfflineEvents } from "@/hooks/use-offline-events";
+import { useOfflineEvents, type OfflineDownloadEvent } from "@/hooks/use-offline-events";
 
 export interface OfflineMangaContextValue {
   extensionId?: string;
@@ -211,7 +210,7 @@ export function OfflineMangaProvider({
   // Use SSE for real-time updates instead of polling
   useOfflineEvents({
     enabled: Boolean(extensionId),
-    onEvent: useCallback((event) => {
+    onEvent: useCallback((event: OfflineDownloadEvent) => {
       // Only process events for this manga
       if (event.mangaId && event.mangaId !== mangaId) {
         return;

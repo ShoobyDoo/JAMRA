@@ -32,6 +32,15 @@ export interface ExtensionManifest {
   };
 }
 
+export interface CachedCover {
+  dataUrl: string;
+  sourceUrl: string;
+  updatedAt: string;
+  expiresAt?: string;
+  mimeType?: string;
+  bytes?: number;
+}
+
 export interface CatalogueRequest {
   page: number;
   query?: string;
@@ -50,6 +59,13 @@ export interface MangaSummary {
   title: string;
   altTitles?: string[];
   coverUrl?: string;
+  /**
+   * Multiple cover image URLs to try in order of priority.
+   * First URL is highest quality/preferred, last is lowest quality fallback.
+   * If provided, takes precedence over coverUrl.
+   */
+  coverUrls?: string[];
+  cachedCover?: CachedCover;
   description?: string;
   status?: "ongoing" | "completed" | "hiatus" | "cancelled" | "unknown";
   tags?: string[];
@@ -66,6 +82,15 @@ export interface MangaDetails extends MangaSummary {
   rating?: number;
   year?: number;
   links?: Record<string, string>;
+}
+
+export interface CachedCover {
+  dataUrl: string;
+  sourceUrl: string;
+  updatedAt: string;
+  expiresAt?: string;
+  mimeType?: string;
+  bytes?: number;
 }
 
 export interface ChapterSummary {
@@ -90,7 +115,7 @@ export interface PageImage {
 export interface ChapterPages {
   chapterId: string;
   mangaId: string;
-  images: PageImage[];
+  pages: PageImage[];
 }
 
 export interface ChapterPagesChunk {
@@ -100,7 +125,7 @@ export interface ChapterPagesChunk {
   chunkSize: number;
   totalChunks: number;
   totalPages: number;
-  images: PageImage[];
+  pages: PageImage[];
   hasMore: boolean;
 }
 

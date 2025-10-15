@@ -35,7 +35,7 @@
           "downloadUrl": "./packages/example-extension/dist/index.js",
           "checksum": {
             "algorithm": "sha256",
-            "value": "d14849393c0fa4789db70a881f5d26277cdd40668366a022d1af92d422ffdaeb"
+            "value": "8a5562b0393182e93d62faae31da46de4effa10e16baadc3112b491bcc604946"
           },
           "releaseNotes": "Initial release of the example provider bundled with JAMRA.",
           "publishedAt": "2025-01-01T00:00:00.000Z"
@@ -64,7 +64,7 @@
           "downloadUrl": "./packages/weebcentral-extension/dist/bundle.cjs",
           "checksum": {
             "algorithm": "sha256",
-            "value": "6ee0601904d5bb317851e1acb87d97f7107e6372145dd3dbf06efd0284b621a3"
+            "value": "7825cb676f466ba5509ea5009c8da703a20c13a8d51bdeecab8c4e4c748518fb"
           },
           "releaseNotes": "Initial release with search, catalogue, manga details, chapter pages, and filter support. Bundled with cheerio dependencies.",
           "publishedAt": "2025-01-06T00:00:00.000Z"

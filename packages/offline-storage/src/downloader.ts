@@ -40,7 +40,7 @@ export interface DownloadWorkerOptions {
 
 export class DownloadWorker {
   private isRunning = false;
-  private currentDownload: QueuedDownload | null = null;
+  private readonly activeDownloads: Set<number> = new Set();
   private readonly imageDownloader: ImageDownloader;
   private readonly concurrency: number;
   private readonly pollingInterval: number;
@@ -118,10 +118,10 @@ export class DownloadWorker {
   }
 
   /**
-   * Gets current download status
+   * Gets list of active download queue IDs
    */
-  getCurrentDownload(): QueuedDownload | null {
-    return this.currentDownload;
+  getActiveDownloads(): number[] {
+    return Array.from(this.activeDownloads);
   }
 
   // ==========================================================================
@@ -129,32 +129,47 @@ export class DownloadWorker {
   // ==========================================================================
 
   /**
-   * Main queue processing loop
+   * Main queue processing loop - starts up to 3 concurrent downloads
    */
   private async processQueue(): Promise<void> {
     while (this.isRunning) {
       try {
-        const item = this.repository.getNextQueuedDownload();
+        // Start new downloads up to concurrency limit
+        while (this.activeDownloads.size < this.concurrency && this.isRunning) {
+          const item = this.repository.getNextQueuedDownload();
 
-        if (!item) {
-          // No items in queue, sleep and try again
-          await this.sleep(this.pollingInterval);
-          continue;
+          if (!item) {
+            // No more items in queue
+            break;
+          }
+
+          // Start download in background (non-blocking)
+          void this.startDownloadAsync(item);
         }
 
-        this.currentDownload = item;
-
-        try {
-          await this.downloadItem(item);
-        } catch (error) {
-          await this.handleDownloadError(item, error);
-        } finally {
-          this.currentDownload = null;
-        }
+        // Sleep before checking queue again
+        await this.sleep(this.pollingInterval);
       } catch (error) {
         console.error("Error in download queue processing:", error);
         await this.sleep(this.pollingInterval);
       }
+    }
+  }
+
+  /**
+   * Starts a download in the background
+   */
+  private async startDownloadAsync(item: QueuedDownload): Promise<void> {
+    // Track this download as active
+    this.activeDownloads.add(item.id);
+
+    try {
+      await this.downloadItem(item);
+    } catch (error) {
+      await this.handleDownloadError(item, error);
+    } finally {
+      // Remove from active downloads when complete
+      this.activeDownloads.delete(item.id);
     }
   }
 
@@ -179,8 +194,9 @@ export class DownloadWorker {
       await this.downloadManga(item);
     }
 
-    // Mark as completed
+    // Mark as completed and move to history
     this.repository.updateQueueStatus(item.id, "completed");
+    this.repository.moveQueueItemToHistory(item.id);
     this.emit({
       type: "download-completed",
       queueId: item.id,
@@ -223,15 +239,15 @@ export class DownloadWorker {
     );
 
     // Validate chapter pages
-    if (!chapterPages || !chapterPages.images || !Array.isArray(chapterPages.images)) {
-      throw new Error(`Invalid chapter pages response: images is ${chapterPages?.images === undefined ? 'undefined' : typeof chapterPages?.images}`);
+    if (!chapterPages || !chapterPages.pages || !Array.isArray(chapterPages.pages)) {
+      throw new Error(`Invalid chapter pages response: pages is ${chapterPages?.pages === undefined ? 'undefined' : typeof chapterPages?.pages}`);
     }
 
-    if (chapterPages.images.length === 0) {
+    if (chapterPages.pages.length === 0) {
       throw new Error("No pages found for this chapter");
     }
 
-    const totalPages = chapterPages.images.length;
+    const totalPages = chapterPages.pages.length;
     this.repository.updateQueueProgress(item.id, 0, totalPages);
 
     // Emit initial progress event
@@ -250,7 +266,7 @@ export class DownloadWorker {
       mangaSlug,
       item.mangaId,
       chapter,
-      chapterPages.images,
+      chapterPages.pages,
       (current, total) => {
         this.repository.updateQueueProgress(item.id, current, total);
         this.emit({
@@ -299,7 +315,7 @@ export class DownloadWorker {
         mangaSlug,
         item.mangaId,
         chapter,
-        chapterPages.images,
+        chapterPages.pages,
         (current, total) => {
           // Calculate overall progress
           const chapterProgress = current / total;

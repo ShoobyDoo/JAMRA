@@ -38,7 +38,7 @@ export class WeebCentralScraper {
   private rateLimiter: RateLimiter;
   private seriesCache: Map<string, SeriesMetadata> = new Map();
   private cache?: ExtensionCache;
-  private chapterPagesCache: Map<string, { images: ChapterPages["images"]; fetchedAt: number }> = new Map();
+  private chapterPagesCache: Map<string, { pages: ChapterPages["pages"]; fetchedAt: number }> = new Map();
 
   constructor(rateLimiter: RateLimiter, cache?: ExtensionCache) {
     this.rateLimiter = rateLimiter;
@@ -49,14 +49,14 @@ export class WeebCentralScraper {
     this.cache = cache;
   }
 
-  private async fetchChapterPageList(chapterId: string): Promise<ChapterPages["images"]> {
+  private async fetchChapterPageList(chapterId: string): Promise<ChapterPages["pages"]> {
     console.log(`[WeebCentral] fetchChapterPageList called for chapter ${chapterId}`);
 
     const cached = this.chapterPagesCache.get(chapterId);
     const now = Date.now();
     if (cached && now - cached.fetchedAt < CHAPTER_PAGES_CACHE_TTL_MS) {
-      console.log(`[WeebCentral] Using cached pages for chapter ${chapterId} (${cached.images.length} images)`);
-      return cached.images;
+      console.log(`[WeebCentral] Using cached pages for chapter ${chapterId} (${cached.pages.length} images)`);
+      return cached.pages;
     }
 
     const url = `${BASE_URL}/chapters/${chapterId}/images?reading_style=long_strip`;
@@ -74,7 +74,7 @@ export class WeebCentralScraper {
     console.log(`[WeebCentral] HTML fetched, length: ${html.length}`);
 
     const $ = cheerio.load(html);
-    const images: ChapterPages["images"] = [];
+    const images: ChapterPages["pages"] = [];
 
     // Count all section and img tags for debugging
     console.log(`[WeebCentral] DOM stats: ${$('section').length} sections, ${$('img').length} images`);
@@ -120,7 +120,7 @@ export class WeebCentralScraper {
       console.warn(`[WeebCentral] HTML preview: ${html.substring(0, 500)}`);
     }
 
-    this.chapterPagesCache.set(chapterId, { images, fetchedAt: now });
+    this.chapterPagesCache.set(chapterId, { pages: images, fetchedAt: now });
     console.log(`[WeebCentral] Returning ${images.length} images`);
     return images;
   }
@@ -151,14 +151,6 @@ export class WeebCentralScraper {
       // Get title from data-tip attribute
       const title = $article.attr("data-tip") || $article.find("img").first().attr("alt")?.replace(" cover", "") || "";
 
-      // Get cover image - try multiple sources
-      let thumbnail = $article.find("img").first().attr("src");
-
-      // If src is not found, try data-src (lazy loading)
-      if (!thumbnail) {
-        thumbnail = $article.find("img").first().attr("data-src");
-      }
-
       if (seriesHref && title) {
         const match = seriesHref.match(/\/series\/([^\/]+)\/(.+)/);
         if (match) {
@@ -174,12 +166,40 @@ export class WeebCentralScraper {
             console.warn(`Failed to cache series name for ${id}:`, err);
           });
 
+          // Build cover URLs in priority order
+          // Hot-updates has desktop + mobile articles. Desktop has /normal/ URLs but no series link.
+          // Mobile has series link but only /small/ URLs. So we construct /normal/ from ID.
+          const thumbnailUrls: string[] = [];
+
+          // 1. Constructed /normal/ webp (highest quality, always available)
+          thumbnailUrls.push(`https://temp.compsci88.com/cover/normal/${id}.webp`);
+
+          // 2. Extract any additional sources from current article
+          $article.find('picture source[type="image/webp"]').each((i, el) => {
+            const srcset = $(el).attr("srcset")?.split(" ")[0];
+            if (srcset && !thumbnailUrls.includes(srcset)) {
+              thumbnailUrls.push(srcset);
+            }
+          });
+
+          // 3. Add img src (fallback)
+          const imgSrc = $article.find("img").first().attr("src");
+          if (imgSrc && !thumbnailUrls.includes(imgSrc)) {
+            thumbnailUrls.push(imgSrc);
+          }
+
+          // 4. Add data-src (lazy loading fallback)
+          const dataSrc = $article.find("img").first().attr("data-src");
+          if (dataSrc && !thumbnailUrls.includes(dataSrc)) {
+            thumbnailUrls.push(dataSrc);
+          }
+
           items.push({
             id,
             slug: name,
             title,
-            // Use correct fallback pattern if thumbnail not found
-            coverUrl: thumbnail || `https://temp.compsci88.com/cover/normal/${id}.webp`,
+            coverUrl: thumbnailUrls[0],
+            coverUrls: thumbnailUrls,
           });
         }
       }
@@ -264,14 +284,6 @@ export class WeebCentralScraper {
         title = $article.find("img").first().attr("alt")?.replace(" cover", "") || "";
       }
 
-      // Get thumbnail - try multiple sources
-      let thumbnail = $article.find("img").first().attr("src");
-
-      // If src is not found, try data-src (lazy loading)
-      if (!thumbnail) {
-        thumbnail = $article.find("img").first().attr("data-src");
-      }
-
       if (href && title) {
         const match = href.match(/\/series\/([^\/]+)\/(.+)/);
         if (match) {
@@ -283,12 +295,39 @@ export class WeebCentralScraper {
             console.warn(`Failed to cache series name for ${id}:`, err);
           });
 
+          // Build cover URLs in priority order
+          // Construct /normal/ URL first (highest quality, always available)
+          const thumbnailUrls: string[] = [];
+
+          // 1. Constructed /normal/ webp (highest quality)
+          thumbnailUrls.push(`https://temp.compsci88.com/cover/normal/${id}.webp`);
+
+          // 2. Extract any additional sources from current article
+          $article.find('picture source[type="image/webp"]').each((i, el) => {
+            const srcset = $(el).attr("srcset")?.split(" ")[0];
+            if (srcset && !thumbnailUrls.includes(srcset)) {
+              thumbnailUrls.push(srcset);
+            }
+          });
+
+          // 3. Add img src (fallback)
+          const imgSrc = $article.find("img").first().attr("src");
+          if (imgSrc && !thumbnailUrls.includes(imgSrc)) {
+            thumbnailUrls.push(imgSrc);
+          }
+
+          // 4. Add data-src (lazy loading fallback)
+          const dataSrc = $article.find("img").first().attr("data-src");
+          if (dataSrc && !thumbnailUrls.includes(dataSrc)) {
+            thumbnailUrls.push(dataSrc);
+          }
+
           items.push({
             id,
             slug: name,
             title,
-            // Use correct fallback pattern if thumbnail not found
-            coverUrl: thumbnail || `https://temp.compsci88.com/cover/normal/${id}.webp`,
+            coverUrl: thumbnailUrls[0],
+            coverUrls: thumbnailUrls,
           });
         }
       }
@@ -382,18 +421,44 @@ export class WeebCentralScraper {
       chapters = [];
     }
 
-    // Try to extract cover image from the page
-    let coverUrl = $('img[alt*="cover"], img.cover, meta[property="og:image"]').first().attr("src");
+    // Extract all cover image sources from <picture> element in priority order
+    const coverUrls: string[] = [];
 
-    // If not found in img tags, try meta tag
-    if (!coverUrl) {
-      coverUrl = $('meta[property="og:image"]').attr("content");
+    // 1. Get all <source> elements (priority order, excluding /small/ variants)
+    $('picture source[type="image/webp"]').each((i, el) => {
+      const srcset = $(el).attr("srcset")?.split(" ")[0];
+      if (srcset && !srcset.includes('/small/')) {
+        coverUrls.push(srcset);
+      }
+    });
+
+    // 2. Add <img> fallback
+    const imgSrc = $('img[alt*="cover"], img.cover').first().attr("src");
+    if (imgSrc && !coverUrls.includes(imgSrc)) {
+      coverUrls.push(imgSrc);
     }
 
-    // Use correct fallback pattern if cover not found
-    if (!coverUrl) {
-      coverUrl = `https://temp.compsci88.com/cover/normal/${mangaId}.webp`;
+    // 3. Add meta tag fallback
+    const metaSrc = $('meta[property="og:image"]').attr("content");
+    if (metaSrc && !coverUrls.includes(metaSrc)) {
+      coverUrls.push(metaSrc);
     }
+
+    // 4. Add /small/ variants as last resort
+    $('picture source[type="image/webp"]').each((i, el) => {
+      const srcset = $(el).attr("srcset")?.split(" ")[0];
+      if (srcset && srcset.includes('/small/') && !coverUrls.includes(srcset)) {
+        coverUrls.push(srcset);
+      }
+    });
+
+    // 5. Constructed fallback if nothing found
+    if (coverUrls.length === 0) {
+      coverUrls.push(`https://temp.compsci88.com/cover/normal/${mangaId}.webp`);
+    }
+
+    // Use first URL as primary, keep array for fallbacks
+    const coverUrl = coverUrls[0];
 
     return {
       id: mangaId,
@@ -401,6 +466,7 @@ export class WeebCentralScraper {
       title,
       description,
       coverUrl,
+      coverUrls,
       authors,
       artists: artists.length > 0 ? artists : authors,
       chapters,
@@ -647,14 +713,14 @@ export class WeebCentralScraper {
       return {
         chapterId,
         mangaId: "",
-        images: [],
+        pages: [],
       };
     }
 
     return {
       chapterId,
       mangaId: "",
-      images,
+      pages: images,
     };
   }
 
@@ -681,7 +747,7 @@ export class WeebCentralScraper {
       chunkSize,
       totalChunks,
       totalPages,
-      images: slice,
+      pages: slice,
       hasMore: end < totalPages,
     };
   }

@@ -8,6 +8,7 @@ import { slugify } from "@/lib/slug";
 import { withChapterSlugs } from "@/lib/chapter-slug";
 import { formatChapterTitle, sortChaptersAsc } from "@/lib/chapter-meta";
 import { AutoRefreshImage } from "@/components/ui/auto-refresh-image";
+import { resolveCoverSources } from "@/lib/cover-sources";
 
 interface ContinueReadingCardProps {
   manga: MangaDetails | null;
@@ -118,6 +119,7 @@ export function ContinueReadingCard({
   const pageProgress = totalPages > 0 ? ((currentPage + 1) / totalPages) * 100 : 0;
 
   const destination = slugify(manga.slug ?? manga.title) ?? mangaId;
+  const { primary: coverPrimary, fallbacks: coverFallbacks } = resolveCoverSources(manga);
 
   const pageQuery = new URLSearchParams({
     page: String(currentPage),
@@ -131,16 +133,16 @@ export function ContinueReadingCard({
       <div className="flex gap-4 p-4">
         {/* Cover Image */}
         <div className="relative h-32 w-24 flex-shrink-0 overflow-hidden rounded-md bg-muted">
-          {manga.coverUrl ? (
+          {coverPrimary ? (
             <AutoRefreshImage
-              src={manga.coverUrl}
+              src={coverPrimary}
+              fallbackUrls={coverFallbacks}
               alt={manga.title}
               fill
               className="object-cover transition group-hover:scale-105"
               sizes="96px"
               mangaId={mangaId}
               extensionId={extensionId}
-              fallbackSrc="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Crect width='100' height='100' fill='%23ddd'/%3E%3C/svg%3E"
             />
           ) : (
             <div className="flex h-full items-center justify-center text-muted-foreground">

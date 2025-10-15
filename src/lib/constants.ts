@@ -3,7 +3,7 @@
  */
 export const SIDEBAR_WIDTH = {
   COLLAPSED: 64,
-  EXPANDED: 200,
+  EXPANDED: 260,
 } as const;
 
 export const HEADER_HEIGHT = 56; // px (h-14 in Tailwind)

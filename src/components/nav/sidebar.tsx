@@ -5,7 +5,6 @@ import Link from "next/link";
 import { routes } from "@/lib/routes";
 import { useUIStore } from "@/store/ui";
 import { cn } from "@/lib/utils";
-import { SIDEBAR_WIDTH } from "@/lib/constants";
 import { User, Settings, LogOut, LogIn } from "lucide-react";
 import { Box, Button, Divider, Menu, Stack } from "@mantine/core";
 import { usePathname } from "next/navigation";
@@ -15,9 +14,6 @@ export function Sidebar() {
   const { collapsed } = useUIStore();
   const pathname = usePathname();
 
-  const sidebarWidth = collapsed
-    ? `w-[${SIDEBAR_WIDTH.COLLAPSED}px]`
-    : `w-[${SIDEBAR_WIDTH.EXPANDED}px]`;
   const sidebarRoutes = useMemo(
     () => routes.filter((route) => route.inSidebar),
     []
@@ -73,10 +69,7 @@ export function Sidebar() {
   return (
     <Box
       component="aside"
-      className={cn(
-        "flex h-full min-h-0 flex-shrink-0 flex-col border-r border-border bg-card text-card-foreground transition-[width] duration-300",
-        sidebarWidth
-      )}
+      className="flex h-full min-h-0 w-full flex-shrink-0 flex-col bg-card text-card-foreground"
       aria-label="Primary navigation"
     >
       <Box className="flex flex-1 min-h-0 flex-col overflow-hidden">

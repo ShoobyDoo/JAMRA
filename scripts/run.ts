@@ -14,6 +14,7 @@ const PACKAGE_ORDER = [
   "@jamra/catalog-db",
   "@jamra/extension-host",
   "@jamra/catalog-service",
+  "@jamra/offline-storage",
   "@jamra/catalog-server",
   "@jamra/example-extension",
   "@jamra/weebcentral-extension",
@@ -149,13 +150,51 @@ function runConcurrent(instructions: Instruction[]): Promise<void> {
   });
 }
 
+async function forceBuildPackage(pkg: string): Promise<void> {
+  // Clean incremental cache and dist to force fresh build
+  await runCommand({
+    cmd: "pnpm",
+    args: ["--filter", pkg, "exec", "rm", "-rf", "tsconfig.tsbuildinfo", "dist"],
+  });
+  await runCommand({
+    cmd: "pnpm",
+    args: ["--filter", pkg, "build"],
+  });
+}
+
 async function buildBackend(): Promise<void> {
-  await runSequential(
-    PACKAGE_ORDER.map((pkg) => ({
-      cmd: "pnpm",
-      args: ["--filter", pkg, "build"],
-    })),
-  );
+  // Phase 1: Build foundation packages in parallel (no internal dependencies)
+  await runConcurrent([
+    { cmd: "pnpm", args: ["--filter", "@jamra/extension-sdk", "build"] },
+    { cmd: "pnpm", args: ["--filter", "@jamra/extension-registry", "build"] },
+  ]);
+
+  // Phase 2: Build packages that depend on phase 1 (parallel)
+  await runConcurrent([
+    { cmd: "pnpm", args: ["--filter", "@jamra/catalog-db", "build"] },
+    { cmd: "pnpm", args: ["--filter", "@jamra/extension-host", "build"] },
+  ]);
+
+  // Phase 3: Build catalog-service (depends on extension-host)
+  await runCommand({
+    cmd: "pnpm",
+    args: ["--filter", "@jamra/catalog-service", "build"],
+  });
+
+  // Phase 4: Build offline-storage (depends on catalog-service)
+  await runCommand({
+    cmd: "pnpm",
+    args: ["--filter", "@jamra/offline-storage", "build"],
+  });
+
+  // Phase 5: Force rebuild catalog-server (critical - always fresh)
+  await forceBuildPackage("@jamra/catalog-server");
+
+  // Phase 6: Build extensions in parallel (only need extension-sdk from phase 1)
+  await runConcurrent([
+    { cmd: "pnpm", args: ["--filter", "@jamra/example-extension", "build"] },
+    { cmd: "pnpm", args: ["--filter", "@jamra/weebcentral-extension", "build"] },
+  ]);
 }
 
 async function buildElectronMain(): Promise<void> {

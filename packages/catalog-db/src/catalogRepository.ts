@@ -145,6 +145,26 @@ export interface UpsertExtensionOptions {
   updateState?: StoredExtensionUpdateState | null;
 }
 
+interface RawCoverCacheRow {
+  coverUrl: string;
+  dataBase64: string;
+  mimeType: string | null;
+  bytes: number | null;
+  metadataJson: string | null;
+  updatedAt: number;
+  expiresAt: number | null;
+}
+
+export interface CoverCacheRecord {
+  coverUrl: string;
+  dataBase64: string;
+  mimeType?: string;
+  bytes?: number;
+  metadata?: unknown;
+  updatedAt: number;
+  expiresAt?: number | null;
+}
+
 export class CatalogRepository {
   constructor(private readonly db: Database.Database) {}
 
@@ -469,6 +489,7 @@ export class CatalogRepository {
         alt_titles_json,
         description,
         cover_url,
+        cover_urls_json,
         status,
         tags_json,
         demographic,
@@ -476,7 +497,7 @@ export class CatalogRepository {
         updated_at,
         last_synced_at,
         series_name
-      ) VALUES (@id, @slug, @extension_id, @title, @alt_titles_json, @description, @cover_url, @status,
+      ) VALUES (@id, @slug, @extension_id, @title, @alt_titles_json, @description, @cover_url, @cover_urls_json, @status,
         @tags_json, @demographic, @language_code, @updated_at, @last_synced_at, @series_name)
       ON CONFLICT(id) DO UPDATE SET
         extension_id = excluded.extension_id,
@@ -485,6 +506,7 @@ export class CatalogRepository {
         alt_titles_json = excluded.alt_titles_json,
         description = excluded.description,
         cover_url = excluded.cover_url,
+        cover_urls_json = excluded.cover_urls_json,
         status = excluded.status,
         tags_json = excluded.tags_json,
         demographic = excluded.demographic,
@@ -505,6 +527,7 @@ export class CatalogRepository {
           alt_titles_json: serialize(item.altTitles),
           description: item.description ?? null,
           cover_url: item.coverUrl ?? null,
+          cover_urls_json: serialize(item.coverUrls ?? (item.coverUrl ? [item.coverUrl] : undefined)),
           status: item.status ?? null,
           tags_json: serialize(item.tags),
           demographic: item.demographic ?? null,
@@ -627,8 +650,8 @@ export class CatalogRepository {
       throw new Error('Invalid chapter pages payload: expected object');
     }
 
-    if (!payload.images || !Array.isArray(payload.images)) {
-      throw new Error(`Invalid chapter pages payload: images is not iterable (got ${typeof payload.images})`);
+    if (!payload.pages || !Array.isArray(payload.pages)) {
+      throw new Error(`Invalid chapter pages payload: pages is not iterable (got ${typeof payload.pages})`);
     }
 
     const deleteStmt = this.db.prepare(
@@ -655,7 +678,7 @@ export class CatalogRepository {
 
     this.db.transaction(() => {
       deleteStmt.run({ chapter_id: payload.chapterId });
-      for (const page of payload.images) {
+      for (const page of payload.pages) {
         insertStmt.run({
           chapter_id: payload.chapterId,
           manga_id: mangaId,
@@ -841,6 +864,7 @@ export class CatalogRepository {
           alt_titles_json as altTitlesJson,
           description,
           cover_url as coverUrl,
+          cover_urls_json as coverUrlsJson,
           status,
           tags_json as tagsJson,
           demographic,
@@ -862,6 +886,7 @@ export class CatalogRepository {
           altTitlesJson: string | null;
           description: string | null;
           coverUrl: string | null;
+          coverUrlsJson: string | null;
           status: string | null;
           tagsJson: string | null;
           demographic: string | null;
@@ -950,6 +975,7 @@ export class CatalogRepository {
       altTitles: deserialize<string[]>(mangaRow.altTitlesJson) ?? undefined,
       description: mangaRow.description ?? undefined,
       coverUrl: mangaRow.coverUrl ?? undefined,
+      coverUrls: deserialize<string[]>(mangaRow.coverUrlsJson) ?? undefined,
       status,
       tags: deserialize<string[]>(mangaRow.tagsJson) ?? undefined,
       demographic: mangaRow.demographic ?? undefined,
@@ -987,6 +1013,192 @@ export class CatalogRepository {
       chapters: mangaDetails.chapters ?? [],
       summaryLastSyncedAt: mangaRow.lastSyncedAt ?? undefined,
     };
+  }
+
+  getMangaCoverUrls(extensionId: string, mangaId: string): string[] | undefined {
+    const row = this.db
+      .prepare(
+        `SELECT cover_urls_json as coverUrlsJson
+         FROM manga
+         WHERE id = @manga_id AND extension_id = @extension_id
+         LIMIT 1`
+      )
+      .get({ manga_id: mangaId, extension_id: extensionId }) as
+      | { coverUrlsJson: string | null }
+      | undefined;
+
+    if (!row) return undefined;
+    return deserialize<string[]>(row.coverUrlsJson) ?? undefined;
+  }
+
+  updateMangaCoverUrls(extensionId: string, mangaId: string, urls: string[]): void {
+    const stmt = this.db.prepare(
+      `UPDATE manga
+       SET cover_urls_json = @cover_urls_json,
+           cover_url = COALESCE(@cover_url, cover_url)
+       WHERE id = @manga_id AND extension_id = @extension_id`
+    );
+
+    stmt.run({
+      cover_urls_json: serialize(urls),
+      cover_url: urls[0] ?? null,
+      manga_id: mangaId,
+      extension_id: extensionId,
+    });
+  }
+
+  getCoverCache(extensionId: string, mangaId: string): CoverCacheRecord | undefined {
+    const row = this.db
+      .prepare(
+        `SELECT
+           cover_url as coverUrl,
+           data_base64 as dataBase64,
+           mime_type as mimeType,
+           bytes,
+           metadata_json as metadataJson,
+           updated_at as updatedAt,
+           expires_at as expiresAt
+         FROM manga_cover_cache
+         WHERE manga_id = @manga_id AND extension_id = @extension_id
+         LIMIT 1`
+      )
+      .get({ manga_id: mangaId, extension_id: extensionId }) as RawCoverCacheRow | undefined;
+
+    if (!row) return undefined;
+
+    return {
+      coverUrl: row.coverUrl,
+      dataBase64: row.dataBase64,
+      mimeType: row.mimeType ?? undefined,
+      bytes: row.bytes ?? undefined,
+      metadata: deserialize<unknown>(row.metadataJson) ?? undefined,
+      updatedAt: row.updatedAt,
+      expiresAt: row.expiresAt ?? undefined,
+    };
+  }
+
+  upsertCoverCache(
+    extensionId: string,
+    mangaId: string,
+    entry: CoverCacheRecord & { expiresAt?: number | null }
+  ): void {
+    const stmt = this.db.prepare(
+      `INSERT INTO manga_cover_cache (
+         manga_id,
+         extension_id,
+         cover_url,
+         data_base64,
+         mime_type,
+         bytes,
+         metadata_json,
+         updated_at,
+         expires_at
+       ) VALUES (@manga_id, @extension_id, @cover_url, @data_base64, @mime_type, @bytes,
+         @metadata_json, @updated_at, @expires_at)
+       ON CONFLICT(manga_id, extension_id) DO UPDATE SET
+         cover_url = excluded.cover_url,
+         data_base64 = excluded.data_base64,
+         mime_type = excluded.mime_type,
+         bytes = excluded.bytes,
+         metadata_json = excluded.metadata_json,
+         updated_at = excluded.updated_at,
+         expires_at = excluded.expires_at;
+      `
+    );
+
+    stmt.run({
+      manga_id: mangaId,
+      extension_id: extensionId,
+      cover_url: entry.coverUrl,
+      data_base64: entry.dataBase64,
+      mime_type: entry.mimeType ?? null,
+      bytes: entry.bytes ?? null,
+      metadata_json: serialize(entry.metadata),
+      updated_at: entry.updatedAt,
+      expires_at: entry.expiresAt ?? null,
+    });
+  }
+
+  deleteCoverCache(extensionId: string, mangaId: string): void {
+    this.db
+      .prepare(
+        `DELETE FROM manga_cover_cache
+         WHERE manga_id = @manga_id AND extension_id = @extension_id`
+      )
+      .run({ manga_id: mangaId, extension_id: extensionId });
+  }
+
+  trimCoverCache(maxEntries: number): void {
+    if (maxEntries <= 0) {
+      this.db.exec(`DELETE FROM manga_cover_cache`);
+      return;
+    }
+
+    const row = this.db
+      .prepare(`SELECT COUNT(*) as count FROM manga_cover_cache`)
+      .get() as { count: number };
+
+    const total = row?.count ?? 0;
+    if (total <= maxEntries) return;
+
+    const toDelete = total - maxEntries;
+    this.db
+      .prepare(
+        `DELETE FROM manga_cover_cache
+         WHERE rowid IN (
+           SELECT rowid
+           FROM manga_cover_cache
+           ORDER BY updated_at ASC
+           LIMIT @limit
+         )`
+      )
+      .run({ limit: toDelete });
+  }
+
+  purgeExpiredCoverCache(nowTs: number = now()): number {
+    const result = this.db
+      .prepare(
+        `DELETE FROM manga_cover_cache
+         WHERE expires_at IS NOT NULL AND expires_at <= @now`
+      )
+      .run({ now: nowTs });
+
+    return result.changes ?? 0;
+  }
+
+  getAppSetting<T>(key: string): T | undefined {
+    const row = this.db
+      .prepare(
+        `SELECT value
+         FROM app_settings
+         WHERE key = @key
+         LIMIT 1`
+      )
+      .get({ key }) as { value: string } | undefined;
+
+    if (!row) return undefined;
+    try {
+      return JSON.parse(row.value) as T;
+    } catch (error) {
+      console.warn(`Failed to parse app setting for key ${key}`, error);
+      return undefined;
+    }
+  }
+
+  setAppSetting(key: string, value: unknown): void {
+    const stmt = this.db.prepare(
+      `INSERT INTO app_settings (key, value, updated_at)
+       VALUES (@key, @value, @updated_at)
+       ON CONFLICT(key) DO UPDATE SET
+         value = excluded.value,
+         updated_at = excluded.updated_at`
+    );
+
+    stmt.run({
+      key,
+      value: JSON.stringify(value ?? null),
+      updated_at: now(),
+    });
   }
 
   getMangaBySlug(

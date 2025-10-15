@@ -188,12 +188,23 @@ async function request<T>(path: string, init: ApiRequestOptions = {}): Promise<T
   }
 }
 
+export interface CachedCoverPayload {
+  dataUrl: string;
+  sourceUrl: string;
+  updatedAt: string;
+  expiresAt?: string;
+  mimeType?: string;
+  bytes?: number;
+}
+
 export interface CatalogueItem {
   id: string;
   slug?: string;
   title: string;
   altTitles?: string[];
   coverUrl?: string;
+  coverUrls?: string[];
+  cachedCover?: CachedCoverPayload;
   description?: string;
   status?: string;
   tags?: string[];
@@ -252,6 +263,8 @@ export interface MangaDetails {
   title: string;
   description?: string;
   coverUrl?: string;
+  coverUrls?: string[];
+  cachedCover?: CachedCoverPayload;
   authors?: string[];
   artists?: string[];
   chapters?: ChapterSummary[];
@@ -335,6 +348,66 @@ export async function refreshMangaCache(
     `/manga/${encodeURIComponent(identifier)}/refresh?${params.toString()}`,
     { method: "POST" },
   );
+}
+
+export interface CoverReportPayload {
+  mangaId: string;
+  extensionId?: string;
+  url: string;
+  status: "success" | "failure";
+  attemptedUrls?: string[];
+}
+
+export async function reportMangaCoverResult(payload: CoverReportPayload): Promise<void> {
+  const body = {
+    url: payload.url,
+    status: payload.status,
+    attemptedUrls: payload.attemptedUrls ?? [],
+    extensionId: payload.extensionId,
+  };
+
+  await request<void>(
+    `/manga/${encodeURIComponent(payload.mangaId)}/covers/report`,
+    {
+      method: "POST",
+      body: JSON.stringify(body),
+    },
+  );
+}
+
+export interface CacheSettings {
+  enabled: boolean;
+  ttlMs: number;
+  maxEntries: number;
+  fetchTimeoutMs?: number;
+}
+
+export interface UpdateCacheSettingsPayload {
+  enabled?: boolean;
+  ttlMs?: number;
+  ttlDays?: number;
+  maxEntries?: number;
+  fetchTimeoutMs?: number;
+}
+
+export async function fetchCacheSettings(): Promise<CacheSettings> {
+  const response = await request<{ settings: CacheSettings }>(
+    "/system/cache-settings",
+  );
+  return response.settings;
+}
+
+export async function updateCacheSettings(
+  payload: UpdateCacheSettingsPayload,
+): Promise<CacheSettings> {
+  const response = await request<{ settings: CacheSettings }>(
+    "/system/cache-settings",
+    {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    },
+  );
+  return response.settings;
 }
 
 export interface ChapterPagesResponse {
@@ -834,7 +907,10 @@ export interface OfflineQueuedDownload {
   extensionId: string;
   mangaId: string;
   mangaSlug: string;
+  mangaTitle?: string;
   chapterId?: string;
+  chapterNumber?: string;
+  chapterTitle?: string;
   status: DownloadStatus;
   priority: number;
   queuedAt: number;
@@ -1022,6 +1098,26 @@ export async function cancelOfflineDownload(queueId: number): Promise<{ success:
   );
 }
 
+export async function retryOfflineDownload(queueId: number): Promise<{ success: boolean }> {
+  return request<{ success: boolean }>(
+    `/offline/queue/${encodeURIComponent(String(queueId))}/retry`,
+    {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+    },
+  );
+}
+
+export async function retryFrozenDownloads(): Promise<{ success: boolean; retriedCount: number; retriedIds: number[] }> {
+  return request<{ success: boolean; retriedCount: number; retriedIds: number[] }>(
+    `/offline/queue/retry-frozen`,
+    {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+    },
+  );
+}
+
 export async function deleteOfflineChapter(
   extensionId: string,
   mangaId: string,
@@ -1043,4 +1139,56 @@ export async function deleteOfflineManga(
     `/offline/manga/${encodeURIComponent(mangaId)}?${params.toString()}`,
     { method: "DELETE" },
   );
+}
+
+// ============================================================================
+// Download History API
+// ============================================================================
+
+export interface OfflineDownloadHistoryItem {
+  id: number;
+  extensionId: string;
+  mangaId: string;
+  mangaSlug: string;
+  mangaTitle?: string;
+  chapterId?: string;
+  chapterNumber?: string;
+  chapterTitle?: string;
+  status: DownloadStatus;
+  queuedAt: number;
+  startedAt?: number;
+  completedAt: number;
+  errorMessage?: string;
+  progressCurrent: number;
+  progressTotal: number;
+}
+
+interface OfflineDownloadHistoryResponse {
+  history: OfflineDownloadHistoryItem[];
+}
+
+export async function getOfflineDownloadHistory(limit?: number): Promise<OfflineDownloadHistoryItem[]> {
+  const params = new URLSearchParams();
+  if (limit !== undefined) {
+    params.set("limit", String(limit));
+  }
+
+  const query = params.toString();
+  const suffix = query.length > 0 ? `?${query}` : "";
+
+  const response = await request<OfflineDownloadHistoryResponse>(`/offline/history${suffix}`);
+  return response.history;
+}
+
+export async function deleteOfflineHistoryItem(historyId: number): Promise<{ success: boolean }> {
+  return request<{ success: boolean }>(
+    `/offline/history/${encodeURIComponent(String(historyId))}`,
+    { method: "DELETE" },
+  );
+}
+
+export async function clearOfflineDownloadHistory(): Promise<{ success: boolean }> {
+  return request<{ success: boolean }>("/offline/history", {
+    method: "DELETE",
+  });
 }

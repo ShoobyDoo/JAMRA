@@ -10,7 +10,9 @@ import type {
   OfflineMangaRow,
   OfflineChapterRow,
   DownloadQueueRow,
+  DownloadHistoryRow,
   QueuedDownload,
+  DownloadHistoryItem,
   DownloadStatus,
   MangaStorageInfo,
 } from "./types.js";
@@ -30,12 +32,35 @@ export class OfflineRepository {
       extensionId: row.extension_id,
       mangaId: row.manga_id,
       mangaSlug: row.manga_slug,
+      mangaTitle: row.manga_title || undefined,
       chapterId: row.chapter_id || undefined,
+      chapterNumber: row.chapter_number || undefined,
+      chapterTitle: row.chapter_title || undefined,
       status: row.status,
       priority: row.priority,
       queuedAt: row.queued_at,
       startedAt: row.started_at || undefined,
       completedAt: row.completed_at || undefined,
+      errorMessage: row.error_message || undefined,
+      progressCurrent: row.progress_current,
+      progressTotal: row.progress_total,
+    };
+  }
+
+  private transformHistoryRow(row: DownloadHistoryRow): DownloadHistoryItem {
+    return {
+      id: row.id,
+      extensionId: row.extension_id,
+      mangaId: row.manga_id,
+      mangaSlug: row.manga_slug,
+      mangaTitle: row.manga_title || undefined,
+      chapterId: row.chapter_id || undefined,
+      chapterNumber: row.chapter_number || undefined,
+      chapterTitle: row.chapter_title || undefined,
+      status: row.status,
+      queuedAt: row.queued_at,
+      startedAt: row.started_at || undefined,
+      completedAt: row.completed_at,
       errorMessage: row.error_message || undefined,
       progressCurrent: row.progress_current,
       progressTotal: row.progress_total,
@@ -96,7 +121,10 @@ export class OfflineRepository {
         extension_id TEXT NOT NULL,
         manga_id TEXT NOT NULL,
         manga_slug TEXT NOT NULL,
+        manga_title TEXT,
         chapter_id TEXT,
+        chapter_number TEXT,
+        chapter_title TEXT,
         status TEXT NOT NULL,
         priority INTEGER DEFAULT 0,
         queued_at INTEGER NOT NULL,
@@ -112,6 +140,37 @@ export class OfflineRepository {
     this.db.exec(`
       CREATE INDEX IF NOT EXISTS idx_download_queue_status
       ON download_queue(status, priority DESC, queued_at ASC)
+    `);
+
+    // Download history
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS download_history (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        extension_id TEXT NOT NULL,
+        manga_id TEXT NOT NULL,
+        manga_slug TEXT NOT NULL,
+        manga_title TEXT,
+        chapter_id TEXT,
+        chapter_number TEXT,
+        chapter_title TEXT,
+        status TEXT NOT NULL,
+        queued_at INTEGER NOT NULL,
+        started_at INTEGER,
+        completed_at INTEGER NOT NULL,
+        error_message TEXT,
+        progress_current INTEGER DEFAULT 0,
+        progress_total INTEGER DEFAULT 0
+      )
+    `);
+
+    this.db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_download_history_completed
+      ON download_history(completed_at DESC)
+    `);
+
+    this.db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_download_history_manga
+      ON download_history(extension_id, manga_id)
     `);
   }
 
@@ -255,10 +314,10 @@ export class OfflineRepository {
   queueDownload(download: Omit<DownloadQueueRow, "id">): number {
     const stmt = this.db.prepare(`
       INSERT INTO download_queue (
-        extension_id, manga_id, manga_slug, chapter_id, status, priority,
-        queued_at, started_at, completed_at, error_message,
+        extension_id, manga_id, manga_slug, manga_title, chapter_id, chapter_number, chapter_title,
+        status, priority, queued_at, started_at, completed_at, error_message,
         progress_current, progress_total
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(extension_id, manga_id, chapter_id) DO UPDATE SET
         status = excluded.status,
         priority = excluded.priority,
@@ -270,7 +329,10 @@ export class OfflineRepository {
       download.extension_id,
       download.manga_id,
       download.manga_slug,
+      download.manga_title,
       download.chapter_id,
+      download.chapter_number,
+      download.chapter_title,
       download.status,
       download.priority,
       download.queued_at,
@@ -477,5 +539,120 @@ export class OfflineRepository {
       WHERE downloaded_at < ?
     `);
     stmt.run(timestampMs);
+  }
+
+  // ==========================================================================
+  // Download History Operations
+  // ==========================================================================
+
+  /**
+   * Move a completed download from queue to history
+   */
+  moveQueueItemToHistory(queueId: number): void {
+    const queueItem = this.getQueueItem(queueId);
+    if (!queueItem || !queueItem.completedAt) {
+      return;
+    }
+
+    const stmt = this.db.prepare(`
+      INSERT INTO download_history (
+        extension_id, manga_id, manga_slug, manga_title, chapter_id, chapter_number, chapter_title,
+        status, queued_at, started_at, completed_at, error_message,
+        progress_current, progress_total
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    stmt.run(
+      queueItem.extensionId,
+      queueItem.mangaId,
+      queueItem.mangaSlug,
+      queueItem.mangaTitle || null,
+      queueItem.chapterId || null,
+      queueItem.chapterNumber || null,
+      queueItem.chapterTitle || null,
+      queueItem.status,
+      queueItem.queuedAt,
+      queueItem.startedAt || null,
+      queueItem.completedAt,
+      queueItem.errorMessage || null,
+      queueItem.progressCurrent,
+      queueItem.progressTotal
+    );
+
+    this.deleteQueueItem(queueId);
+  }
+
+  /**
+   * Get all download history items, ordered by completion time (newest first)
+   */
+  getDownloadHistory(limit?: number): DownloadHistoryItem[] {
+    let query = `
+      SELECT * FROM download_history
+      ORDER BY completed_at DESC
+    `;
+
+    if (limit && limit > 0) {
+      query += ` LIMIT ${Math.floor(limit)}`;
+    }
+
+    const stmt = this.db.prepare(query);
+    const rows = stmt.all() as DownloadHistoryRow[];
+    return rows.map(row => this.transformHistoryRow(row));
+  }
+
+  /**
+   * Get download history for a specific manga
+   */
+  getDownloadHistoryForManga(extensionId: string, mangaId: string): DownloadHistoryItem[] {
+    const stmt = this.db.prepare(`
+      SELECT * FROM download_history
+      WHERE extension_id = ? AND manga_id = ?
+      ORDER BY completed_at DESC
+    `);
+    const rows = stmt.all(extensionId, mangaId) as DownloadHistoryRow[];
+    return rows.map(row => this.transformHistoryRow(row));
+  }
+
+  /**
+   * Delete a single history item
+   */
+  deleteHistoryItem(historyId: number): void {
+    const stmt = this.db.prepare(`
+      DELETE FROM download_history
+      WHERE id = ?
+    `);
+    stmt.run(historyId);
+  }
+
+  /**
+   * Clear all download history
+   */
+  clearDownloadHistory(): void {
+    const stmt = this.db.prepare(`
+      DELETE FROM download_history
+    `);
+    stmt.run();
+  }
+
+  /**
+   * Delete history items older than specified timestamp
+   */
+  deleteHistoryOlderThan(timestampMs: number): void {
+    const stmt = this.db.prepare(`
+      DELETE FROM download_history
+      WHERE completed_at < ?
+    `);
+    stmt.run(timestampMs);
+  }
+
+  /**
+   * Get count of history items
+   */
+  getHistoryCount(): number {
+    const stmt = this.db.prepare(`
+      SELECT COUNT(*) as count FROM download_history
+    `);
+    const result = stmt.get() as { count: number };
+    return result.count;
   }
 }

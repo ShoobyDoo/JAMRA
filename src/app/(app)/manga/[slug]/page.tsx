@@ -1,4 +1,3 @@
-import Image from "next/image";
 import { notFound } from "next/navigation";
 import { fetchMangaDetails } from "@/lib/api";
 import { ChapterList } from "@/components/manga/chapter-list";
@@ -11,6 +10,8 @@ import { OfflineDownloadControls } from "@/components/manga/offline-download-con
 import { withChapterSlugs } from "@/lib/chapter-slug";
 import { decodeRouteParam, type MangaRouteParams } from "@/lib/routes";
 import { logger } from "@/lib/logger";
+import { resolveCoverSources } from "@/lib/cover-sources";
+import { AutoRefreshImage } from "@/components/ui/auto-refresh-image";
 
 interface MangaPageProps {
   params: Promise<MangaRouteParams>;
@@ -42,18 +43,22 @@ export default async function MangaPage({ params }: MangaPageProps) {
   const chapters = withChapterSlugs(details.chapters ?? []);
   const mangaId = details.id;
   const canonicalSlug = details.slug ?? slug;
+  const { primary: coverPrimary, fallbacks: coverFallbacks } = resolveCoverSources(details);
 
   return (
     <div className="space-y-6 p-6">
       <div className="flex flex-col gap-6 lg:flex-row">
         <div className="relative aspect-[3/4] w-full max-w-xs overflow-hidden rounded-lg border border-border bg-muted">
-          {details.coverUrl ? (
-            <Image
-              src={details.coverUrl}
+          {coverPrimary ? (
+            <AutoRefreshImage
+              src={coverPrimary}
+              fallbackUrls={coverFallbacks}
               alt={details.title}
               fill
               sizes="(max-width: 1024px) 60vw, 320px"
               className="object-cover"
+              mangaId={mangaId}
+              extensionId={data.extensionId}
             />
           ) : (
             <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
@@ -87,12 +92,12 @@ export default async function MangaPage({ params }: MangaPageProps) {
                 <dd>{details.authors.join(", ")}</dd>
               </div>
             ) : null}
-            {details.artists && details.artists.length > 0 ? (
+            {/* {details.artists && details.artists.length > 0 ? (
               <div>
                 <dt className="text-muted-foreground">Artist(s)</dt>
                 <dd>{details.artists.join(", ")}</dd>
               </div>
-            ) : null}
+            ) : null} */}
             {details.genres && details.genres.length > 0 ? (
               <div className="col-span-2 sm:col-span-3 lg:col-span-4">
                 <dt className="text-muted-foreground mb-2">Genres</dt>

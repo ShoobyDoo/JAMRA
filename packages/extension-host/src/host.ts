@@ -363,10 +363,10 @@ export class ExtensionHost {
     const { chunk, chunkSize } = request;
     const startIndex = chunk * chunkSize;
     const endIndex = startIndex + chunkSize;
-    const totalPages = full.images.length;
+    const totalPages = full.pages.length;
     const totalChunks = Math.max(1, Math.ceil(totalPages / chunkSize));
 
-    const slice = full.images
+    const slice = full.pages
       .slice(startIndex, endIndex)
       .map((page, index) => ({
         ...page,
@@ -380,7 +380,7 @@ export class ExtensionHost {
       chunkSize,
       totalChunks,
       totalPages,
-      images: slice,
+      pages: slice,
       hasMore: endIndex < totalPages,
     };
   }

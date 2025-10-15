@@ -1,7 +1,7 @@
 import { fetchCataloguePage, ApiError } from "@/lib/api";
 import { NoExtensionsEmptyState } from "@/components/empty-states/no-extensions";
 import { API_CONFIG } from "@/lib/constants";
-import { MangaCard } from "@/components/manga/manga-card";
+import { MangaGrid } from "@/components/manga/manga-grid";
 
 export const dynamic = "force-dynamic";
 
@@ -49,11 +49,7 @@ export default async function DiscoverPage() {
         </p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6">
-        {catalogue.items.map((item) => (
-          <MangaCard key={item.id} item={item} />
-        ))}
-      </div>
+      <MangaGrid items={catalogue.items} extensionId={catalogue.extensionId} />
     </div>
   );
 }

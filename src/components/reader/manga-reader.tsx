@@ -263,18 +263,21 @@ export function MangaReader({
   useEffect(() => {
     const initialize = async () => {
       const storage = Array.from({ length: totalPages }, () => null as PageImage | null);
-      initialPages.forEach((page) => {
-        if (page.index >= 0 && page.index < storage.length) {
-          storage[page.index] = page;
-        }
-      });
+      // Defensive check: initialPages might be undefined in edge cases
+      if (initialPages && Array.isArray(initialPages)) {
+        initialPages.forEach((page) => {
+          if (page.index >= 0 && page.index < storage.length) {
+            storage[page.index] = page;
+          }
+        });
+      }
       pagesRef.current = storage;
       setPagesVersion((value) => value + 1);
 
       chunkSizeRef.current = Math.max(initialChunkSize, 1);
       totalChunksRef.current = Math.max(totalChunks, 1);
       loadedChunksRef.current = new Set<number>();
-      if (initialPages.length > 0) {
+      if (initialPages && initialPages.length > 0) {
         loadedChunksRef.current.add(initialChunkIndex);
       }
       loadingChunkPromisesRef.current.clear();
@@ -300,6 +303,7 @@ export function MangaReader({
     };
 
     void initialize();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     chapterId,
     totalPages,
@@ -308,8 +312,8 @@ export function MangaReader({
     initialChunkIndex,
     totalChunks,
     initialPage,
-    ensurePageAvailable,
-    enqueueSequentialChunks,
+    // Note: ensurePageAvailable and enqueueSequentialChunks intentionally omitted
+    // to prevent infinite loop. This effect should only run on chapter change.
   ]);
 
   useEffect(() => {
