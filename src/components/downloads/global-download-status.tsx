@@ -138,41 +138,35 @@ export function GlobalDownloadStatus() {
         )}
       </button>
 
-      {!sidebarCollapsed && (
-        <Box px="xs" py="sm" className="border-t border-border">
-          <Button
-            variant="subtle"
-            size="compact-sm"
-            fullWidth
-            justify="space-between"
-            onClick={() => router.push("/downloads")}
-            rightSection={<ArrowRight size={12} />}
-            styles={{
-              label: {
-                fontSize: '0.75rem',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-              }
-            }}
-          >
-            View All Downloads
-          </Button>
-        </Box>
-      )}
-
       <Collapse in={expanded && !sidebarCollapsed}>
-        <ScrollArea.Autosize
-          mah={300}
-          className="border-t border-border"
-          scrollbarSize={6}
-        >
-          <Box pt="xs" px="xs" pb={0} style={{ maxWidth: contentWidth }}>
-            {Object.entries(downloadsByManga).map(([mangaId, { mangaSlug, downloads: mangaDownloads }]) => (
-              <Box key={mangaId} mb="sm" style={{ maxWidth: '100%' }}>
-                <Text
-                  size="xs"
-                  fw={600}
+        <Box className="border-t border-border">
+          <Box px="xs" py="sm">
+            <Button
+              variant="subtle"
+              size="compact-sm"
+              fullWidth
+              justify="space-between"
+              onClick={() => router.push("/downloads")}
+              rightSection={<ArrowRight size={12} />}
+              styles={{
+                label: {
+                  fontSize: "0.75rem",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                },
+              }}
+            >
+              View All Downloads
+            </Button>
+          </Box>
+          <ScrollArea.Autosize mah={300} scrollbarSize={6}>
+            <Box pt="xs" px="xs" pb={0} style={{ maxWidth: contentWidth }}>
+              {Object.entries(downloadsByManga).map(([mangaId, { mangaSlug, downloads: mangaDownloads }]) => (
+                <Box key={mangaId} mb="sm" style={{ maxWidth: '100%' }}>
+                  <Text
+                    size="xs"
+                    fw={600}
                   c="dimmed"
                   mb={4}
                   title={mangaSlug}
@@ -271,9 +265,10 @@ export function GlobalDownloadStatus() {
                   })}
                 </Box>
               </Box>
-            ))}
-          </Box>
-        </ScrollArea.Autosize>
+              ))}
+            </Box>
+          </ScrollArea.Autosize>
+        </Box>
       </Collapse>
     </Box>
   );

@@ -380,6 +380,7 @@ export default function DownloadsPage() {
                   { value: "status", label: "Group by Status" },
                 ]}
                 w={180}
+                checkIconPosition="right"
               />
 
               <Select
@@ -393,6 +394,7 @@ export default function DownloadsPage() {
                   { value: "failed", label: "Failed" },
                 ]}
                 w={150}
+                checkIconPosition="right"
               />
             </Group>
 

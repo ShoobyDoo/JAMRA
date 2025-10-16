@@ -25,6 +25,32 @@ function sanitizeErrorDetail(detail?: string | null): string | undefined {
   return withoutTags.length > 0 ? withoutTags : undefined;
 }
 
+const DATA_URL_SCHEME_PATTERN = /^(?:data|blob):/i;
+const MAX_ATTEMPTED_URL_LENGTH = 4096;
+
+function sanitizeAttemptedUrlList(urls: string[] = []): string[] {
+  const seen = new Set<string>();
+  const sanitized: string[] = [];
+
+  for (const raw of urls) {
+    if (typeof raw !== "string") continue;
+    const trimmed = raw.trim();
+    if (!trimmed) continue;
+    if (DATA_URL_SCHEME_PATTERN.test(trimmed)) continue;
+
+    const normalized =
+      trimmed.length > MAX_ATTEMPTED_URL_LENGTH
+        ? trimmed.slice(0, MAX_ATTEMPTED_URL_LENGTH)
+        : trimmed;
+
+    if (seen.has(normalized)) continue;
+    seen.add(normalized);
+    sanitized.push(normalized);
+  }
+
+  return sanitized;
+}
+
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -59,6 +85,7 @@ async function request<T>(path: string, init: ApiRequestOptions = {}): Promise<T
       ...fetchInit,
       headers: {
         accept: "application/json",
+        ...(fetchInit?.body ? { "content-type": "application/json" } : {}),
         ...(fetchInit?.headers ?? {}),
       },
       cache: "no-store",
@@ -359,18 +386,68 @@ export interface CoverReportPayload {
 }
 
 export async function reportMangaCoverResult(payload: CoverReportPayload): Promise<void> {
-  const body = {
+  const originalAttempted = payload.attemptedUrls ?? [];
+  let attemptedUrls = sanitizeAttemptedUrlList(originalAttempted);
+
+  if (
+    process.env.NODE_ENV !== "production" &&
+    originalAttempted.length > 0 &&
+    attemptedUrls.length < originalAttempted.length
+  ) {
+    console.log(
+      "[API] Filtered attempted cover URLs for payload.",
+      {
+        original: originalAttempted.length,
+        retained: attemptedUrls.length,
+        dropped: originalAttempted.length - attemptedUrls.length,
+      },
+    );
+  }
+
+  // Hard failsafe: If payload is too large, aggressively trim URLs
+  let body = {
     url: payload.url,
     status: payload.status,
-    attemptedUrls: payload.attemptedUrls ?? [],
+    attemptedUrls,
     extensionId: payload.extensionId,
   };
+
+  let bodyStr = JSON.stringify(body);
+
+  // If still too large, progressively reduce URLs
+  let iterations = 0;
+  while (bodyStr.length > 90000 && attemptedUrls.length > 1 && iterations < 20) { // 90KB safety margin
+    iterations++;
+    const oldLength = attemptedUrls.length;
+    // More aggressive reduction: cut in half each time
+    attemptedUrls = attemptedUrls.slice(0, Math.max(1, Math.floor(attemptedUrls.length * 0.5)));
+    body = {
+      url: payload.url,
+      status: payload.status,
+      attemptedUrls,
+      extensionId: payload.extensionId,
+    };
+    bodyStr = JSON.stringify(body);
+
+    if (process.env.NODE_ENV !== "production") {
+      console.log(`[API] Failsafe iteration ${iterations}: ${oldLength} -> ${attemptedUrls.length} URLs, payload: ${bodyStr.length} bytes`);
+    }
+  }
+
+  // Debug logging for payload size
+  if (process.env.NODE_ENV !== "production") {
+    console.log(`[API] Cover report payload size: ${bodyStr.length} bytes, URLs: ${body.attemptedUrls.length} (original: ${(payload.attemptedUrls ?? []).length})`);
+    if (bodyStr.length > 100000) {
+      console.error(`[API] PAYLOAD TOO LARGE: ${bodyStr.length} bytes > 100KB limit!`);
+      console.log(`[API] Sample URLs:`, body.attemptedUrls.slice(0, 3));
+    }
+  }
 
   await request<void>(
     `/manga/${encodeURIComponent(payload.mangaId)}/covers/report`,
     {
       method: "POST",
-      body: JSON.stringify(body),
+      body: bodyStr,
     },
   );
 }

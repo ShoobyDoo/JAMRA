@@ -5,13 +5,14 @@ import Link from "next/link";
 import { routes } from "@/lib/routes";
 import { useUIStore } from "@/store/ui";
 import { cn } from "@/lib/utils";
-import { User, Settings, LogOut, LogIn } from "lucide-react";
-import { Box, Button, Divider, Menu, Stack } from "@mantine/core";
+import { User, Settings, LogOut, LogIn, PanelLeft, PanelLeftClose } from "lucide-react";
+import { ActionIcon, Box, Button, Divider, Menu, Stack, Text } from "@mantine/core";
 import { usePathname } from "next/navigation";
 import { GlobalDownloadStatus } from "@/components/downloads/global-download-status";
 
 export function Sidebar() {
   const { collapsed } = useUIStore();
+  const toggleCollapsed = useUIStore((state) => state.toggleCollapsed);
   const pathname = usePathname();
 
   const sidebarRoutes = useMemo(
@@ -73,6 +74,31 @@ export function Sidebar() {
       aria-label="Primary navigation"
     >
       <Box className="flex flex-1 min-h-0 flex-col overflow-hidden">
+        <Box className="flex items-center gap-3 px-3 py-4 border-b border-border">
+          <ActionIcon
+            variant="default"
+            radius="md"
+            size="md"
+            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            onClick={toggleCollapsed}
+          >
+            {collapsed ? (
+              <PanelLeft size={18} aria-hidden />
+            ) : (
+              <PanelLeftClose size={18} aria-hidden />
+            )}
+          </ActionIcon>
+          {!collapsed && (
+            <div className="min-w-0">
+              <Text fw={700} size="lg" lh={1} className="truncate">
+                JAMRA
+              </Text>
+              <Text size="xs" c="dimmed" className="mt-1 truncate">
+                just another manga reader app
+              </Text>
+            </div>
+          )}
+        </Box>
         <Box className="flex-1 overflow-y-auto">
           <Stack gap="xs" px="xs" py="md">
             {sidebarRoutes.map(({ path, label, icon: Icon }) => {

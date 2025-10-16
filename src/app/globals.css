@@ -1,6 +1,61 @@
 @config "../../tailwind.config.ts";
 @import "tailwindcss";
 
+/* Override Tailwind v4's hover variant to remove @media (hover: hover) wrapper
+ * This fixes Linux Chromium/Electron incorrectly reporting hover: none
+ * Reference: https://bordermedia.org/blog/tailwind-css-4-hover-on-touch-device
+ */
+@custom-variant hover (&:hover);
+
+/* Override Mantine's @media (hover: hover) queries for Linux Chromium compatibility
+ * Mantine uses @media (hover: hover) which breaks on Linux, so we duplicate the hover
+ * styles outside the media query to ensure they work on all platforms
+ */
+@media (hover: none) {
+  /* Mantine Button hover styles */
+  button:hover:where(:not([data-loading], :disabled, [data-disabled])),
+  a:hover:where(:not([data-loading], :disabled, [data-disabled])) {
+    background-color: var(
+      --button-hover,
+      var(--mantine-color-default-hover)
+    );
+  }
+
+  /* Mantine ActionIcon hover styles */
+  [data-action-icon]:hover:where(
+      :not([data-loading], :disabled, [data-disabled])
+    ) {
+    background-color: var(--ai-hover, var(--mantine-color-default-hover));
+  }
+
+  /* Mantine NavLink hover styles */
+  [data-nav-link]:hover:where(
+      :not([data-combobox-selected], [data-nav-link-disabled])
+    ) {
+    background-color: var(--nl-hover, var(--mantine-color-default-hover));
+  }
+
+  /* Mantine UnstyledButton hover styles */
+  [data-unstyled-button]:hover:where(
+      :not([data-loading], :disabled, [data-disabled])
+    ) {
+    background-color: var(--button-hover, transparent);
+  }
+
+  /* Mantine Anchor (link) hover styles */
+  a[data-mantine-component="Anchor"]:hover {
+    text-decoration: underline;
+  }
+
+  /* Mantine Menu Item hover styles */
+  [data-menu-item]:hover:where(:not([data-menu-item-disabled])) {
+    background-color: var(
+      --menu-item-hover,
+      var(--mantine-color-default-hover)
+    );
+  }
+}
+
 @layer base {
   :root {
     --background: #ffffff;
@@ -40,7 +95,8 @@
     border-color: var(--border);
   }
 
-  html, body {
+  html,
+  body {
     overflow: hidden;
     height: 100%;
     width: 100%;
@@ -167,6 +223,8 @@
 
   .extension-card-expandable:hover {
     transform: translateY(-1px);
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    box-shadow:
+      0 4px 6px -1px rgba(0, 0, 0, 0.1),
+      0 2px 4px -1px rgba(0, 0, 0, 0.06);
   }
 }

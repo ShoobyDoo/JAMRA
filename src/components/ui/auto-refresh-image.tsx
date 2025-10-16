@@ -97,11 +97,99 @@ function dedupeUrls(urls: string[]): string[] {
 
 function mergeRefreshedUrls(existing: string[], refreshed: string[]): string[] {
   if (refreshed.length === 0) return existing;
-  return dedupeUrls([...refreshed, ...existing]);
+  const merged = dedupeUrls([...refreshed, ...existing]);
+
+  // DEBUG: Log URL explosion
+  if (process.env.NODE_ENV !== "production") {
+    console.log(`[mergeRefreshedUrls] existing: ${existing.length}, refreshed: ${refreshed.length}, merged: ${merged.length}`);
+    if (merged.length > 50) {
+      console.warn(`[mergeRefreshedUrls] URL EXPLOSION: ${merged.length} URLs!`);
+      console.log(`[mergeRefreshedUrls] Sample existing:`, existing.slice(0, 3));
+      console.log(`[mergeRefreshedUrls] Sample refreshed:`, refreshed.slice(0, 3));
+      console.log(`[mergeRefreshedUrls] Sample merged:`, merged.slice(0, 5));
+    }
+  }
+
+  // Dynamically limit URLs based on estimated payload size
+  // Keep under 80KB (80% of Express 100KB default limit for safety margin)
+  const maxPayloadBytes = 80 * 1024;
+
+  // Estimate JSON payload size: URLs + JSON overhead
+  let estimatedSize = 0;
+  const limitedUrls: string[] = [];
+
+  for (const url of merged) {
+    // Estimate JSON size: URL string + quotes + comma + some overhead
+    const urlSize = url.length * 2 + 10; // 2 bytes per char (UTF-16) + JSON overhead
+
+    if (estimatedSize + urlSize > maxPayloadBytes) {
+      break;
+    }
+
+    limitedUrls.push(url);
+    estimatedSize += urlSize;
+  }
+
+  // Always keep at least 10 URLs for functionality, even if it might exceed limit
+  return limitedUrls.length >= 10 ? limitedUrls : merged.slice(0, 10);
 }
 
 function isDataLikeUrl(value: string): boolean {
   return value.startsWith("data:") || value.startsWith("blob:");
+}
+
+function limitUrlsForPayload(urls: string[]): string[] {
+  const sanitized = urls.filter((url) => !isDataLikeUrl(url));
+  if (sanitized.length === 0) {
+    if (process.env.NODE_ENV !== "production" && urls.length > 0) {
+      console.log(
+        "[AutoRefreshImage] Dropping data/blob URLs from payload.",
+        { dropped: urls.length },
+      );
+    }
+    return [];
+  }
+
+  const maxPayloadBytes = 40 * 1024; // 40KB very conservative limit
+  let estimatedSize = 200; // Base JSON structure overhead
+
+  const limitedUrls: string[] = [];
+  for (const url of sanitized) {
+    const urlSize = url.length * 2 + 10; // UTF-16 + JSON overhead
+    if (estimatedSize + urlSize > maxPayloadBytes) break;
+
+    limitedUrls.push(url);
+    estimatedSize += urlSize;
+  }
+
+  // If we couldn't fit even 5 URLs, take them one by one until we hit a reasonable limit
+  let result = limitedUrls;
+  if (limitedUrls.length < 5) {
+    result = [];
+    let size = 200; // Base overhead
+    for (let i = 0; i < Math.min(5, sanitized.length); i++) {
+      const url = sanitized[i];
+      const urlSize = url.length * 2 + 10;
+      if (size + urlSize > 30 * 1024) break; // Even stricter 30KB limit for fallback
+      result.push(url);
+      size += urlSize;
+    }
+    // Ensure at least 1 URL for functionality
+    if (result.length === 0 && urls.length > 0) {
+      result = [urls[0]];
+    }
+  }
+
+  // Debug logging
+  if (process.env.NODE_ENV !== "production") {
+    const actualPayload = JSON.stringify({ attemptedUrls: result });
+    console.log(`[AutoRefreshImage] Payload limiting: ${urls.length} -> ${result.length} URLs (sanitized: ${sanitized.length}), estimated: ${estimatedSize}B, actual: ${actualPayload.length}B`);
+    if (actualPayload.length > 100000) {
+      console.warn(`[AutoRefreshImage] WARNING: Actual payload ${actualPayload.length}B exceeds 100KB limit!`);
+    }
+  }
+
+  return result;
 }
 
 interface ReportPayload {
@@ -245,6 +333,12 @@ export function AutoRefreshImage({
 
     allUrlsRef.current = urls;
 
+    // DEBUG: Log URL accumulation
+    if (process.env.NODE_ENV !== "production" && urls.length > 20) {
+      console.warn(`[AutoRefreshImage] URL accumulation: ${urls.length} URLs in allUrlsRef`);
+      console.log(`[AutoRefreshImage] Sample URLs:`, urls.slice(0, 5));
+    }
+
     const initial = urls[fallbackIndexRef.current] ?? null;
     setCurrentSrc(initial);
     setIsLoading(initial ? !isDataLikeUrl(initial) : false);
@@ -282,7 +376,7 @@ export function AutoRefreshImage({
         extensionId,
         url: currentSrc,
         status: "success",
-        attemptedUrls: [...allUrlsRef.current],
+        attemptedUrls: limitUrlsForPayload([...allUrlsRef.current]),
       });
     }
 
@@ -323,7 +417,7 @@ export function AutoRefreshImage({
         extensionId,
         url: failedUrl,
         status: "failure",
-        attemptedUrls: [...allUrlsRef.current],
+        attemptedUrls: limitUrlsForPayload([...allUrlsRef.current]),
       });
     }
 
@@ -358,7 +452,24 @@ export function AutoRefreshImage({
           ...(details?.cachedCover?.dataUrl ? [details.cachedCover.dataUrl] : []),
         ]);
 
+        // DEBUG: Log what refresh returned
+        if (process.env.NODE_ENV !== "production") {
+          console.log(`[AutoRefreshImage] REFRESH API RETURNED:`);
+          console.log(`  coverUrls: ${details?.coverUrls?.length ?? 0}`);
+          console.log(`  coverUrl: ${details?.coverUrl ? 1 : 0}`);
+          console.log(`  cachedCover: ${details?.cachedCover?.dataUrl ? 1 : 0}`);
+          if (details?.coverUrls && details.coverUrls.length > 20) {
+            console.warn(`[AutoRefreshImage] API returned ${details.coverUrls.length} coverUrls!`);
+            console.log(`  Sample coverUrls:`, details.coverUrls.slice(0, 5));
+          }
+        }
+
         if (refreshedUrls.length > 0) {
+          // DEBUG: Log refresh cycle
+          if (process.env.NODE_ENV !== "production") {
+            console.log(`[AutoRefreshImage] REFRESH CYCLE: allUrls: ${allUrls.length}, refreshedUrls: ${refreshedUrls.length}`);
+            console.log(`[AutoRefreshImage] RefreshedUrls sample:`, refreshedUrls.slice(0, 5));
+          }
           const merged = mergeRefreshedUrls(allUrls, refreshedUrls);
           allUrlsRef.current = merged;
           fallbackIndexRef.current = 0;
@@ -425,7 +536,7 @@ export function AutoRefreshImage({
         onError={handleError}
         loading={imageProps.loading ?? "lazy"}
         className={cn(
-          "transition-opacity duration-300",
+          "will-change-transform transition-opacity transition-transform duration-300",
           isLoading ? "opacity-0" : "opacity-100",
           imageProps.className,
         )}

@@ -199,7 +199,7 @@ export class WeebCentralScraper {
             slug: name,
             title,
             coverUrl: thumbnailUrls[0],
-            coverUrls: thumbnailUrls,
+            coverUrls: thumbnailUrls.slice(0, 5), // Limit to 5 URLs to prevent payload explosion
           });
         }
       }
@@ -327,7 +327,7 @@ export class WeebCentralScraper {
             slug: name,
             title,
             coverUrl: thumbnailUrls[0],
-            coverUrls: thumbnailUrls,
+            coverUrls: thumbnailUrls.slice(0, 5), // Limit to 5 URLs to prevent payload explosion
           });
         }
       }

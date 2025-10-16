@@ -116,7 +116,10 @@ export const useReadingProgress = create<ReadingProgressState>()(
 
         if (apiProgress) {
           // Use API progress if valid
-          if (apiProgress.currentPage >= 0 && apiProgress.currentPage < totalPages) {
+          if (
+            apiProgress.currentPage >= 0 &&
+            apiProgress.currentPage < totalPages
+          ) {
             startPage = apiProgress.currentPage;
           }
         } else {
@@ -144,7 +147,9 @@ export const useReadingProgress = create<ReadingProgressState>()(
 
         // Validate page is within bounds
         if (page < 0 || page >= totalPages) {
-          console.warn(`Invalid page ${page} for totalPages ${totalPages}, clamping to valid range`);
+          console.warn(
+            `Invalid page ${page} for totalPages ${totalPages}, clamping to valid range`
+          );
           page = Math.max(0, Math.min(page, totalPages - 1));
         }
 
@@ -168,11 +173,14 @@ export const useReadingProgress = create<ReadingProgressState>()(
           }));
 
           // Save to API
-          saveProgressAPI(currentMangaId, currentChapterId, page, totalPages).catch(
-            (error) => {
-              console.error("Failed to save progress to API:", error);
-            }
-          );
+          saveProgressAPI(
+            currentMangaId,
+            currentChapterId,
+            page,
+            totalPages
+          ).catch((error) => {
+            console.error("Failed to save progress to API:", error);
+          });
         } else {
           set({ currentPage: page });
         }

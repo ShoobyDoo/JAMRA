@@ -9,6 +9,12 @@ const NEXT_PORT = Number(process.env.JAMRA_NEXT_PORT ?? 3000);
 const API_PORT = Number(process.env.JAMRA_API_PORT ?? 4545);
 const isProduction = process.env.NODE_ENV === "production";
 
+// Ensure Chromium re-enables GPU features on Linux where "hover: none" probing breaks animations.
+app.commandLine.appendSwitch("ignore-gpu-blocklist");
+app.commandLine.appendSwitch("enable-gpu-rasterization");
+app.commandLine.appendSwitch("enable-zero-copy");
+app.commandLine.appendSwitch("disable-gpu-sandbox");
+
 process.env.NEXT_PUBLIC_JAMRA_API_URL =
   process.env.NEXT_PUBLIC_JAMRA_API_URL ?? `http://localhost:${API_PORT}/api`;
 
@@ -48,12 +54,19 @@ async function createWindow(): Promise<void> {
   const win = new BrowserWindow({
     width: 1280,
     height: 800,
+    minWidth: 1080,
+    minHeight: 720,
     webPreferences: {
       contextIsolation: true,
     },
   });
 
   await win.loadURL(`http://localhost:${NEXT_PORT}`);
+
+  const gpuStatus = app.getGPUFeatureStatus?.();
+  if (gpuStatus) {
+    console.log("GPU feature status:", gpuStatus);
+  }
 }
 
 app.whenReady().then(async () => {

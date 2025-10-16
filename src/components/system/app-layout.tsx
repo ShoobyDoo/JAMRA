@@ -1,7 +1,7 @@
 "use client";
 
-import type { PropsWithChildren } from "react";
-import { AppShell } from "@mantine/core";
+import { useMemo, useRef } from "react";
+import type { PropsWithChildren, CSSProperties } from "react";
 import { Sidebar } from "@/components/nav/sidebar";
 import { Topbar } from "@/components/topbar/topbar";
 import { useUIStore } from "@/store/ui";
@@ -16,61 +16,89 @@ import {
 export function AppLayout({ children }: PropsWithChildren) {
   const collapsed = useUIStore((state) => state.collapsed);
   const sidebarWidth = useUIStore((state) => state.sidebarWidth);
-  const navbarWidth = collapsed ? SIDEBAR_WIDTH.COLLAPSED : sidebarWidth;
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+
+  const computedSidebarWidth = collapsed
+    ? SIDEBAR_WIDTH.COLLAPSED
+    : sidebarWidth;
+
+  const layoutStyle = useMemo<CSSProperties>(
+    () => ({
+      display: "grid",
+      gridTemplateColumns: `${computedSidebarWidth}px 1fr`,
+      gridTemplateRows: `${HEADER_HEIGHT}px 1fr`,
+      gridTemplateAreas: '"sidebar header" "sidebar content"',
+      height: "100dvh",
+      minHeight: 0,
+      minWidth: "960px",
+      overflow: "hidden",
+      transition: "grid-template-columns 250ms ease",
+      backgroundColor: "var(--background)",
+      color: "var(--foreground)",
+    }),
+    [computedSidebarWidth],
+  );
+
+  const sidebarStyle = useMemo<CSSProperties>(
+    () => ({
+      gridArea: "sidebar",
+      display: "flex",
+      flexDirection: "column",
+      minHeight: 0,
+      borderRight: "1px solid var(--border)",
+      backgroundColor: "var(--card)",
+      overflow: "hidden",
+      transition: "background-color 150ms ease",
+    }),
+    [],
+  );
+
+  const headerStyle = useMemo<CSSProperties>(
+    () => ({
+      gridArea: "header",
+      borderBottom: "1px solid var(--border)",
+      backgroundColor: "var(--background)",
+      position: "relative",
+      zIndex: 10,
+      display: "flex",
+    }),
+    [],
+  );
+
+  const mainStyle = useMemo<CSSProperties>(
+    () => ({
+      gridArea: "content",
+      minHeight: 0,
+      overflow: "hidden",
+      position: "relative",
+      backgroundColor: "var(--background)",
+    }),
+    [],
+  );
 
   return (
     <HydrationBoundary>
-      <AppShell
-        header={{ height: HEADER_HEIGHT }}
-        navbar={{
-          width: navbarWidth,
-          breakpoint: "sm",
-          collapsed: { mobile: false, desktop: false },
-        }}
-        padding={0}
-        styles={{
-          root: {
-            height: '100vh',
-            overflow: 'hidden',
-            display: 'flex',
-            flexDirection: 'column',
-          },
-          header: {
-            borderBottom: "1px solid var(--border)",
-            backgroundColor: "var(--background)",
-            flexShrink: 0,
-            zIndex: 100,
-          },
-          navbar: {
-            borderRight: "1px solid var(--border)",
-            backgroundColor: "var(--card)",
-            transition: 'width 300ms ease',
-            overflow: 'hidden',
-            flexShrink: 0,
-          },
-          main: {
-            backgroundColor: "var(--background)",
-            color: "var(--foreground)",
-            overflowY: 'auto',
-            overflowX: 'hidden',
-            flex: 1,
-            minHeight: 0,
-          },
-        }}
-      >
-      <AppShell.Header px={0}>
-        <Topbar />
-      </AppShell.Header>
-      <AppShell.Navbar p={0}>
-        <Sidebar />
-      </AppShell.Navbar>
-      <AppShell.Main className="relative">
-        <div className={`relative mx-auto w-full ${CONTENT_MAX_WIDTH} px-4 py-6`}>
-          {children}
-        </div>
-        <ScrollButtons />
-      </AppShell.Main>
-    </AppShell>
+      <div className="relative" style={layoutStyle}>
+        <aside style={sidebarStyle}>
+          <Sidebar />
+        </aside>
+        <header style={headerStyle}>
+          <Topbar />
+        </header>
+        <main style={mainStyle}>
+          <div
+            ref={scrollContainerRef}
+            className="h-full overflow-y-auto overflow-x-hidden"
+          >
+            <div
+              className={`relative mx-auto w-full ${CONTENT_MAX_WIDTH} px-4 py-6`}
+            >
+              {children}
+            </div>
+          </div>
+          <ScrollButtons containerRef={scrollContainerRef} />
+        </main>
+      </div>
     </HydrationBoundary>
   );
 }

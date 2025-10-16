@@ -318,7 +318,7 @@ export default function SettingsPage() {
             min={0}
             max={30}
             step={0.5}
-            precision={2}
+            decimalScale={2}
             suffix=" days"
             disabled={!cacheForm.enabled}
           />
