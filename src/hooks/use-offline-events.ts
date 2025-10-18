@@ -38,17 +38,19 @@ export function useOfflineEvents(options: UseOfflineEventsOptions = {}) {
       if (cancelled) return;
 
       try {
-        const apiUrl = process.env.NEXT_PUBLIC_JAMRA_API_URL || "http://localhost:4545";
+        const rawApiBase =
+          process.env.NEXT_PUBLIC_JAMRA_API_URL ?? "http://localhost:4545/api";
+        const normalizedApiBase = rawApiBase.replace(/\/+$/, "");
 
         // Check if offline storage is available before connecting
         try {
-          const checkResponse = await fetch(`${apiUrl}/api/offline/queue`, {
+          const checkResponse = await fetch(`${normalizedApiBase}/offline/queue`, {
             method: 'HEAD',
           });
 
           if (cancelled) return;
 
-          if (checkResponse.status === 503) {
+          if (checkResponse.status === 503 || checkResponse.status === 404) {
             // Offline storage is not available - don't try to connect
             offlineStorageDisabledRef.current = true;
             setConnected(false);
@@ -60,7 +62,7 @@ export function useOfflineEvents(options: UseOfflineEventsOptions = {}) {
           console.warn("[Offline Events] Failed to check offline storage availability, will retry");
         }
 
-        const eventSource = new EventSource(`${apiUrl}/api/offline/events`);
+        const eventSource = new EventSource(`${normalizedApiBase}/offline/events`);
         eventSourceRef.current = eventSource;
 
         eventSource.addEventListener("connected", () => {

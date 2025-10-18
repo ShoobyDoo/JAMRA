@@ -60,7 +60,7 @@ export default async function HomePage() {
           </div>
 
           <div className="grid gap-4 sm:grid-cols-1 lg:grid-cols-2 xl:grid-cols-3">
-            {availableManga.map((item) => (
+            {availableManga.map((item, index) => (
               <ContinueReadingCard
                 key={`${item.mangaId}:${item.chapterId}`}
                 manga={item.manga}
@@ -70,6 +70,7 @@ export default async function HomePage() {
                 totalPages={item.totalPages}
                 lastReadAt={item.lastReadAt}
                 error={item.error}
+                priority={index === 0}
               />
             ))}
           </div>

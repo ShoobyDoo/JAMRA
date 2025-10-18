@@ -7,6 +7,7 @@ export const SIDEBAR_WIDTH = {
 } as const;
 
 export const HEADER_HEIGHT = 56; // px (h-14 in Tailwind)
+export const HEADER_HEIGHT_CLASS = "h-14";
 
 export const CONTENT_MAX_WIDTH = "max-w-6xl"; // Tailwind class
 
@@ -39,6 +40,10 @@ export const STYLES = {
   CARD_CONTAINER: "overflow-hidden rounded-lg border border-border bg-card",
   CARD_HOVER: "shadow-sm transition hover:-translate-y-1 hover:shadow-lg",
   IMAGE_HOVER: "transition duration-300 hover:scale-105",
+  TEXT_TRUNCATE: "block max-w-full truncate",
+  TEXT_TRUNCATE_INLINE: "max-w-full truncate",
+  BADGE_COUNTER:
+    "inline-flex h-4 min-w-[16px] items-center justify-center rounded-full px-0 text-[0.625rem] leading-4",
   get CARD() {
     return `${this.CARD_CONTAINER} ${this.CARD_HOVER}`;
   },

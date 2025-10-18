@@ -152,7 +152,7 @@ export default function SettingsPage() {
           <Text size="sm">
             This will <strong>permanently delete</strong>:
           </Text>
-          <ul style={{ margin: 0, paddingLeft: "1.5rem" }}>
+          <ul className="m-0 list-disc pl-6">
             <li>All reading progress and history</li>
             <li>All cached manga and chapters</li>
             <li>All downloaded images</li>
@@ -265,7 +265,7 @@ export default function SettingsPage() {
                   { value: 260, label: "Default" },
                   { value: MAX_SIDEBAR_WIDTH, label: `${MAX_SIDEBAR_WIDTH}px` },
                 ]}
-                style={{ flex: 1 }}
+                className="flex-1"
               />
               <Text size="sm" fw={500} w={60} ta="center">
                 {sidebarWidth}px
@@ -379,10 +379,7 @@ export default function SettingsPage() {
         withBorder
         p="lg"
         radius="md"
-        style={{
-          borderColor: "var(--mantine-color-red-6)",
-          backgroundColor: "var(--mantine-color-red-0)",
-        }}
+        className="border border-[var(--mantine-color-red-6)] bg-[var(--mantine-color-red-0)]"
       >
         <Stack gap="md">
           <Group gap="xs">

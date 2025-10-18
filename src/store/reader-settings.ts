@@ -21,6 +21,8 @@ export interface ReaderSettings {
 
   // Performance settings
   preloadCount: number; // number of pages to preload ahead
+  initialPageCount: number; // number of pages to load immediately (default: 3)
+  pageChunkSize: number; // number of pages to load per chunk (default: 5)
 
   // UI preferences
   showControls: boolean;
@@ -42,6 +44,8 @@ export interface ReaderSettings {
   setGapSize: (size: number) => void;
   setDualPageGap: (gap: number) => void;
   setPreloadCount: (count: number) => void;
+  setInitialPageCount: (count: number) => void;
+  setPageChunkSize: (size: number) => void;
   setShowControls: (show: boolean) => void;
   setAutoHideControls: (autoHide: boolean) => void;
   setAutoHideDelay: (delay: number) => void;
@@ -60,6 +64,8 @@ const DEFAULT_SETTINGS = {
   gapSize: 0,
   dualPageGap: 24,
   preloadCount: 5,
+  initialPageCount: 3,
+  pageChunkSize: 5,
   showControls: true,
   autoHideControls: true,
   autoHideDelay: 2000,
@@ -80,6 +86,8 @@ export const useReaderSettings = create<ReaderSettings>()(
       setGapSize: (size) => set({ gapSize: Math.max(0, Math.min(100, size)) }),
       setDualPageGap: (gap) => set({ dualPageGap: Math.max(0, Math.min(100, gap)) }),
       setPreloadCount: (count) => set({ preloadCount: Math.max(1, Math.min(10, count)) }),
+      setInitialPageCount: (count) => set({ initialPageCount: Math.max(1, Math.min(10, count)) }),
+      setPageChunkSize: (size) => set({ pageChunkSize: Math.max(1, Math.min(20, size)) }),
       setShowControls: (show) => set({ showControls: show }),
       setAutoHideControls: (autoHide) => set({ autoHideControls: autoHide }),
       setAutoHideDelay: (delay) => set({ autoHideDelay: Math.max(500, Math.min(10000, delay)) }),

@@ -5,14 +5,15 @@ import Link from "next/link";
 import { routes } from "@/lib/routes";
 import { useUIStore } from "@/store/ui";
 import { cn } from "@/lib/utils";
-import { User, Settings, LogOut, LogIn, PanelLeft, PanelLeftClose } from "lucide-react";
-import { ActionIcon, Box, Button, Divider, Menu, Stack, Text } from "@mantine/core";
+import { User, Settings, LogOut, LogIn } from "lucide-react";
+import { Box, Button, Divider, Menu, Stack, Text, Tooltip } from "@mantine/core";
 import { usePathname } from "next/navigation";
 import { GlobalDownloadStatus } from "@/components/downloads/global-download-status";
+import { HEADER_HEIGHT_CLASS } from "@/lib/constants";
+import { Logo } from "@/components/ui/logo";
 
 export function Sidebar() {
   const { collapsed } = useUIStore();
-  const toggleCollapsed = useUIStore((state) => state.toggleCollapsed);
   const pathname = usePathname();
 
   const sidebarRoutes = useMemo(
@@ -30,7 +31,10 @@ export function Sidebar() {
     // When auth is implemented, this should call the auth provider's signOut method
     if (typeof window !== "undefined") {
       // Clear localStorage items (except reader settings and progress which should persist)
-      const keysToPreserve = ["reader-settings-storage", "reading-progress-storage"];
+      const keysToPreserve = [
+        "reader-settings-storage",
+        "reading-progress-storage",
+      ];
       const allKeys = Object.keys(localStorage);
 
       allKeys.forEach((key) => {
@@ -74,36 +78,41 @@ export function Sidebar() {
       aria-label="Primary navigation"
     >
       <Box className="flex flex-1 min-h-0 flex-col overflow-hidden">
-        <Box className="flex items-center gap-3 px-3 py-4 border-b border-border">
-          <ActionIcon
-            variant="default"
-            radius="md"
-            size="md"
-            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-            onClick={toggleCollapsed}
-          >
-            {collapsed ? (
-              <PanelLeft size={18} aria-hidden />
-            ) : (
-              <PanelLeftClose size={18} aria-hidden />
-            )}
-          </ActionIcon>
-          {!collapsed && (
-            <div className="min-w-0">
-              <Text fw={700} size="lg" lh={1} className="truncate">
+        <Box
+          className={cn(
+            "flex items-center gap-3 px-3 border-b border-border",
+            HEADER_HEIGHT_CLASS
+          )}
+        >
+          <div className={cn("flex h-full w-full items-center", collapsed ? "justify-center" : "justify-start")}>
+            <Logo size={36} className="flex-shrink-0" />
+            <div
+              className={cn(
+                "min-w-0 flex flex-col justify-center overflow-hidden transition-[max-width,opacity,margin] duration-300",
+                collapsed
+                  ? "max-w-0 opacity-0 ml-0"
+                  : "ml-3 max-w-[200px] opacity-100"
+              )}
+            >
+              <Text fw={700} fz={16} lh={1.25} className="whitespace-nowrap">
                 JAMRA
               </Text>
-              <Text size="xs" c="dimmed" className="mt-1 truncate">
+              <Text
+                size="10px"
+                c="dimmed"
+                className="whitespace-nowrap leading-tight"
+                p={0}
+              >
                 just another manga reader app
               </Text>
             </div>
-          )}
+          </div>
         </Box>
         <Box className="flex-1 overflow-y-auto">
           <Stack gap="xs" px="xs" py="md">
             {sidebarRoutes.map(({ path, label, icon: Icon }) => {
               const isActive = isRouteActive(path);
-              return (
+              const button = (
                 <Button
                   key={path}
                   component={Link}
@@ -115,7 +124,7 @@ export function Sidebar() {
                   justify={collapsed ? "center" : "flex-start"}
                   className={cn(
                     "flex items-center overflow-hidden transition-all duration-300",
-                    collapsed ? "px-0" : "pl-3 pr-3"
+                    !collapsed && "pl-3 pr-3"
                   )}
                   aria-label={label}
                 >
@@ -129,15 +138,23 @@ export function Sidebar() {
                   )}
                   <span
                     className={cn(
-                      "whitespace-nowrap transition-[max-width,opacity,margin] duration-300",
+                      "whitespace-nowrap overflow-hidden transition-[max-width,opacity,margin] duration-300",
                       collapsed
-                        ? "max-w-0 opacity-0"
+                        ? "max-w-0 opacity-0 ml-0"
                         : "ml-2 max-w-[140px] opacity-100"
                     )}
                   >
                     {label}
                   </span>
                 </Button>
+              );
+
+              return collapsed ? (
+                <Tooltip key={path} label={label} position="right" withArrow>
+                  {button}
+                </Tooltip>
+              ) : (
+                button
               );
             })}
           </Stack>
@@ -151,35 +168,48 @@ export function Sidebar() {
       <Box px="xs" py="md" className="flex flex-shrink-0 w-full">
         <Menu withinPortal>
           <Menu.Target>
-            <Button
-              variant="default"
-              radius="md"
-              fullWidth
-              p={collapsed ? 0 : undefined}
-              justify={collapsed ? "center" : "flex-start"}
-              className={cn(
-                "flex items-center overflow-hidden transition-all duration-300",
-                collapsed ? "px-0" : "pl-3 pr-3"
-              )}
-              aria-label="Account"
-            >
-              <User
-                size={18}
-                strokeWidth={2}
-                aria-hidden
-                className="flex-shrink-0"
-              />
-              <span
-                className={cn(
-                  "whitespace-nowrap transition-[max-width,opacity,margin] duration-300",
-                  collapsed
-                    ? "max-w-0 opacity-0"
-                    : "ml-3 max-w-[120px] opacity-100"
-                )}
+            {collapsed ? (
+              <Tooltip label="Account" position="right" withArrow>
+                <Button
+                  variant="default"
+                  radius="md"
+                  fullWidth
+                  p={0}
+                  justify="center"
+                  className="flex items-center overflow-hidden transition-all duration-300"
+                  aria-label="Account"
+                >
+                  <User
+                    size={18}
+                    strokeWidth={2}
+                    aria-hidden
+                    className="flex-shrink-0"
+                  />
+                  <span className="whitespace-nowrap overflow-hidden max-w-0 opacity-0 ml-0 transition-[max-width,opacity,margin] duration-300">
+                    Account
+                  </span>
+                </Button>
+              </Tooltip>
+            ) : (
+              <Button
+                variant="default"
+                radius="md"
+                fullWidth
+                justify="flex-start"
+                className="flex items-center overflow-hidden pl-3 pr-3 transition-all duration-300"
+                aria-label="Account"
               >
-                Account
-              </span>
-            </Button>
+                <User
+                  size={18}
+                  strokeWidth={2}
+                  aria-hidden
+                  className="flex-shrink-0"
+                />
+                <span className="whitespace-nowrap overflow-hidden ml-3 max-w-[120px] opacity-100 transition-[max-width,opacity,margin] duration-300">
+                  Account
+                </span>
+              </Button>
+            )}
           </Menu.Target>
 
           <Menu.Dropdown>

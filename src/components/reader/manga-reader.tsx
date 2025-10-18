@@ -1,25 +1,17 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { fetchChapterPagesChunk } from "@/lib/api";
 import { useReaderSettings } from "@/store/reader-settings";
 import { useReaderProgress } from "./hooks/use-reader-progress";
-import { useChapterPagePreloader } from "./hooks/use-chapter-page-preloader";
 import { useReaderNavigation } from "./hooks/use-reader-navigation";
 import { useTouchGestures } from "./hooks/use-touch-gestures";
+import { useSequentialPageLoader } from "./hooks/use-sequential-page-loader";
 import { PagedMode } from "./reading-modes/paged-mode";
 import { DualPageMode } from "./reading-modes/dual-page-mode";
 import { VerticalMode } from "./reading-modes/vertical-mode";
 import { ReaderControls } from "./reader-controls";
 import { ReaderSettingsPanel } from "./reader-settings-panel";
-
-interface PageImage {
-  index: number;
-  url: string;
-  width?: number;
-  height?: number;
-}
 
 interface MangaReaderProps {
   mangaId: string;
@@ -27,11 +19,6 @@ interface MangaReaderProps {
   mangaTitle: string;
   chapterId: string;
   chapterSlug: string;
-  initialPages: PageImage[];
-  totalPages: number;
-  initialChunkSize: number;
-  initialChunkIndex: number;
-  totalChunks: number;
   extensionId?: string;
   chapters?: Array<{
     id: string;
@@ -48,11 +35,6 @@ export function MangaReader({
   mangaTitle,
   chapterId,
   chapterSlug,
-  initialPages,
-  totalPages,
-  initialChunkSize,
-  initialChunkIndex,
-  totalChunks,
   extensionId,
   chapters = [],
   initialPage,
@@ -64,185 +46,79 @@ export function MangaReader({
     pageFit,
     setPageFit,
     autoAdvanceChapter,
+    initialPageCount,
+    pageChunkSize,
   } = useReaderSettings();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const router = useRouter();
 
-  const pagesRef = useRef<Array<PageImage | null>>(
-    Array.from({ length: totalPages }, () => null),
-  );
-  const [pagesVersion, setPagesVersion] = useState(0);
-  const chunkSizeRef = useRef(Math.max(initialChunkSize, 1));
-  const totalChunksRef = useRef(Math.max(totalChunks, 1));
-  const loadedChunksRef = useRef(new Set<number>());
-  const loadingChunkPromisesRef = useRef(new Map<number, Promise<void>>());
-  const sequentialQueueRef = useRef<number[]>([]);
-  const sequentialLoadingRef = useRef(false);
+  // Load pages sequentially
+  const {
+    pages,
+    totalPages,
+    isLoading: isPagesLoading,
+    loadingProgress,
+    error: loadingError,
+    retry: retryLoading,
+    loadPage,
+  } = useSequentialPageLoader(mangaId, chapterId, extensionId, {
+    initialPageCount,
+    chunkSize: pageChunkSize,
+    enableImagePreload: true,
+  });
 
-  const [pendingPageIndex, setPendingPageIndex] = useState<number | null>(null);
-  const [activeError, setActiveError] = useState<Error | null>(null);
-
+  // Manage reading progress
   const {
     currentPage,
     totalPages: readerTotalPages,
     goToPage: baseGoToPage,
   } = useReaderProgress(mangaId, chapterId, totalPages, initialPage);
 
-  const storePages = useCallback((incoming: PageImage[]) => {
-    if (incoming.length === 0) return;
-    const copy = [...pagesRef.current];
-    let changed = false;
-    incoming.forEach((page) => {
-      if (page.index >= 0 && page.index < copy.length) {
-        if (!copy[page.index]) {
-          copy[page.index] = page;
-          changed = true;
-        }
-      }
-    });
-    if (changed) {
-      pagesRef.current = copy;
-      setPagesVersion((value) => value + 1);
-    }
-  }, []);
+  const viewportRef = useRef<HTMLDivElement>(null);
 
-  const loadChunk = useCallback(
-    (chunkIndex: number): Promise<void> => {
-      if (chunkIndex < 0) {
-        return Promise.resolve();
-      }
-
-      const totalChunkCount = totalChunksRef.current;
-      if (chunkIndex >= totalChunkCount) {
-        return Promise.resolve();
-      }
-
-      if (loadedChunksRef.current.has(chunkIndex)) {
-        return Promise.resolve();
-      }
-
-      const existing = loadingChunkPromisesRef.current.get(chunkIndex);
-      if (existing) {
-        return existing;
-      }
-
-      const promise = (async () => {
-        try {
-          const chunk = await fetchChapterPagesChunk(
-            mangaId,
-            chapterId,
-            chunkIndex,
-            Math.max(chunkSizeRef.current, 1),
-            extensionId,
-          );
-
-          chunkSizeRef.current = Math.max(chunk.chunkSize, 1);
-          totalChunksRef.current = Math.max(chunk.totalChunks, 1);
-
-          const baseIndex = chunk.chunk * chunk.chunkSize;
-          const normalized = chunk.pages.map((page, offset) => ({
-            ...page,
-            index:
-              typeof page.index === "number"
-                ? page.index
-                : baseIndex + offset,
-          }));
-
-          storePages(normalized);
-          loadedChunksRef.current.add(chunkIndex);
-        } finally {
-          loadingChunkPromisesRef.current.delete(chunkIndex);
-        }
-      })();
-
-      loadingChunkPromisesRef.current.set(chunkIndex, promise);
-      return promise;
-    },
-    [chapterId, extensionId, mangaId, storePages],
-  );
-
-  const processSequentialQueue = useCallback(async () => {
-    if (sequentialLoadingRef.current) return;
-    sequentialLoadingRef.current = true;
-    try {
-      while (sequentialQueueRef.current.length > 0) {
-        const next = sequentialQueueRef.current.shift();
-        if (next === undefined) break;
-        if (loadedChunksRef.current.has(next)) {
-          continue;
-        }
-        try {
-          await loadChunk(next);
-        } catch (error) {
-          // Requeue and stop processing; we'll retry later.
-          sequentialQueueRef.current.unshift(next);
-          console.error("Failed to load chunk", next, error);
-          break;
-        }
-      }
-    } finally {
-      sequentialLoadingRef.current = false;
-    }
-  }, [loadChunk]);
-
-  const enqueueSequentialChunks = useCallback(() => {
-    const totalChunkCount = totalChunksRef.current;
-    const queue: number[] = [];
-    for (let index = 0; index < totalChunkCount; index += 1) {
-      if (!loadedChunksRef.current.has(index)) {
-        queue.push(index);
-      }
-    }
-    sequentialQueueRef.current = queue;
-    void processSequentialQueue();
-  }, [processSequentialQueue]);
-
-  const ensurePageAvailable = useCallback(
-    async (pageIndex: number): Promise<void> => {
-      if (pageIndex < 0 || pageIndex >= totalPages) {
-        return;
-      }
-
-      if (pagesRef.current[pageIndex]) {
-        return;
-      }
-
-      const chunkIndex = Math.floor(
-        pageIndex / Math.max(chunkSizeRef.current, 1),
-      );
-
-      await loadChunk(chunkIndex);
-    },
-    [loadChunk, totalPages],
-  );
-
+  // Enhanced page navigation with loading support
   const goToPage = useCallback(
     async (pageIndex: number) => {
       if (pageIndex < 0 || pageIndex >= totalPages) {
         return;
       }
 
-      setPendingPageIndex(pageIndex);
-      setActiveError(null);
-
-      try {
-        await ensurePageAvailable(pageIndex);
-        baseGoToPage(pageIndex);
-      } catch (error) {
-        const normalized =
-          error instanceof Error ? error : new Error(String(error));
-        setActiveError(normalized);
-      } finally {
-        setPendingPageIndex((value) => (value === pageIndex ? null : value));
+      // Ensure page is loaded before navigating
+      if (!pages[pageIndex]) {
+        await loadPage(pageIndex);
       }
+
+      baseGoToPage(pageIndex);
     },
-    [baseGoToPage, ensurePageAvailable, totalPages],
+    [baseGoToPage, loadPage, pages, totalPages],
   );
 
   const nextPage = useCallback(async () => {
     const target = currentPage + 1;
-    if (target >= totalPages) return;
+    if (target >= totalPages) {
+      // At end of chapter - check for next chapter
+      if (autoAdvanceChapter && chapters.length > 0) {
+        const currentIndex = chapters.findIndex((ch) => ch.id === chapterId);
+        if (currentIndex >= 0 && currentIndex < chapters.length - 1) {
+          const nextChapter = chapters[currentIndex + 1];
+          router.push(
+            `/read/${encodeURIComponent(mangaSlug)}/chapter/${encodeURIComponent(nextChapter.slug)}`,
+          );
+        }
+      }
+      return;
+    }
     await goToPage(target);
-  }, [currentPage, goToPage, totalPages]);
+  }, [
+    currentPage,
+    totalPages,
+    autoAdvanceChapter,
+    chapters,
+    chapterId,
+    router,
+    mangaSlug,
+    goToPage,
+  ]);
 
   const prevPage = useCallback(() => {
     const target = currentPage - 1;
@@ -260,97 +136,19 @@ export function MangaReader({
     void goToPage(target);
   }, [goToPage, totalPages]);
 
-  useEffect(() => {
-    const initialize = async () => {
-      const storage = Array.from({ length: totalPages }, () => null as PageImage | null);
-      // Defensive check: initialPages might be undefined in edge cases
-      if (initialPages && Array.isArray(initialPages)) {
-        initialPages.forEach((page) => {
-          if (page.index >= 0 && page.index < storage.length) {
-            storage[page.index] = page;
-          }
-        });
-      }
-      pagesRef.current = storage;
-      setPagesVersion((value) => value + 1);
-
-      chunkSizeRef.current = Math.max(initialChunkSize, 1);
-      totalChunksRef.current = Math.max(totalChunks, 1);
-      loadedChunksRef.current = new Set<number>();
-      if (initialPages && initialPages.length > 0) {
-        loadedChunksRef.current.add(initialChunkIndex);
-      }
-      loadingChunkPromisesRef.current.clear();
-      sequentialQueueRef.current = [];
-      sequentialLoadingRef.current = false;
-
-      const targetPage =
-        typeof initialPage === "number"
-          ? Math.max(0, Math.min(initialPage, totalPages - 1))
-          : 0;
-
-      if (!pagesRef.current[targetPage]) {
-        try {
-          await ensurePageAvailable(targetPage);
-        } catch (error) {
-          const normalized =
-            error instanceof Error ? error : new Error(String(error));
-          setActiveError(normalized);
-        }
-      }
-
-      enqueueSequentialChunks();
-    };
-
-    void initialize();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    chapterId,
-    totalPages,
-    initialPages,
-    initialChunkSize,
-    initialChunkIndex,
-    totalChunks,
-    initialPage,
-    // Note: ensurePageAvailable and enqueueSequentialChunks intentionally omitted
-    // to prevent infinite loop. This effect should only run on chapter change.
-  ]);
-
-  useEffect(() => {
-    const hasPage = Boolean(pagesRef.current[currentPage]);
-    if (!hasPage && pendingPageIndex === null) {
-      void goToPage(currentPage);
-    }
-  }, [currentPage, goToPage, pendingPageIndex]);
-
-  const viewportRef = useRef<HTMLDivElement>(null);
-
-  const loadedPages = useMemo(() => {
-    void pagesVersion;
-    return pagesRef.current
-      .filter((page): page is PageImage => page !== null)
-      .sort((a, b) => a.index - b.index);
-  }, [pagesVersion]);
-
-  useChapterPagePreloader(loadedPages, currentPage, chapterId);
-
-  const router = useRouter();
-
+  // Chapter navigation
   const handleChapterSelect = useCallback(
     (targetSlug: string) => {
       if (!targetSlug || targetSlug === chapterSlug) return;
       const targetChapter = chapters.find((chapter) => chapter.slug === targetSlug);
       if (!targetChapter) return;
       const url = `/read/${encodeURIComponent(mangaSlug)}/chapter/${encodeURIComponent(targetChapter.slug)}`;
-      if (router) {
-        router.push(url);
-      } else {
-        window.location.href = url;
-      }
+      router.push(url);
     },
     [chapters, chapterSlug, mangaSlug, router],
   );
 
+  // UI controls
   const handleToggleZenMode = useCallback(() => {
     if (!document.fullscreenElement) {
       document.documentElement.requestFullscreen().catch(() => {});
@@ -371,6 +169,7 @@ export function MangaReader({
     setZenMode(false);
   }, [setZenMode]);
 
+  // Keyboard navigation
   useReaderNavigation({
     onNextPage: () => {
       void nextPage();
@@ -386,6 +185,7 @@ export function MangaReader({
     onExitReader: handleExitReader,
   });
 
+  // Touch gestures
   useTouchGestures(viewportRef, {
     onSwipeLeft:
       readingMode === "paged-rtl"
@@ -409,6 +209,7 @@ export function MangaReader({
     onLongPress: handleToggleSettings,
   });
 
+  // Fullscreen change handler
   useEffect(() => {
     const handleFullscreenChange = () => {
       if (!document.fullscreenElement) {
@@ -422,6 +223,7 @@ export function MangaReader({
     };
   }, [setZenMode]);
 
+  // Prefetch next chapter when approaching end
   useEffect(() => {
     if (
       !autoAdvanceChapter ||
@@ -447,10 +249,8 @@ export function MangaReader({
     router,
   ]);
 
-  const currentChapterIndex = useMemo(
-    () => chapters.findIndex((chapter) => chapter.id === chapterId),
-    [chapters, chapterId],
-  );
+  // Find next and previous chapters
+  const currentChapterIndex = chapters.findIndex((chapter) => chapter.id === chapterId);
   const nextChapter =
     currentChapterIndex >= 0 && currentChapterIndex < chapters.length - 1
       ? chapters[currentChapterIndex + 1]
@@ -458,16 +258,18 @@ export function MangaReader({
   const prevChapter =
     currentChapterIndex > 0 ? chapters[currentChapterIndex - 1] : null;
 
-  const currentPageData = pagesRef.current[currentPage];
-  const isCurrentPagePending = pendingPageIndex !== null || !currentPageData;
+  // Determine if we're loading the current page
+  const currentPageData = pages[currentPage];
+  const isCurrentPagePending = isPagesLoading && !currentPageData;
 
+  // Render appropriate reading mode
   const renderReadingMode = () => {
     const onPageChange = (pageIndex: number) => {
       void goToPage(pageIndex);
     };
 
     const props = {
-      pages: pagesRef.current,
+      pages,
       currentPage,
       totalPages,
       onPageChange,
@@ -493,27 +295,31 @@ export function MangaReader({
   return (
     <div className="fixed inset-0 flex flex-col bg-background">
       <div ref={viewportRef} className="relative flex-1 overflow-hidden">
+        {/* Always render reading mode - let it handle its own loading states */}
         {renderReadingMode()}
-        {activeError ? (
+
+        {/* Loading progress indicator (shown while loading in background) */}
+        {isPagesLoading && loadingProgress < 100 && (
+          <div className="absolute top-4 right-4 rounded-md bg-black/75 px-3 py-2 text-sm text-white">
+            Loading pages: {loadingProgress}%
+          </div>
+        )}
+
+        {/* Error display */}
+        {loadingError && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-background/90">
             <p className="text-sm text-muted-foreground text-center px-4">
-              {activeError.message || "Failed to load this page."}
+              {loadingError.message || "Failed to load chapter pages."}
             </p>
             <button
               type="button"
-              onClick={() => {
-                if (pendingPageIndex !== null) {
-                  void goToPage(pendingPageIndex);
-                } else {
-                  void goToPage(currentPage);
-                }
-              }}
+              onClick={retryLoading}
               className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:bg-primary/90"
             >
               Retry
             </button>
           </div>
-        ) : null}
+        )}
       </div>
 
       <ReaderControls
@@ -525,10 +331,8 @@ export function MangaReader({
         currentPage={currentPage}
         totalPages={totalPages}
         isChunkPending={isCurrentPagePending}
-        chunkErrorMessage={activeError?.message}
-        onRetryChunk={() => {
-          void goToPage(currentPage);
-        }}
+        chunkErrorMessage={loadingError?.message}
+        onRetryChunk={retryLoading}
         onPrevPage={prevPage}
         onNextPage={() => {
           void nextPage();

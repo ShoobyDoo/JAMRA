@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
@@ -14,6 +14,7 @@ import {
 import { useReaderSettings } from "@/store/reader-settings";
 import { Select, Skeleton } from "@mantine/core";
 import { formatChapterTitle } from "@/lib/chapter-meta";
+import { useMediaQuery } from "@mantine/hooks";
 
 interface ReaderControlsProps {
   mangaSlug: string;
@@ -55,6 +56,21 @@ export function ReaderControls({
     useReaderSettings();
   const [isVisible, setIsVisible] = useState(!autoHideControls);
   const hideTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isSmallScreen = useMediaQuery("(max-width: 480px)");
+  const isMediumScreen = useMediaQuery("(max-width: 768px)");
+
+  const titleLimit = useMemo(() => {
+    if (isSmallScreen) return 32;
+    if (isMediumScreen) return 56;
+    return 80;
+  }, [isSmallScreen, isMediumScreen]);
+
+  const truncatedTitle = useMemo(() => {
+    if (!mangaTitle) return "";
+    if (mangaTitle.length <= titleLimit) return mangaTitle;
+    const sliceEnd = Math.max(0, titleLimit - 1);
+    return `${mangaTitle.slice(0, sliceEnd).trimEnd()}…`;
+  }, [mangaTitle, titleLimit]);
 
   const showControls = useCallback(() => {
     setIsVisible(true);
@@ -120,16 +136,16 @@ export function ReaderControls({
 
       {/* Top bar */}
       <div
-        className={`fixed left-0 right-0 top-0 z-50 border-b border-border/50 bg-background/95 backdrop-blur-sm transition-transform duration-300 ease-out ${
-          isVisible ? "translate-y-0" : "-translate-y-full"
+        className={`fixed inset-x-0 top-4 z-50 flex justify-center px-4 transition-all duration-300 ease-out ${
+          isVisible ? "pointer-events-auto translate-y-0 opacity-100" : "pointer-events-none -translate-y-6 opacity-0"
         }`}
         onMouseEnter={showControls}
         onMouseMove={showControls}
         onTouchStart={showControls}
       >
-        <div className="flex h-14 items-center justify-between px-4">
-          {/* Left: Back button */}
-          <div className="flex items-center gap-3">
+        <div className="pointer-events-auto flex w-full max-w-5xl items-center gap-3 rounded-2xl border border-border/60 bg-background/95 px-4 py-2 shadow-lg backdrop-blur">
+          {/* Left: Back button + chapter selector */}
+          <div className="flex flex-shrink-0 items-center gap-3">
             <button
               onClick={() => router.back()}
               className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition hover:bg-accent"
@@ -138,13 +154,6 @@ export function ReaderControls({
               <ArrowLeft className="h-4 w-4" />
               <span className="hidden sm:inline">Back</span>
             </button>
-          </div>
-
-          {/* Center: Title and chapter */}
-          <div className="flex flex-1 flex-col items-center gap-1 px-4 text-center">
-            <h1 className="truncate text-base font-semibold md:text-lg">
-              {mangaTitle}
-            </h1>
             <Select
               value={currentChapterSlug}
               onChange={(value) => {
@@ -158,11 +167,11 @@ export function ReaderControls({
                     }))
                   : []
               }
-              size="xs"
+              size="sm"
               radius="md"
-              rightSection={null}
+              className="w-[140px]"
               classNames={{
-                input: "min-w-[100px] px-1.5 py-0.5 text-[11px]",
+                input: "px-2 py-1 text-xs",
                 dropdown: "text-xs",
                 option: "flex items-center justify-between gap-2 px-2 py-1",
               }}
@@ -174,8 +183,18 @@ export function ReaderControls({
             />
           </div>
 
+          {/* Center: Title */}
+          <div className="mx-auto min-w-0 max-w-xl px-2 text-center">
+            <h1
+              className="max-w-full truncate text-base font-semibold md:text-lg"
+              title={mangaTitle}
+            >
+              {truncatedTitle}
+            </h1>
+          </div>
+
           {/* Right: Controls */}
-          <div className="flex items-center gap-2">
+          <div className="ml-auto flex flex-shrink-0 items-center gap-2">
             <span className="hidden text-sm text-muted-foreground sm:inline">
               {modeLabels[readingMode]}
             </span>
@@ -207,14 +226,14 @@ export function ReaderControls({
 
       {/* Bottom bar */}
       <div
-        className={`fixed bottom-0 left-0 right-0 z-50 border-t border-border/50 bg-background/95 backdrop-blur-sm transition-transform duration-300 ease-out ${
-          isVisible ? "translate-y-0" : "translate-y-full"
+        className={`fixed inset-x-0 bottom-4 z-50 flex justify-center px-4 transition-all duration-300 ease-out ${
+          isVisible ? "pointer-events-auto translate-y-0 opacity-100" : "pointer-events-none translate-y-6 opacity-0"
         }`}
         onMouseEnter={showControls}
         onMouseMove={showControls}
         onTouchStart={showControls}
       >
-        <div className="flex flex-col gap-2 px-4 py-3">
+        <div className="pointer-events-auto w-full max-w-5xl rounded-2xl border border-border/60 bg-background/95 px-4 py-3 shadow-lg backdrop-blur">
           {/* Progress bar */}
           <div className="flex items-center gap-3">
             <button

@@ -809,7 +809,8 @@ export function ExtensionsManager({
                             align="flex-start"
                             gap="md"
                             wrap="nowrap"
-                            className="cursor-pointer -m-3 p-3 rounded-md"
+                            p="md"
+                            className="cursor-pointer -m-3 rounded-md"
                             onClick={toggleExpanded}
                           >
                             <Group gap="sm" align="flex-start" wrap="nowrap" className="flex-1 min-w-0">

@@ -5,6 +5,7 @@ const nextConfig: NextConfig = {
     optimizePackageImports: ["@mantine/core", "@mantine/hooks"],
   },
   images: {
+    qualities: [75, 95],
     remotePatterns: [
       {
         protocol: "https",
@@ -13,6 +14,10 @@ const nextConfig: NextConfig = {
       {
         protocol: "https",
         hostname: "temp.compsci88.com",
+      },
+      {
+        protocol: "https",
+        hostname: "official.lowee.us",
       },
     ],
   },

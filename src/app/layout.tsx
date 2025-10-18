@@ -34,7 +34,10 @@ export default function RootLayout({
       <head>
         <ColorSchemeScript defaultColorScheme="light" />
       </head>
-      <body className="bg-background text-foreground antialiased" style={{ fontFamily: 'var(--font-geist-mono)' }}>
+      <body
+        className="bg-background text-foreground antialiased"
+        style={{ fontFamily: "var(--font-geist-mono)" }}
+      >
         <MantineProvider defaultColorScheme="light">
           <ModalsProvider>
             <Notifications position="top-right" zIndex={10000} />

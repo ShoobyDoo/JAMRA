@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { useReaderSettings } from "@/store/reader-settings";
-import { ChevronRight, ChevronLeft } from "lucide-react";
+import { ChevronRight, ChevronLeft, Loader2 } from "lucide-react";
 
 interface PagedModeProps {
   pages: Array<{
@@ -288,8 +288,9 @@ export function PagedMode({
       ref={containerRef}
       className={`flex h-full w-full items-center justify-center ${backgroundColors[backgroundColor]}`}
     >
-      <div className="rounded-lg border border-border/40 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-        Loading page…
+      <div className="flex flex-col items-center gap-3 rounded-lg border border-border bg-background/50 backdrop-blur-sm px-6 py-4">
+        <Loader2 className="h-8 w-8 animate-spin text-foreground" />
+        <span className="text-sm text-foreground">Loading page {currentPage + 1}...</span>
       </div>
     </div>
   );

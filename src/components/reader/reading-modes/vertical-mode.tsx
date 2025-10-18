@@ -1,11 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useCallback, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { useReaderSettings } from "@/store/reader-settings";
-import { useDragScroll } from "../hooks/use-drag-scroll";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, CheckCircle, Loader2 } from "lucide-react";
 
 interface VerticalModeProps {
   pages: Array<{
@@ -17,13 +16,22 @@ interface VerticalModeProps {
   currentPage: number;
   totalPages: number;
   onPageChange: (pageIndex: number) => void;
-  nextChapter?: { id: string; slug: string; title?: string; number?: string } | null;
-  prevChapter?: { id: string; slug: string; title?: string; number?: string } | null;
+  nextChapter?: {
+    id: string;
+    slug: string;
+    title?: string;
+    number?: string;
+  } | null;
+  prevChapter?: {
+    id: string;
+    slug: string;
+    title?: string;
+    number?: string;
+  } | null;
   mangaId?: string;
   mangaSlug?: string;
 }
 
-const OVERSCAN = 3;
 const DEFAULT_PLACEHOLDER_HEIGHT = 900;
 
 export function VerticalMode({
@@ -38,196 +46,129 @@ export function VerticalMode({
 }: VerticalModeProps) {
   const router = useRouter();
   const routeSlug = mangaSlug ?? mangaId;
-  const { backgroundColor, gapSize, pageFit, scrollSpeed, customWidth } = useReaderSettings();
+  const { backgroundColor, gapSize, pageFit, customWidth, autoAdvanceChapter } =
+    useReaderSettings();
+  const [isAutoAdvancing, setIsAutoAdvancing] = useState(false);
+
+  // Check if we have loaded pages
+  const hasLoadedPages = pages.some((page) => page !== null);
+
   const containerRef = useRef<HTMLDivElement>(null);
-  const pageRefs = useRef<Map<number, HTMLDivElement>>(new Map());
-  const intersectionObserverRef = useRef<IntersectionObserver | null>(null);
-  const resizeObserverRef = useRef<ResizeObserver | null>(null);
-  const visibleIndexesRef = useRef<Set<number>>(new Set());
-  const measurementsRef = useRef<Map<number, number>>(new Map());
-  const [, forceMeasurementUpdate] = useState(0);
-  const isScrollingProgrammatically = useRef(false);
+  const pageRefs = useRef<(HTMLDivElement | null)[]>([]);
   const currentPageRef = useRef(currentPage);
-  const [virtualWindow, setVirtualWindow] = useState(() => {
-    const maxIndex = Math.max(totalPages - 1, 0);
-    const normalizedCurrent = Math.min(Math.max(currentPage, 0), maxIndex);
-    return {
-      start: Math.max(0, normalizedCurrent - OVERSCAN),
-      end: Math.min(maxIndex, normalizedCurrent + OVERSCAN),
-    };
-  });
+  const skipScrollRef = useRef(false);
+  const programmaticScrollRef = useRef(false);
+  const observerRef = useRef<IntersectionObserver | null>(null);
+  const autoAdvanceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     currentPageRef.current = currentPage;
   }, [currentPage]);
 
-  const recomputeWindow = useCallback(
-    (extraIndex?: number) => {
-      const indexes = new Set(visibleIndexesRef.current);
-      if (typeof extraIndex === "number" && extraIndex >= 0) {
-        indexes.add(extraIndex);
-      }
-
-      const maxIndex = Math.max(totalPages - 1, 0);
-      const normalizedCurrent = Math.min(Math.max(currentPage, 0), maxIndex);
-
-      if (indexes.size === 0) {
-        const start = Math.max(0, normalizedCurrent - OVERSCAN);
-        const end = Math.min(maxIndex, normalizedCurrent + OVERSCAN);
-        setVirtualWindow((prev) =>
-          prev.start === start && prev.end === end ? prev : { start, end },
-        );
-        return;
-      }
-
-      const sorted = Array.from(indexes).sort((a, b) => a - b);
-      const start = Math.max(0, Math.min(sorted[0], maxIndex) - OVERSCAN);
-      const end = Math.min(
-        maxIndex,
-        Math.max(sorted[sorted.length - 1], 0) + OVERSCAN,
-      );
-      setVirtualWindow((prev) =>
-        prev.start === start && prev.end === end ? prev : { start, end },
-      );
-    },
-    [currentPage, totalPages],
-  );
-
+  // Auto-advance to next chapter when reaching the end
   useEffect(() => {
-    recomputeWindow(currentPage);
-  }, [currentPage, recomputeWindow]);
-
-  useEffect(() => {
-    recomputeWindow(currentPage);
-  }, [pages, currentPage, recomputeWindow]);
-
-  // Scroll to current page when it changes externally
-  useEffect(() => {
-    const pageElement = pageRefs.current.get(currentPage);
-    if (pageElement && !isScrollingProgrammatically.current) {
-      pageElement.scrollIntoView({
-        behavior: "smooth",
-        block: "start",
-      });
+    if (!autoAdvanceChapter || !nextChapter || !routeSlug) {
+      return;
     }
-  }, [currentPage]);
 
-  // Track which page is visible & update virtual window
+    // Check if we're at the last page and all pages are loaded
+    const isAtEnd = currentPage === totalPages - 1;
+    const allPagesLoaded = pages.every((page) => page !== null);
+
+    if (isAtEnd && allPagesLoaded && !isAutoAdvancing) {
+      // Set a timer to auto-advance after a short delay (2 seconds)
+      autoAdvanceTimerRef.current = setTimeout(() => {
+        setIsAutoAdvancing(true);
+        router.push(
+          `/read/${encodeURIComponent(routeSlug)}/chapter/${encodeURIComponent(nextChapter.slug)}`
+        );
+      }, 2000);
+    }
+
+    return () => {
+      if (autoAdvanceTimerRef.current) {
+        clearTimeout(autoAdvanceTimerRef.current);
+        autoAdvanceTimerRef.current = null;
+      }
+    };
+  }, [
+    autoAdvanceChapter,
+    currentPage,
+    totalPages,
+    nextChapter,
+    routeSlug,
+    pages,
+    router,
+    isAutoAdvancing,
+  ]);
+
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
 
     const observer = new IntersectionObserver(
       (entries) => {
-        let windowChanged = false;
-
         entries.forEach((entry) => {
           const index = Number(entry.target.getAttribute("data-page-index"));
           if (Number.isNaN(index)) return;
 
-          if (entry.isIntersecting) {
-            if (!visibleIndexesRef.current.has(index)) {
-              visibleIndexesRef.current.add(index);
-              windowChanged = true;
-            }
-
-            if (
-              !isScrollingProgrammatically.current &&
-              index !== currentPageRef.current
-            ) {
-              isScrollingProgrammatically.current = true;
+          if (entry.isIntersecting && entry.intersectionRatio >= 0.6) {
+            if (programmaticScrollRef.current) return;
+            if (currentPageRef.current !== index) {
+              currentPageRef.current = index;
+              skipScrollRef.current = true;
               onPageChange(index);
-              window.setTimeout(() => {
-                isScrollingProgrammatically.current = false;
-              }, 100);
             }
-          } else if (visibleIndexesRef.current.delete(index)) {
-            windowChanged = true;
           }
         });
-
-        if (windowChanged) {
-          recomputeWindow();
-        }
       },
       {
         root: container,
-        threshold: 0.45,
-      },
+        threshold: 0.6,
+      }
     );
 
-    intersectionObserverRef.current = observer;
-    pageRefs.current.forEach((element) => observer.observe(element));
+    observerRef.current = observer;
+    pageRefs.current.forEach((element) => {
+      if (element) observer.observe(element);
+    });
 
     return () => {
       observer.disconnect();
-      intersectionObserverRef.current = null;
+      observerRef.current = null;
     };
-  }, [onPageChange, recomputeWindow]);
+  }, [onPageChange, pages.length]);
 
-  // Observe page size changes to build placeholder heights
   useEffect(() => {
-    if (typeof ResizeObserver === "undefined") return;
+    const target = pageRefs.current[currentPage];
+    if (!target) return;
 
-    const resizeObserver = new ResizeObserver((entries) => {
-      let updated = false;
-      for (const entry of entries) {
-        const index = Number(entry.target.getAttribute("data-page-index"));
-        if (Number.isNaN(index)) continue;
+    if (skipScrollRef.current) {
+      skipScrollRef.current = false;
+      return;
+    }
 
-        const height = entry.contentRect.height;
-        if (!height || height <= 0) continue;
+    programmaticScrollRef.current = true;
+    target.scrollIntoView({ behavior: "auto", block: "start" });
+    const timeout = window.setTimeout(() => {
+      programmaticScrollRef.current = false;
+    }, 150);
 
-        const currentHeight = measurementsRef.current.get(index);
-        if (currentHeight !== height) {
-          measurementsRef.current.set(index, height);
-          updated = true;
-        }
-      }
+    return () => window.clearTimeout(timeout);
+  }, [currentPage]);
 
-      if (updated) {
-        forceMeasurementUpdate((value) => value + 1);
-      }
-    });
+  const setPageRef = (index: number, element: HTMLDivElement | null) => {
+    const existing = pageRefs.current[index];
+    if (existing && observerRef.current) {
+      observerRef.current.unobserve(existing);
+    }
 
-    resizeObserverRef.current = resizeObserver;
-    pageRefs.current.forEach((element) => resizeObserver.observe(element));
+    pageRefs.current[index] = element;
 
-    return () => {
-      resizeObserver.disconnect();
-      resizeObserverRef.current = null;
-    };
-  }, []);
-
-  const setPageRef = useCallback(
-    (index: number, element: HTMLDivElement | null) => {
-      const existing = pageRefs.current.get(index);
-      if (existing && existing !== element) {
-        intersectionObserverRef.current?.unobserve(existing);
-        resizeObserverRef.current?.unobserve(existing);
-        pageRefs.current.delete(index);
-      }
-
-      if (element) {
-        pageRefs.current.set(index, element);
-        if (intersectionObserverRef.current) {
-          intersectionObserverRef.current.observe(element);
-        }
-        if (resizeObserverRef.current) {
-          resizeObserverRef.current.observe(element);
-        }
-      } else {
-        if (pageRefs.current.has(index)) {
-          pageRefs.current.delete(index);
-        }
-        if (visibleIndexesRef.current.delete(index)) {
-          recomputeWindow(currentPage);
-        }
-        measurementsRef.current.delete(index);
-      }
-    },
-    [currentPage, recomputeWindow],
-  );
+    if (element && observerRef.current) {
+      observerRef.current.observe(element);
+    }
+  };
 
   const getImageWidth = () => {
     switch (pageFit) {
@@ -245,60 +186,39 @@ export function VerticalMode({
     }
   };
 
-  const backgroundColors = {
+  const backgroundColors: Record<string, string> = {
     black: "bg-black",
     white: "bg-white",
     sepia: "bg-[#f4ecd8]",
     "dark-gray": "bg-gray-900",
   };
 
-  // Enable drag scrolling
-  useDragScroll(containerRef);
-
-  // Apply custom scroll speed via CSS
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-
-    // Scroll speed multiplier (1-10 scale to 0.5x-2x)
-    const scrollMultiplier = 0.5 + (scrollSpeed / 10) * 1.5;
-
-    const handleWheel = (e: WheelEvent) => {
-      e.preventDefault();
-      container.scrollBy({
-        top: e.deltaY * scrollMultiplier,
-        behavior: "auto",
-      });
-    };
-
-    container.addEventListener("wheel", handleWheel, { passive: false });
-    return () => container.removeEventListener("wheel", handleWheel);
-  }, [scrollSpeed]);
-
-  const isWithinWindow = useCallback(
-    (index: number) => index >= virtualWindow.start && index <= virtualWindow.end,
-    [virtualWindow.end, virtualWindow.start],
-  );
-
   const imageWidthValue = getImageWidth();
+
+  const handleCancelAutoAdvance = () => {
+    if (autoAdvanceTimerRef.current) {
+      clearTimeout(autoAdvanceTimerRef.current);
+    }
+    setIsAutoAdvancing(false);
+  };
 
   return (
     <div
       ref={containerRef}
       className={`h-full w-full overflow-y-auto ${backgroundColors[backgroundColor]}`}
       style={{
-        scrollBehavior: "smooth",
-        overscrollBehavior: "contain",
+        scrollBehavior: "auto",
+        overscrollBehavior: "auto",
       }}
     >
       <div className="flex flex-col items-center">
-        {/* Previous chapter indicator at top */}
-        {prevChapter && routeSlug && (
+        {/* Only show prev chapter button after pages start loading */}
+        {hasLoadedPages && prevChapter && routeSlug && (
           <div className="flex flex-col items-center justify-center gap-4 py-12">
             <button
               onClick={() =>
                 router.push(
-                  `/read/${encodeURIComponent(routeSlug)}/chapter/${encodeURIComponent(prevChapter.slug)}?page=last`,
+                  `/read/${encodeURIComponent(routeSlug)}/chapter/${encodeURIComponent(prevChapter.slug)}?page=last`
                 )
               }
               className="flex flex-col items-center gap-2 rounded-lg bg-primary px-6 py-4 text-primary-foreground transition hover:bg-primary/90"
@@ -306,7 +226,8 @@ export function VerticalMode({
               <ChevronDown className="h-6 w-6 rotate-180" />
               <span className="text-sm font-medium">Previous Chapter</span>
               <span className="text-xs opacity-80">
-                {prevChapter.title || `Chapter ${prevChapter.number || prevChapter.slug}`}
+                {prevChapter.title ||
+                  `Chapter ${prevChapter.number || prevChapter.slug}`}
               </span>
             </button>
           </div>
@@ -314,10 +235,8 @@ export function VerticalMode({
 
         {pages.map((page, arrayIndex) => {
           const pageIndex = page?.index ?? arrayIndex;
-          const shouldRenderImage = page !== null && isWithinWindow(pageIndex);
-          const measuredHeight =
-            measurementsRef.current.get(pageIndex) ?? page?.height ?? DEFAULT_PLACEHOLDER_HEIGHT;
           const eagerLoad = pageIndex <= currentPage + 2;
+          const placeholderHeight = page?.height ?? DEFAULT_PLACEHOLDER_HEIGHT;
 
           return (
             <div
@@ -327,15 +246,15 @@ export function VerticalMode({
               className="flex w-full items-center justify-center"
               style={{
                 marginBottom: pageIndex < totalPages - 1 ? gapSize : 0,
-                minHeight: shouldRenderImage ? measuredHeight : undefined,
+                minHeight: placeholderHeight,
               }}
             >
-              {shouldRenderImage && page ? (
+              {page ? (
                 <Image
                   src={page.url}
                   alt={`Page ${page.index + 1}`}
                   width={page.width ?? 1080}
-                  height={page.height ?? 1920}
+                  height={page.height ?? placeholderHeight}
                   style={{
                     width: imageWidthValue,
                     height: "auto",
@@ -349,42 +268,104 @@ export function VerticalMode({
                 />
               ) : (
                 <div
-                  className="w-full max-w-full select-none rounded-md bg-muted/30"
+                  className="w-full max-w-full select-none flex items-center justify-center"
                   style={{
-                    height: measuredHeight,
+                    height: placeholderHeight,
                     width: imageWidthValue,
                     maxWidth: "100%",
                   }}
-                />
+                >
+                  <div className="flex flex-col items-center gap-3 rounded-lg border border-border bg-background/50 backdrop-blur-sm px-6 py-4">
+                    <Loader2 className="h-6 w-6 animate-spin text-foreground" />
+                    <span className="text-sm text-foreground">
+                      Loading page {pageIndex + 1}...
+                    </span>
+                  </div>
+                </div>
               )}
             </div>
           );
         })}
 
-        {/* End of chapter indicator */}
-        <div className="flex flex-col items-center justify-center gap-4 py-12">
-          {nextChapter && routeSlug ? (
-            <button
-              onClick={() =>
-                router.push(
-                  `/read/${encodeURIComponent(routeSlug)}/chapter/${encodeURIComponent(nextChapter.slug)}`,
-                )
-              }
-              className="flex flex-col items-center gap-2 rounded-lg bg-primary px-6 py-4 text-primary-foreground transition hover:bg-primary/90"
-            >
-              <ChevronDown className="h-6 w-6" />
-              <span className="text-sm font-medium">Next Chapter</span>
-              <span className="text-xs opacity-80">
-                {nextChapter.title || `Chapter ${nextChapter.number || nextChapter.slug}`}
-              </span>
-            </button>
-          ) : (
-            <div className="flex flex-col items-center gap-2 rounded-lg bg-muted px-6 py-4 text-muted-foreground">
-              <span className="text-sm font-medium">End of Manga</span>
-              <span className="text-xs">No more chapters available</span>
-            </div>
-          )}
-        </div>
+        {/* End of chapter section - only show after pages are loaded */}
+        {hasLoadedPages && (
+          <div className="flex flex-col items-center justify-center gap-4 py-12 min-h-[400px]">
+            {nextChapter && routeSlug ? (
+              <div className="flex flex-col items-center gap-4">
+                <div className="flex items-center gap-2 text-green-500">
+                  <CheckCircle className="h-6 w-6" />
+                  <span className="text-lg font-medium">Chapter Complete</span>
+                </div>
+
+                {autoAdvanceChapter && !isAutoAdvancing && (
+                  <div className="text-center text-sm text-muted-foreground">
+                    Auto-advancing to next chapter in 2 seconds...
+                    <button
+                      onClick={handleCancelAutoAdvance}
+                      className="ml-2 text-primary underline hover:text-primary/80"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
+
+                {isAutoAdvancing && (
+                  <div className="text-center text-sm text-muted-foreground">
+                    Loading next chapter...
+                  </div>
+                )}
+
+                <button
+                  onClick={() =>
+                    router.push(
+                      `/read/${encodeURIComponent(routeSlug)}/chapter/${encodeURIComponent(nextChapter.slug)}`
+                    )
+                  }
+                  className="flex flex-col items-center gap-2 rounded-lg bg-primary px-8 py-5 text-primary-foreground transition hover:bg-primary/90"
+                >
+                  <ChevronDown className="h-6 w-6" />
+                  <span className="text-base font-medium">Next Chapter</span>
+                  <span className="text-xs opacity-80">
+                    {nextChapter.title ||
+                      `Chapter ${nextChapter.number || nextChapter.slug}`}
+                  </span>
+                </button>
+
+                <button
+                  onClick={() =>
+                    router.push(`/manga/${encodeURIComponent(routeSlug)}`)
+                  }
+                  className="mt-2 text-sm text-muted-foreground hover:text-foreground transition"
+                >
+                  Exit Reader
+                </button>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center gap-4">
+                <div className="flex flex-col items-center gap-2 rounded-lg bg-muted px-8 py-6 text-center">
+                  <CheckCircle className="h-8 w-8 text-muted-foreground" />
+                  <span className="text-lg font-medium">
+                    You&apos;ve reached the end
+                  </span>
+                  <span className="text-sm text-muted-foreground">
+                    No more chapters available
+                  </span>
+                </div>
+
+                {routeSlug && (
+                  <button
+                    onClick={() =>
+                      router.push(`/manga/${encodeURIComponent(routeSlug)}`)
+                    }
+                    className="mt-2 rounded-lg bg-primary px-6 py-3 text-sm font-medium text-primary-foreground transition hover:bg-primary/90"
+                  >
+                    Return to Manga Details
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

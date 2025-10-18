@@ -74,12 +74,7 @@ export function HydrationBoundary({ children }: { children: React.ReactNode }) {
         <Stack align="center" gap="xl">
           <Title
             order={1}
-            style={{
-              fontSize: "3rem",
-              fontWeight: 700,
-              letterSpacing: "0.05em",
-              color: "var(--foreground)",
-            }}
+            className="text-5xl font-bold tracking-[0.05em] text-foreground"
           >
             JAMRA
           </Title>

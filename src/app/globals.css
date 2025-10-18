@@ -35,6 +35,16 @@
     background-color: var(--nl-hover, var(--mantine-color-default-hover));
   }
 
+  /* Mantine Combobox/Select option hover styles */
+  [data-combobox-option]:hover:where(
+      :not([data-combobox-option-disabled], [data-disabled])
+    ) {
+    background-color: var(
+      --combobox-hover,
+      var(--mantine-color-default-hover)
+    );
+  }
+
   /* Mantine UnstyledButton hover styles */
   [data-unstyled-button]:hover:where(
       :not([data-loading], :disabled, [data-disabled])
@@ -104,6 +114,19 @@
 
   body {
     @apply bg-background text-foreground font-sans antialiased;
+  }
+
+  button,
+  [data-button] {
+    --button-hover: var(--accent);
+  }
+
+  [data-action-icon] {
+    --ai-hover: var(--accent);
+  }
+
+  [data-combobox-option] {
+    --combobox-hover: var(--accent);
   }
 
   /* Modern thin scrollbar styling */

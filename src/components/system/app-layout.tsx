@@ -24,68 +24,56 @@ export function AppLayout({ children }: PropsWithChildren) {
 
   const layoutStyle = useMemo<CSSProperties>(
     () => ({
-      display: "grid",
       gridTemplateColumns: `${computedSidebarWidth}px 1fr`,
       gridTemplateRows: `${HEADER_HEIGHT}px 1fr`,
       gridTemplateAreas: '"sidebar header" "sidebar content"',
-      height: "100dvh",
-      minHeight: 0,
-      minWidth: "960px",
-      overflow: "hidden",
-      transition: "grid-template-columns 250ms ease",
-      backgroundColor: "var(--background)",
-      color: "var(--foreground)",
     }),
-    [computedSidebarWidth],
+    [computedSidebarWidth]
   );
 
   const sidebarStyle = useMemo<CSSProperties>(
     () => ({
       gridArea: "sidebar",
-      display: "flex",
-      flexDirection: "column",
-      minHeight: 0,
-      borderRight: "1px solid var(--border)",
-      backgroundColor: "var(--card)",
-      overflow: "hidden",
-      transition: "background-color 150ms ease",
     }),
-    [],
+    []
   );
 
   const headerStyle = useMemo<CSSProperties>(
     () => ({
       gridArea: "header",
-      borderBottom: "1px solid var(--border)",
-      backgroundColor: "var(--background)",
-      position: "relative",
-      zIndex: 10,
-      display: "flex",
     }),
-    [],
+    []
   );
 
   const mainStyle = useMemo<CSSProperties>(
     () => ({
       gridArea: "content",
-      minHeight: 0,
-      overflow: "hidden",
-      position: "relative",
-      backgroundColor: "var(--background)",
     }),
-    [],
+    []
   );
 
   return (
     <HydrationBoundary>
-      <div className="relative" style={layoutStyle}>
-        <aside style={sidebarStyle}>
+      <div
+        className="relative grid h-[100dvh] min-h-0 min-w-[960px] overflow-hidden bg-background text-foreground transition-[grid-template-columns] duration-[250ms] ease-in-out"
+        style={layoutStyle}
+      >
+        <aside
+          className="flex min-h-0 flex-col overflow-hidden border-r border-border bg-card transition-colors duration-150 ease-in-out"
+          style={sidebarStyle}
+        >
           <Sidebar />
         </aside>
-        <header style={headerStyle}>
+        <header
+          className="relative border-b border-border bg-background z-10"
+          style={headerStyle}
+        >
           <Topbar />
         </header>
-        <main style={mainStyle}>
+        <main
+          className="relative min-h-0 overflow-hidden bg-background"
+          style={mainStyle}
+        >
           <div
             ref={scrollContainerRef}
             className="h-full overflow-y-auto overflow-x-hidden"

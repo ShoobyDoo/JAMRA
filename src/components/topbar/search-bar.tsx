@@ -153,8 +153,8 @@ export function SearchBar() {
   }, []);
 
   return (
-    <div className="relative">
-      <form onSubmit={handleSubmit} className="relative">
+    <div className="relative w-full">
+      <form onSubmit={handleSubmit} className="relative w-full">
         <TextInput
           ref={inputRef}
           type="search"
@@ -167,7 +167,7 @@ export function SearchBar() {
           }}
           aria-label="Search manga"
           placeholder="Search manga…"
-          className="w-96"
+          className="w-full"
           size="sm"
           radius="md"
           leftSection={
@@ -197,10 +197,9 @@ export function SearchBar() {
           ref={dropdownRef}
           shadow="lg"
           radius="md"
-          className="absolute top-full mt-2 w-full z-50 border border-border"
-          style={{ maxHeight: "500px" }}
+          className="absolute top-full z-50 mt-2 w-full max-h-[500px] overflow-hidden border border-border"
         >
-          <div className="flex flex-col overflow-y-auto max-h-[500px]">
+          <div className="flex max-h-[500px] flex-col overflow-y-auto">
             {results.map((manga) => (
               <button
                 key={manga.id}

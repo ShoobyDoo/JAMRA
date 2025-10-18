@@ -19,6 +19,7 @@ interface ContinueReadingCardProps {
   lastReadAt: number;
   error?: string | null;
   extensionId?: string;
+  priority?: boolean;
 }
 
 export function ContinueReadingCard({
@@ -30,6 +31,7 @@ export function ContinueReadingCard({
   lastReadAt,
   error,
   extensionId,
+  priority = false,
 }: ContinueReadingCardProps) {
   // Format last read time
   const lastReadDate = new Date(lastReadAt);
@@ -143,6 +145,7 @@ export function ContinueReadingCard({
               sizes="96px"
               mangaId={mangaId}
               extensionId={extensionId}
+              priority={priority}
             />
           ) : (
             <div className="flex h-full items-center justify-center text-muted-foreground">

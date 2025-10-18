@@ -111,7 +111,8 @@ export function ContinueReadingButton({
           size="lg"
           leftSection={<BookOpen size={20} />}
           variant="filled"
-          className="h-auto py-4"
+          py="lg"
+          className="h-auto"
         >
           <div className="flex flex-col items-start gap-1 text-left">
             <span className="font-semibold">Start Reading</span>
@@ -142,7 +143,8 @@ export function ContinueReadingButton({
         size="lg"
         leftSection={<BookOpen size={20} />}
         variant="filled"
-        className="h-auto py-4"
+        py="lg"
+        className="h-auto"
       >
         <div className="flex flex-col items-start gap-1 text-left">
           <span className="font-semibold">

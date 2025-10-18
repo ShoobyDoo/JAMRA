@@ -4,7 +4,7 @@ import { useRef, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { useReaderSettings } from "@/store/reader-settings";
-import { ChevronRight, ChevronLeft } from "lucide-react";
+import { ChevronRight, ChevronLeft, Loader2 } from "lucide-react";
 
 interface DualPageModeProps {
   pages: Array<{
@@ -231,7 +231,7 @@ export function DualPageMode({
     "dark-gray": "bg-gray-900",
   };
 
-  const renderPage = (page: typeof displayPages.left, key: string) => (
+  const renderPage = (page: typeof displayPages.left, key: string, pageIndex: number) => (
     <div key={key} className="flex h-full items-center justify-center">
       {page ? (
         <Image
@@ -245,8 +245,9 @@ export function DualPageMode({
           unoptimized
         />
       ) : (
-        <div className="rounded-lg border border-border/40 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-          Loading…
+        <div className="flex flex-col items-center gap-3 rounded-lg border border-border bg-background/50 backdrop-blur-sm px-6 py-4">
+          <Loader2 className="h-6 w-6 animate-spin text-foreground" />
+          <span className="text-xs text-foreground">Loading page {pageIndex + 1}...</span>
         </div>
       )}
     </div>
@@ -335,7 +336,7 @@ export function DualPageMode({
           className="flex h-full items-center justify-center"
           style={{ paddingRight: displayPages.right ? dualPageGap / 2 : 0 }}
         >
-          {renderPage(displayPages.left, "left")}
+          {renderPage(displayPages.left, "left", isRTL ? currentPage + 1 : currentPage)}
         </div>
 
         {displayPages.right ? (
@@ -343,7 +344,7 @@ export function DualPageMode({
             className="flex h-full items-center justify-center"
             style={{ paddingLeft: dualPageGap / 2 }}
           >
-            {renderPage(displayPages.right, "right")}
+            {renderPage(displayPages.right, "right", isRTL ? currentPage : currentPage + 1)}
           </div>
         ) : null}
       </div>

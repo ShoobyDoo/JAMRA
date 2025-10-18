@@ -47,8 +47,8 @@ export default async function MangaPage({ params }: MangaPageProps) {
 
   return (
     <div className="space-y-6 p-6">
-      <div className="flex flex-col gap-6 lg:flex-row">
-        <div className="relative aspect-[3/4] w-full max-w-xs overflow-hidden rounded-lg border border-border bg-muted">
+      <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
+        <div className="relative aspect-[3/4] w-full max-w-xs shrink-0 overflow-hidden rounded-lg border border-border bg-muted">
           {coverPrimary ? (
             <AutoRefreshImage
               src={coverPrimary}
@@ -56,7 +56,7 @@ export default async function MangaPage({ params }: MangaPageProps) {
               alt={details.title}
               fill
               sizes="(max-width: 1024px) 60vw, 320px"
-              className="object-cover"
+              className="object-fill"
               mangaId={mangaId}
               extensionId={data.extensionId}
             />

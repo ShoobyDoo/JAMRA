@@ -17,7 +17,7 @@ export function ExpandableDescription({
   const ellipsis = truncated.endsWith("...") ? "" : "...";
 
   return (
-    <div className="max-w-2xl space-y-2">
+    <div className="max-w-2xl">
       <p className="whitespace-pre-line text-sm text-muted-foreground">
         {isExpanded || !needsTruncation ? description : truncated}
         {needsTruncation && !isExpanded && (
@@ -31,15 +31,18 @@ export function ExpandableDescription({
             </button>
           </>
         )}
+        {needsTruncation && isExpanded && (
+          <>
+            {" "}
+            <button
+              onClick={() => setIsExpanded(false)}
+              className="inline-flex items-center text-xs font-semibold uppercase tracking-wide text-primary hover:underline"
+            >
+              Show less
+            </button>
+          </>
+        )}
       </p>
-      {needsTruncation && isExpanded && (
-        <button
-          onClick={() => setIsExpanded(!isExpanded)}
-          className="text-xs font-semibold uppercase tracking-wide text-primary hover:underline"
-        >
-          Show less
-        </button>
-      )}
     </div>
   );
 }

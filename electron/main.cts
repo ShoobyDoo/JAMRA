@@ -5,6 +5,10 @@ import next from "next";
 import { app, BrowserWindow } from "electron";
 import { startCatalogServer } from "@jamra/catalog-server";
 
+if (process.env.NODE_ENV !== "production") {
+  process.env.ELECTRON_DISABLE_SECURITY_WARNINGS = "true";
+}
+
 const NEXT_PORT = Number(process.env.JAMRA_NEXT_PORT ?? 3000);
 const API_PORT = Number(process.env.JAMRA_API_PORT ?? 4545);
 const isProduction = process.env.NODE_ENV === "production";
