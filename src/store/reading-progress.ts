@@ -3,6 +3,7 @@ import { persist } from "zustand/middleware";
 import {
   saveReadingProgress as saveProgressAPI,
   getReadingProgress as getProgressAPI,
+  logHistoryEntry,
 } from "@/lib/api";
 
 export interface ReadingProgress {
@@ -139,6 +140,19 @@ export const useReadingProgress = create<ReadingProgressState>()(
           currentPage: startPage,
           totalPages,
           preloadedImages: new Set(),
+        });
+
+        // Log to history (fire and forget)
+        logHistoryEntry({
+          mangaId,
+          chapterId,
+          actionType: "read",
+          metadata: {
+            startPage,
+            totalPages,
+          },
+        }).catch((error) => {
+          console.error("Failed to log history entry:", error);
         });
       },
 

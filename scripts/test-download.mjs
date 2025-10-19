@@ -69,7 +69,7 @@ async function testDownload() {
     console.log("   → (This will show real-time download progress)");
     console.log("   → Press Ctrl+C to stop\n");
 
-    const eventSource = new (await import("eventsource")).default(`${API_URL}/api/offline/events`);
+    const eventSource = new ((await import("eventsource")).default)(`${API_URL}/api/offline/events`);
 
     eventSource.addEventListener("connected", () => {
       console.log("   ✓ SSE connection established\n");

@@ -17,6 +17,7 @@ import {
   addTagToLibraryEntry as addTagToLibraryEntryAPI,
   removeTagFromLibraryEntry as removeTagFromLibraryEntryAPI,
   getTagsForLibraryEntry as getTagsForLibraryEntryAPI,
+  logHistoryEntry,
 } from "@/lib/api";
 
 export interface LibraryFilters {
@@ -121,6 +122,19 @@ export const useLibrary = create<LibraryState>((set, get) => ({
     try {
       const entry = await addToLibraryAPI(mangaId, extensionId, status, options);
 
+      // Log to history (fire and forget)
+      logHistoryEntry({
+        mangaId,
+        actionType: "library_add",
+        extensionId,
+        metadata: {
+          status,
+          favorite: options?.favorite,
+        },
+      }).catch((error) => {
+        console.error("Failed to log history entry:", error);
+      });
+
       // Reload library to get enriched data
       await get().loadLibrary(get().filters);
       await get().loadStats();
@@ -136,6 +150,17 @@ export const useLibrary = create<LibraryState>((set, get) => ({
   updateEntry: async (mangaId, updates) => {
     try {
       await updateLibraryEntryAPI(mangaId, updates);
+
+      // Log favorite changes to history
+      if (updates.favorite !== undefined) {
+        logHistoryEntry({
+          mangaId,
+          actionType: updates.favorite ? "favorite" : "unfavorite",
+          metadata: updates,
+        }).catch((error) => {
+          console.error("Failed to log history entry:", error);
+        });
+      }
 
       // Update local state
       const entries = new Map(get().entries);
@@ -163,6 +188,14 @@ export const useLibrary = create<LibraryState>((set, get) => ({
   removeEntry: async (mangaId) => {
     try {
       await removeFromLibraryAPI(mangaId);
+
+      // Log to history
+      logHistoryEntry({
+        mangaId,
+        actionType: "library_remove",
+      }).catch((error) => {
+        console.error("Failed to log history entry:", error);
+      });
 
       // Remove from local state
       const entries = new Map(get().entries);

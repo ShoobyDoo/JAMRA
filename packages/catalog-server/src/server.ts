@@ -1,4 +1,4 @@
-import fs from "node:fs";
+import { access, constants as fsConstants } from "node:fs/promises";
 import path from "node:path";
 import express, { type Request, type Response } from "express";
 import cors from "cors";
@@ -35,6 +35,17 @@ import {
   CoverCacheManager,
   type CoverCacheSettings,
 } from "./services/coverCacheManager.js";
+import { CoverUrlService } from "./services/coverUrlService.js";
+import { SERVER_CONFIG, OFFLINE_CONFIG, CACHE_CONFIG, HISTORY_CONFIG } from "./config/index.js";
+import {
+  DatabaseUnavailableError,
+  ValidationError,
+} from "./errors/AppError.js";
+import { handleError as handleAppError } from "./middleware/errorHandler.js";
+import {
+  ReadingProgressSchema,
+  HistoryEntrySchema,
+} from "./validation/schemas.js";
 
 export interface CatalogServerOptions {
   port?: number;
@@ -51,7 +62,7 @@ export interface CatalogServerInstance {
   close: () => Promise<void>;
 }
 
-const DEFAULT_PORT = Number(process.env.JAMRA_API_PORT ?? 4545);
+const DEFAULT_PORT = Number(process.env.JAMRA_API_PORT ?? SERVER_CONFIG.DEFAULT_PORT);
 
 function resolveExtensionPath(customPath?: string): string {
   if (customPath) {
@@ -83,39 +94,24 @@ function coerceSettings(
   throw new Error("Invalid settings payload; expected an object or null.");
 }
 
-function arraysEqual(a?: string[], b?: string[]): boolean {
-  if (!a || !b) return false;
-  if (a.length !== b.length) return false;
-  for (let i = 0; i < a.length; i += 1) {
-    if (a[i] !== b[i]) return false;
+function validateRequestBody<T>(schema: { parse: (data: unknown) => T }, data: unknown): T {
+  try {
+    return schema.parse(data);
+  } catch (error) {
+    if (error && typeof error === "object" && "errors" in error) {
+      const zodError = error as { errors: Array<{ path: (string | number)[]; message: string }> };
+      const fields: Record<string, string[]> = {};
+      for (const err of zodError.errors) {
+        const key = err.path.join(".");
+        if (!fields[key]) fields[key] = [];
+        fields[key].push(err.message);
+      }
+      throw new ValidationError("Invalid request body", fields);
+    }
+    throw new ValidationError("Invalid request body");
   }
-  return true;
 }
 
-function sanitizeCoverUrls(urls: Iterable<string | undefined>): string[] {
-  const seen = new Set<string>();
-  const ordered: string[] = [];
-  for (const raw of urls) {
-    if (!raw) continue;
-    if (!/^https?:\/\//i.test(raw)) continue;
-    if (seen.has(raw)) continue;
-    seen.add(raw);
-    ordered.push(raw);
-  }
-  return ordered;
-}
-
-function mergeCoverUrlOrder(
-  preferred: string[] | undefined,
-  provided: string[] | undefined,
-): string[] {
-  if (!preferred?.length) {
-    return sanitizeCoverUrls(provided ?? []);
-  }
-
-  const merged = [...preferred, ...(provided ?? [])];
-  return sanitizeCoverUrls(merged);
-}
 
 function resolveExtensionErrorStatus(error: unknown): number {
   if (!(error instanceof Error)) return 500;
@@ -300,6 +296,7 @@ export async function startCatalogServer(
   const coverCacheManager = repository
     ? new CoverCacheManager(repository, coverCacheSettings ?? undefined)
     : undefined;
+  const coverUrlService = new CoverUrlService(repository);
 
   if (coverCacheManager) {
     try {
@@ -313,15 +310,15 @@ export async function startCatalogServer(
     extensionId: string,
     details: MangaDetails,
   ): Promise<void> => {
-    const providedUrls = sanitizeCoverUrls([
+    const providedUrls = coverUrlService.sanitize([
       ...(details.coverUrls ?? []),
       details.coverUrl,
     ]);
 
-    const storedOrder = repository?.getMangaCoverUrls(extensionId, details.id);
+    const storedOrder = coverUrlService.getStoredOrder(extensionId, details.id);
     let mergedUrls = providedUrls;
     if (storedOrder && storedOrder.length > 0) {
-      mergedUrls = mergeCoverUrlOrder(storedOrder, providedUrls);
+      mergedUrls = coverUrlService.merge(storedOrder, providedUrls);
     }
 
     if (mergedUrls.length > 0) {
@@ -329,9 +326,9 @@ export async function startCatalogServer(
       details.coverUrl = mergedUrls[0];
       if (
         repository &&
-        (!storedOrder || !arraysEqual(storedOrder, mergedUrls))
+        (!storedOrder || !coverUrlService.areArraysEqual(storedOrder, mergedUrls))
       ) {
-        repository.updateMangaCoverUrls(extensionId, details.id, mergedUrls);
+        coverUrlService.updateOrder(extensionId, details.id, mergedUrls);
       }
     }
 
@@ -412,9 +409,15 @@ export async function startCatalogServer(
     const explicitId = options.extensionId ?? process.env.JAMRA_EXTENSION_ID;
     let installed = extensionManager.listExtensions();
 
-    const bootstrapExists = Boolean(
-      bootstrapExtensionPath && fs.existsSync(bootstrapExtensionPath)
-    );
+    let bootstrapExists = false;
+    if (bootstrapExtensionPath) {
+      try {
+        await access(bootstrapExtensionPath, fsConstants.F_OK);
+        bootstrapExists = true;
+      } catch {
+        bootstrapExists = false;
+      }
+    }
 
     if (bootstrapExists) {
       try {
@@ -424,10 +427,17 @@ export async function startCatalogServer(
           (extension) => extension.id === bootstrapId
         );
 
-        const needsInstall =
-          !existing ||
-          !existing.entryPath ||
-          !fs.existsSync(existing.entryPath);
+        let entryPathExists = false;
+        if (existing?.entryPath) {
+          try {
+            await access(existing.entryPath, fsConstants.F_OK);
+            entryPathExists = true;
+          } catch {
+            entryPathExists = false;
+          }
+        }
+
+        const needsInstall = !existing || !existing.entryPath || !entryPathExists;
         const shouldRefresh = Boolean(
           usingCustomBootstrap && existing && !needsInstall,
         );
@@ -512,7 +522,10 @@ export async function startCatalogServer(
         dataDir,
         offlineRepository,
         service,
-        { concurrency: 3, pollingInterval: 1000 }
+        {
+          concurrency: OFFLINE_CONFIG.DOWNLOAD_CONCURRENCY,
+          pollingInterval: OFFLINE_CONFIG.DOWNLOAD_POLL_INTERVAL_MS,
+        }
       );
       await downloadWorker.start();
       console.log("Offline storage system initialized");
@@ -525,14 +538,9 @@ export async function startCatalogServer(
     res: Response,
     error: unknown,
     message: string,
-    status = 500
   ) => {
-    const detail = error instanceof Error ? error.message : String(error);
-    console.error(message, detail);
-    if (error instanceof Error && error.stack) {
-      console.error("Stack trace:", error.stack);
-    }
-    res.status(status).json({ error: message, detail });
+    // Use the new error handling system
+    handleAppError(res, error, message);
   };
 
   const resolveExtensionId = (req: Request): string | undefined => {
@@ -1093,15 +1101,15 @@ export async function startCatalogServer(
 
       if (response.items.length > 0) {
         for (const item of response.items) {
-          const providedUrls = sanitizeCoverUrls([
+          const providedUrls = coverUrlService.sanitize([
             ...(item.coverUrls ?? []),
             item.coverUrl,
           ]);
 
           let mergedUrls = providedUrls;
-          const storedOrder = repository?.getMangaCoverUrls(extensionId, item.id);
+          const storedOrder = coverUrlService.getStoredOrder(extensionId, item.id);
           if (storedOrder && storedOrder.length > 0) {
-            mergedUrls = mergeCoverUrlOrder(storedOrder, providedUrls);
+            mergedUrls = coverUrlService.merge(storedOrder, providedUrls);
           }
 
           if (mergedUrls.length > 0) {
@@ -1109,9 +1117,9 @@ export async function startCatalogServer(
             item.coverUrl = mergedUrls[0];
             if (
               repository &&
-              (!storedOrder || !arraysEqual(storedOrder, mergedUrls))
+              (!storedOrder || !coverUrlService.areArraysEqual(storedOrder, mergedUrls))
             ) {
-              repository.updateMangaCoverUrls(extensionId, item.id, mergedUrls);
+              coverUrlService.updateOrder(extensionId, item.id, mergedUrls);
             }
           }
 
@@ -1290,7 +1298,7 @@ export async function startCatalogServer(
     const rawUrl = typeof payload.url === "string" ? payload.url.trim() : "";
     const status = payload.status;
     const attempted = Array.isArray(payload.attemptedUrls)
-      ? sanitizeCoverUrls(payload.attemptedUrls as string[])
+      ? coverUrlService.sanitize(payload.attemptedUrls as string[])
       : [];
 
     if (!rawUrl) {
@@ -1303,46 +1311,30 @@ export async function startCatalogServer(
       return;
     }
 
-    if (!repository) {
-      res.status(503).json({ error: "Persistent storage is not available" });
-      return;
-    }
-
     const mangaId = req.params.id;
 
     try {
+      if (!repository) {
+        throw new DatabaseUnavailableError();
+      }
       if (status === "success") {
-        const preferred = sanitizeCoverUrls([rawUrl, ...attempted]);
-        const storedOrder = repository.getMangaCoverUrls(extensionId, mangaId) ?? [];
-        const merged = mergeCoverUrlOrder(preferred, storedOrder);
-        if (merged.length > 0) {
-          repository.updateMangaCoverUrls(extensionId, mangaId, merged);
+        coverUrlService.reportSuccess(extensionId, mangaId, rawUrl, attempted);
 
-          if (coverCacheManager) {
-            void coverCacheManager
-              .ensureCachedCover(extensionId, mangaId, merged, {
-                urls: merged,
-              })
-              .catch((error) => {
-                console.warn(
-                  `Failed to refresh cover cache after success report for ${mangaId}`,
-                  error,
-                );
-              });
-          }
+        if (coverCacheManager) {
+          const merged = coverUrlService.getStoredOrder(extensionId, mangaId) ?? [];
+          void coverCacheManager
+            .ensureCachedCover(extensionId, mangaId, merged, {
+              urls: merged,
+            })
+            .catch((error) => {
+              console.warn(
+                `Failed to refresh cover cache after success report for ${mangaId}`,
+                error,
+              );
+            });
         }
       } else {
-        const storedOrder = repository.getMangaCoverUrls(extensionId, mangaId) ?? [];
-        const filteredStored = storedOrder.filter((entry) => entry !== rawUrl);
-        const newOrder = sanitizeCoverUrls([
-          ...attempted.filter((url) => url !== rawUrl),
-          ...filteredStored,
-          rawUrl,
-        ]);
-
-        if (newOrder.length > 0) {
-          repository.updateMangaCoverUrls(extensionId, mangaId, newOrder);
-        }
+        coverUrlService.reportFailure(extensionId, mangaId, rawUrl, attempted);
       }
 
       res.status(204).end();
@@ -1444,24 +1436,17 @@ export async function startCatalogServer(
   app.post("/api/reading-progress", async (req, res) => {
     try {
       if (!repository) {
-        res.status(503).json({ error: "Database not available" });
-        return;
+        throw new DatabaseUnavailableError();
       }
 
-      const { mangaId, chapterId, currentPage, totalPages, scrollPosition } =
-        req.body;
-
-      if (!mangaId || !chapterId || currentPage === undefined || !totalPages) {
-        res.status(400).json({ error: "Missing required fields" });
-        return;
-      }
+      const validated = validateRequestBody(ReadingProgressSchema, req.body);
 
       repository.saveReadingProgress(
-        mangaId,
-        chapterId,
-        currentPage,
-        totalPages,
-        scrollPosition
+        validated.mangaId,
+        validated.chapterId,
+        validated.currentPage,
+        validated.totalPages,
+        validated.scrollPosition ?? 0
       );
 
       res.status(200).json({ success: true });
@@ -1525,8 +1510,8 @@ export async function startCatalogServer(
       const parsedLimit = limitParam ? Number.parseInt(limitParam, 10) : NaN;
       const limit =
         Number.isFinite(parsedLimit) && parsedLimit > 0
-          ? Math.min(Math.max(parsedLimit, 1), 50)
-          : 12;
+          ? Math.min(Math.max(parsedLimit, 1), CACHE_CONFIG.MAX_LIMIT)
+          : CACHE_CONFIG.DEFAULT_LIMIT;
 
       const progressEntries = repository.getLatestReadingProgressPerManga();
       const window = progressEntries.slice(0, limit);
@@ -1620,6 +1605,138 @@ export async function startCatalogServer(
       res.json(enriched);
     } catch (error) {
       handleError(res, error, "Failed to get enriched reading progress");
+    }
+  });
+
+  // ==================== History Endpoints ====================
+
+  app.post("/api/history", async (req, res) => {
+    try {
+      if (!repository) {
+        throw new DatabaseUnavailableError();
+      }
+
+      const validated = validateRequestBody(HistoryEntrySchema, req.body);
+
+      const id = repository.logHistoryEntry({
+        mangaId: validated.mangaId,
+        chapterId: validated.chapterId,
+        actionType: validated.actionType,
+        timestamp: req.body.timestamp,
+        extensionId: req.body.extensionId,
+        metadata: validated.metadata,
+      });
+
+      res.status(201).json({ id, success: true });
+    } catch (error) {
+      handleError(res, error, "Failed to log history entry");
+    }
+  });
+
+  app.get("/api/history", async (req, res) => {
+    try {
+      if (!repository) {
+        res.status(503).json({ error: "Database not available" });
+        return;
+      }
+
+      const limitParam = getQueryParam(req, "limit");
+      const offsetParam = getQueryParam(req, "offset");
+      const mangaId = getQueryParam(req, "mangaId");
+      const actionType = getQueryParam(req, "actionType");
+      const startDateParam = getQueryParam(req, "startDate");
+      const endDateParam = getQueryParam(req, "endDate");
+      const enriched = getQueryParam(req, "enriched");
+
+      const limit = limitParam ? Number.parseInt(limitParam, 10) : HISTORY_CONFIG.DEFAULT_LIMIT;
+      const offset = offsetParam ? Number.parseInt(offsetParam, 10) : 0;
+      const startDate = startDateParam ? Number.parseInt(startDateParam, 10) : undefined;
+      const endDate = endDateParam ? Number.parseInt(endDateParam, 10) : undefined;
+
+      const options = {
+        limit: Number.isFinite(limit) ? Math.min(Math.max(limit, 1), HISTORY_CONFIG.MAX_LIMIT) : HISTORY_CONFIG.DEFAULT_LIMIT,
+        offset: Number.isFinite(offset) ? Math.max(offset, 0) : 0,
+        mangaId,
+        actionType,
+        startDate: Number.isFinite(startDate) ? startDate : undefined,
+        endDate: Number.isFinite(endDate) ? endDate : undefined,
+      };
+
+      const history = enriched === "true"
+        ? repository.getEnrichedHistory(options)
+        : repository.getHistory(options);
+
+      res.json(history);
+    } catch (error) {
+      handleError(res, error, "Failed to get history");
+    }
+  });
+
+  app.get("/api/history/stats", async (req, res) => {
+    try {
+      if (!repository) {
+        res.status(503).json({ error: "Database not available" });
+        return;
+      }
+
+      const startDateParam = getQueryParam(req, "startDate");
+      const endDateParam = getQueryParam(req, "endDate");
+
+      const startDate = startDateParam ? Number.parseInt(startDateParam, 10) : undefined;
+      const endDate = endDateParam ? Number.parseInt(endDateParam, 10) : undefined;
+
+      const stats = repository.getHistoryStats({
+        startDate: Number.isFinite(startDate) ? startDate : undefined,
+        endDate: Number.isFinite(endDate) ? endDate : undefined,
+      });
+
+      res.json(stats);
+    } catch (error) {
+      handleError(res, error, "Failed to get history stats");
+    }
+  });
+
+  app.delete("/api/history/:id", async (req, res) => {
+    try {
+      if (!repository) {
+        res.status(503).json({ error: "Database not available" });
+        return;
+      }
+
+      const { id } = req.params;
+      const numericId = Number.parseInt(id, 10);
+
+      if (!Number.isFinite(numericId)) {
+        res.status(400).json({ error: "Invalid history entry ID" });
+        return;
+      }
+
+      repository.deleteHistoryEntry(numericId);
+      res.json({ success: true });
+    } catch (error) {
+      handleError(res, error, "Failed to delete history entry");
+    }
+  });
+
+  app.delete("/api/history", async (req, res) => {
+    try {
+      if (!repository) {
+        res.status(503).json({ error: "Database not available" });
+        return;
+      }
+
+      const beforeTimestampParam = getQueryParam(req, "beforeTimestamp");
+      const beforeTimestamp = beforeTimestampParam
+        ? Number.parseInt(beforeTimestampParam, 10)
+        : undefined;
+
+      const deletedCount = repository.clearHistory(
+        Number.isFinite(beforeTimestamp) ? beforeTimestamp : undefined
+      );
+
+      res.json({ success: true, deletedCount });
+    } catch (error) {
+      handleError(res, error, "Failed to clear history");
     }
   });
 
@@ -2379,7 +2496,7 @@ export async function startCatalogServer(
       }
     });
 
-    // Send heartbeat every 15 seconds to keep connection alive
+    // Send heartbeat to keep connection alive
     const heartbeat = setInterval(() => {
       try {
         res.write("event: heartbeat\n");
@@ -2388,7 +2505,7 @@ export async function startCatalogServer(
         console.error("Error sending heartbeat:", error);
         clearInterval(heartbeat);
       }
-    }, 15000);
+    }, SERVER_CONFIG.SSE_HEARTBEAT_INTERVAL_MS);
 
     // Clean up on client disconnect
     req.on("close", () => {
@@ -2469,7 +2586,9 @@ export async function startCatalogServer(
       }
 
       // Check if file exists
-      if (!fs.existsSync(pagePath)) {
+      try {
+        await access(pagePath, fsConstants.F_OK);
+      } catch {
         res.status(404).json({ error: "Page file not found" });
         return;
       }

@@ -354,6 +354,33 @@ const MIGRATIONS: Migration[] = [
       `);
     },
   },
+  {
+    id: 11,
+    up: (db) => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS history_entries (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          manga_id TEXT NOT NULL,
+          chapter_id TEXT,
+          action_type TEXT NOT NULL,
+          timestamp INTEGER NOT NULL,
+          extension_id TEXT,
+          metadata TEXT,
+          FOREIGN KEY (manga_id) REFERENCES manga(id) ON DELETE CASCADE,
+          FOREIGN KEY (chapter_id) REFERENCES chapters(id) ON DELETE SET NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_history_timestamp
+          ON history_entries(timestamp DESC);
+
+        CREATE INDEX IF NOT EXISTS idx_history_manga
+          ON history_entries(manga_id, timestamp DESC);
+
+        CREATE INDEX IF NOT EXISTS idx_history_action_type
+          ON history_entries(action_type, timestamp DESC);
+      `);
+    },
+  },
 ];
 
 export function runMigrations(db: Database.Database): void {
