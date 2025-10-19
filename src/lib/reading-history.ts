@@ -42,7 +42,9 @@ function sanitizeError(error: unknown): string {
   return "Failed to fetch manga details";
 }
 
-function selectHistoryWindow(progressData: ReadingProgressData[]): ReadingProgressData[] {
+function selectHistoryWindow(
+  progressData: ReadingProgressData[],
+): ReadingProgressData[] {
   if (progressData.length <= MAX_HISTORY_ITEMS) {
     return progressData;
   }
@@ -60,7 +62,9 @@ export async function hydrateProgressWithDetails(
   }
 
   const progressWindow = selectHistoryWindow(progressData);
-  const uniqueMangaIds = Array.from(new Set(progressWindow.map((entry) => entry.mangaId)));
+  const uniqueMangaIds = Array.from(
+    new Set(progressWindow.map((entry) => entry.mangaId)),
+  );
   const detailResults = new Map<string, MangaDetailsResult>();
 
   await Promise.all(

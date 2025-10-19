@@ -29,7 +29,8 @@ function getActionIcon(actionType: string) {
 
 function getActionText(entry: EnrichedHistoryEntry): string {
   const mangaTitle = entry.manga?.title ?? "Unknown Manga";
-  const chapterNumber = entry.chapter?.chapterNumber ?? entry.chapter?.title ?? "Unknown";
+  const chapterNumber =
+    entry.chapter?.chapterNumber ?? entry.chapter?.title ?? "Unknown";
 
   switch (entry.actionType) {
     case "read":
@@ -81,10 +82,14 @@ function HistoryEntryItem({ entry }: { entry: EnrichedHistoryEntry }) {
       {/* Content */}
       <div className="flex-1 min-w-0">
         <div className="flex items-start gap-2">
-          <div className="text-muted-foreground mt-0.5">{getActionIcon(entry.actionType)}</div>
+          <div className="text-muted-foreground mt-0.5">
+            {getActionIcon(entry.actionType)}
+          </div>
           <div className="flex-1 min-w-0">
             <p className="font-medium truncate">{getActionText(entry)}</p>
-            <p className="text-sm text-muted-foreground mt-1">{formatTime(entry.timestamp)}</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              {formatTime(entry.timestamp)}
+            </p>
           </div>
         </div>
       </div>
@@ -119,8 +124,12 @@ function HistoryEntryGrid({ entry }: { entry: EnrichedHistoryEntry }) {
         </div>
       )}
       <div className="p-3">
-        <p className="text-sm font-medium line-clamp-2">{entry.manga?.title ?? "Unknown"}</p>
-        <p className="text-xs text-muted-foreground mt-1">{formatTime(entry.timestamp)}</p>
+        <p className="text-sm font-medium line-clamp-2">
+          {entry.manga?.title ?? "Unknown"}
+        </p>
+        <p className="text-xs text-muted-foreground mt-1">
+          {formatTime(entry.timestamp)}
+        </p>
       </div>
     </Link>
   );

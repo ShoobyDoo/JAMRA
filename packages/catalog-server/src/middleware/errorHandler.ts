@@ -18,17 +18,19 @@ export function errorHandler(
     path: req.path,
     method: req.method,
     ...(appError.cause instanceof Error && { cause: appError.cause.message }),
-    ...(appError.cause instanceof Error && appError.cause.stack && { stack: appError.cause.stack }),
+    ...(appError.cause instanceof Error &&
+      appError.cause.stack && { stack: appError.cause.stack }),
   });
 
   // Send error response
   res.status(appError.httpStatus).json({
     error: appError.message,
     code: appError.code,
-    ...(process.env.NODE_ENV !== "production" && appError.cause instanceof Error && {
-      detail: appError.cause.message,
-      stack: appError.cause.stack,
-    }),
+    ...(process.env.NODE_ENV !== "production" &&
+      appError.cause instanceof Error && {
+        detail: appError.cause.message,
+        stack: appError.cause.stack,
+      }),
   });
 }
 
@@ -47,7 +49,10 @@ export function handleError(
     appError.message = fallbackMessage;
   }
 
-  const detail = appError.cause instanceof Error ? appError.cause.message : String(appError.cause);
+  const detail =
+    appError.cause instanceof Error
+      ? appError.cause.message
+      : String(appError.cause);
 
   console.error(fallbackMessage, detail);
   if (appError.cause instanceof Error && appError.cause.stack) {

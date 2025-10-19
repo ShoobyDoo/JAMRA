@@ -47,7 +47,7 @@ export interface HistoryState {
       chapterId?: string;
       extensionId?: string;
       metadata?: Record<string, unknown>;
-    }
+    },
   ) => Promise<void>;
 
   deleteEntry: (id: number) => Promise<void>;
@@ -56,7 +56,10 @@ export interface HistoryState {
 
   // Actions - Data Loading
   loadHistory: (append?: boolean) => Promise<void>;
-  loadStats: (dateRange?: { startDate?: number; endDate?: number }) => Promise<void>;
+  loadStats: (dateRange?: {
+    startDate?: number;
+    endDate?: number;
+  }) => Promise<void>;
   loadMore: () => Promise<void>;
   refresh: () => Promise<void>;
 
@@ -111,7 +114,8 @@ export const useHistory = create<HistoryState>((set, get) => ({
       // Reload stats
       await get().loadStats();
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Failed to delete entry";
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to delete entry";
       set({ error: errorMessage });
       throw error;
     }
@@ -123,7 +127,8 @@ export const useHistory = create<HistoryState>((set, get) => ({
       set({ entries: [], currentPage: 0, totalEntries: 0, hasMore: false });
       await get().loadStats();
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Failed to clear history";
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to clear history";
       set({ error: errorMessage });
       throw error;
     }
@@ -135,7 +140,9 @@ export const useHistory = create<HistoryState>((set, get) => ({
       await get().refresh();
     } catch (error) {
       const errorMessage =
-        error instanceof Error ? error.message : "Failed to clear history before date";
+        error instanceof Error
+          ? error.message
+          : "Failed to clear history before date";
       set({ error: errorMessage });
       throw error;
     }
@@ -181,7 +188,8 @@ export const useHistory = create<HistoryState>((set, get) => ({
         isLoading: false,
       });
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Failed to load history";
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to load history";
       set({ error: errorMessage, isLoading: false });
     }
   },
@@ -282,7 +290,7 @@ export const useHistory = create<HistoryState>((set, get) => ({
       filtered = filtered.filter(
         (entry) =>
           entry.manga?.title.toLowerCase().includes(query) ||
-          entry.chapter?.title?.toLowerCase().includes(query)
+          entry.chapter?.title?.toLowerCase().includes(query),
       );
     }
 

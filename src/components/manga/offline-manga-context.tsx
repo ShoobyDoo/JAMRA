@@ -23,7 +23,10 @@ import {
   type OfflineMangaMetadata,
   type OfflineQueuedDownload,
 } from "@/lib/api";
-import { useOfflineEvents, type OfflineDownloadEvent } from "@/hooks/use-offline-events";
+import {
+  useOfflineEvents,
+  type OfflineDownloadEvent,
+} from "@/hooks/use-offline-events";
 
 export interface OfflineMangaContextValue {
   extensionId?: string;
@@ -42,14 +45,22 @@ export interface OfflineMangaContextValue {
   queueingManga: boolean;
   refreshOfflineChapters: () => Promise<OfflineChapterMetadata[]>;
   refreshQueue: () => Promise<OfflineQueuedDownload[]>;
-  queueChapter: (chapterId: string, options?: { priority?: number }) => Promise<void>;
-  queueManga: (chapterIds?: string[], options?: { priority?: number }) => Promise<void>;
+  queueChapter: (
+    chapterId: string,
+    options?: { priority?: number },
+  ) => Promise<void>;
+  queueManga: (
+    chapterIds?: string[],
+    options?: { priority?: number },
+  ) => Promise<void>;
   cancelDownload: (queueId: number) => Promise<void>;
   deleteChapter: (chapterId: string) => Promise<void>;
   isChapterPending: (chapterId: string) => boolean;
 }
 
-const OfflineMangaContext = createContext<OfflineMangaContextValue | null>(null);
+const OfflineMangaContext = createContext<OfflineMangaContextValue | null>(
+  null,
+);
 
 export interface OfflineMangaProviderProps {
   extensionId?: string;
@@ -69,15 +80,24 @@ export function OfflineMangaProvider({
   children,
 }: OfflineMangaProviderProps) {
   const [loading, setLoading] = useState<boolean>(Boolean(extensionId));
-  const [offlineAvailable, setOfflineAvailable] = useState<boolean>(Boolean(extensionId));
-  const [offlineChapters, setOfflineChapters] = useState<OfflineChapterMetadata[]>([]);
-  const [offlineMetadata, setOfflineMetadata] = useState<OfflineMangaMetadata | null>(null);
+  const [offlineAvailable, setOfflineAvailable] = useState<boolean>(
+    Boolean(extensionId),
+  );
+  const [offlineChapters, setOfflineChapters] = useState<
+    OfflineChapterMetadata[]
+  >([]);
+  const [offlineMetadata, setOfflineMetadata] =
+    useState<OfflineMangaMetadata | null>(null);
   const [queueItems, setQueueItems] = useState<OfflineQueuedDownload[]>([]);
-  const [pendingChapterIds, setPendingChapterIds] = useState<Set<string>>(() => new Set());
+  const [pendingChapterIds, setPendingChapterIds] = useState<Set<string>>(
+    () => new Set(),
+  );
   const [queueingManga, setQueueingManga] = useState(false);
 
   const offlineChaptersMap = useMemo(() => {
-    return new Map(offlineChapters.map((chapter) => [chapter.chapterId, chapter]));
+    return new Map(
+      offlineChapters.map((chapter) => [chapter.chapterId, chapter]),
+    );
   }, [offlineChapters]);
 
   const chapterQueueMap = useMemo(() => {
@@ -210,89 +230,104 @@ export function OfflineMangaProvider({
   // Use SSE for real-time updates instead of polling
   useOfflineEvents({
     enabled: Boolean(extensionId),
-    onEvent: useCallback((event: OfflineDownloadEvent) => {
-      // Only process events for this manga
-      if (event.mangaId && event.mangaId !== mangaId) {
-        return;
-      }
+    onEvent: useCallback(
+      (event: OfflineDownloadEvent) => {
+        // Only process events for this manga
+        if (event.mangaId && event.mangaId !== mangaId) {
+          return;
+        }
 
-      switch (event.type) {
-        case "download-started":
-        case "download-progress":
-          if (event.queueId !== undefined) {
-            setQueueItems((prev) => {
-              const existing = prev.find((item) => item.id === event.queueId);
-              if (!existing) {
-                // Refresh queue to get the new item
-                refreshQueue().catch(console.error);
-                return prev;
-              }
-
-              return prev.map((item) => {
-                if (item.id === event.queueId) {
-                  return {
-                    ...item,
-                    status: "downloading" as const,
-                    progressCurrent: event.progressCurrent ?? item.progressCurrent,
-                    progressTotal: event.progressTotal ?? item.progressTotal,
-                  };
+        switch (event.type) {
+          case "download-started":
+          case "download-progress":
+            if (event.queueId !== undefined) {
+              setQueueItems((prev) => {
+                const existing = prev.find((item) => item.id === event.queueId);
+                if (!existing) {
+                  // Refresh queue to get the new item
+                  refreshQueue().catch(console.error);
+                  return prev;
                 }
-                return item;
+
+                return prev.map((item) => {
+                  if (item.id === event.queueId) {
+                    return {
+                      ...item,
+                      status: "downloading" as const,
+                      progressCurrent:
+                        event.progressCurrent ?? item.progressCurrent,
+                      progressTotal: event.progressTotal ?? item.progressTotal,
+                    };
+                  }
+                  return item;
+                });
               });
-            });
-          }
-          break;
-
-        case "download-completed":
-          if (event.queueId !== undefined) {
-            // Remove completed item from queue
-            setQueueItems((prev) => prev.filter((item) => item.id !== event.queueId));
-
-            // Refresh offline chapters to show newly downloaded content
-            refreshOfflineChapters().catch((error) => {
-              if (!(error instanceof ApiError && error.status === 503)) {
-                console.error("Failed to refresh offline chapters after download completed", error);
-              }
-            });
-          }
-          break;
-
-        case "download-failed":
-          if (event.queueId !== undefined) {
-            setQueueItems((prev) =>
-              prev.map((item) => {
-                if (item.id === event.queueId) {
-                  return {
-                    ...item,
-                    status: "failed" as const,
-                    errorMessage: event.error,
-                  };
-                }
-                return item;
-              })
-            );
-          }
-          break;
-
-        case "chapter-deleted":
-          if (event.chapterId) {
-            refreshOfflineChapters().catch((error) => {
-              if (!(error instanceof ApiError && error.status === 503)) {
-                console.error("Failed to refresh offline chapters after chapter deleted", error);
-              }
-            });
-          }
-          break;
-
-        case "manga-deleted":
-          refreshOfflineChapters().catch((error) => {
-            if (!(error instanceof ApiError && error.status === 503)) {
-              console.error("Failed to refresh offline chapters after manga deleted", error);
             }
-          });
-          break;
-      }
-    }, [mangaId, refreshQueue, refreshOfflineChapters]),
+            break;
+
+          case "download-completed":
+            if (event.queueId !== undefined) {
+              // Remove completed item from queue
+              setQueueItems((prev) =>
+                prev.filter((item) => item.id !== event.queueId),
+              );
+
+              // Refresh offline chapters to show newly downloaded content
+              refreshOfflineChapters().catch((error) => {
+                if (!(error instanceof ApiError && error.status === 503)) {
+                  console.error(
+                    "Failed to refresh offline chapters after download completed",
+                    error,
+                  );
+                }
+              });
+            }
+            break;
+
+          case "download-failed":
+            if (event.queueId !== undefined) {
+              setQueueItems((prev) =>
+                prev.map((item) => {
+                  if (item.id === event.queueId) {
+                    return {
+                      ...item,
+                      status: "failed" as const,
+                      errorMessage: event.error,
+                    };
+                  }
+                  return item;
+                }),
+              );
+            }
+            break;
+
+          case "chapter-deleted":
+            if (event.chapterId) {
+              refreshOfflineChapters().catch((error) => {
+                if (!(error instanceof ApiError && error.status === 503)) {
+                  console.error(
+                    "Failed to refresh offline chapters after chapter deleted",
+                    error,
+                  );
+                }
+              });
+            }
+            break;
+
+          case "manga-deleted":
+            refreshOfflineChapters().catch((error) => {
+              if (!(error instanceof ApiError && error.status === 503)) {
+                console.error(
+                  "Failed to refresh offline chapters after manga deleted",
+                  error,
+                );
+              }
+            });
+            break;
+        }
+      },
+      [mangaId, refreshQueue, refreshOfflineChapters],
+    ),
   });
 
   const queueChapter = useCallback(
@@ -314,7 +349,8 @@ export function OfflineMangaProvider({
         const now = Date.now();
         setQueueItems((prev) => {
           const filtered = prev.filter(
-            (item) => item.id !== response.queueId && item.chapterId !== chapterId,
+            (item) =>
+              item.id !== response.queueId && item.chapterId !== chapterId,
           );
           const nextItem: OfflineQueuedDownload = {
             id: response.queueId,
@@ -454,7 +490,9 @@ export function useOfflineMangaContext(): OfflineMangaContextValue | null {
 export function useOfflineManga(): OfflineMangaContextValue {
   const context = useOfflineMangaContext();
   if (!context) {
-    throw new Error("useOfflineManga must be used within an OfflineMangaProvider");
+    throw new Error(
+      "useOfflineManga must be used within an OfflineMangaProvider",
+    );
   }
   return context;
 }

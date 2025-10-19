@@ -128,10 +128,7 @@ export class HistoryRepository {
     this.db.prepare("DELETE FROM history WHERE id = ?").run(id);
   }
 
-  getHistoryStats(options?: {
-    startDate?: number;
-    endDate?: number;
-  }): {
+  getHistoryStats(options?: { startDate?: number; endDate?: number }): {
     totalEntries: number;
     uniqueManga: number;
     byActionType: Record<string, number>;
@@ -151,7 +148,8 @@ export class HistoryRepository {
 
     const totalRow = this.db.prepare(sql).get(params) as { total: number };
 
-    let uniqueSql = "SELECT COUNT(DISTINCT manga_id) as unique_manga FROM history WHERE 1=1";
+    let uniqueSql =
+      "SELECT COUNT(DISTINCT manga_id) as unique_manga FROM history WHERE 1=1";
     if (options?.startDate) {
       uniqueSql += " AND timestamp >= @start_date";
     }
@@ -159,9 +157,12 @@ export class HistoryRepository {
       uniqueSql += " AND timestamp <= @end_date";
     }
 
-    const uniqueRow = this.db.prepare(uniqueSql).get(params) as { unique_manga: number };
+    const uniqueRow = this.db.prepare(uniqueSql).get(params) as {
+      unique_manga: number;
+    };
 
-    let actionSql = "SELECT action_type, COUNT(*) as count FROM history WHERE 1=1";
+    let actionSql =
+      "SELECT action_type, COUNT(*) as count FROM history WHERE 1=1";
     if (options?.startDate) {
       actionSql += " AND timestamp >= @start_date";
     }

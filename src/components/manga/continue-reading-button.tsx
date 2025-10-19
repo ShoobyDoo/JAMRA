@@ -35,10 +35,7 @@ export function ContinueReadingButton({
   } | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const sortedChapters = useMemo(
-    () => sortChaptersDesc(chapters),
-    [chapters],
-  );
+  const sortedChapters = useMemo(() => sortChaptersDesc(chapters), [chapters]);
 
   const earliestChapter = useMemo(() => {
     if (sortedChapters.length === 0) {
@@ -50,7 +47,10 @@ export function ContinueReadingButton({
         chapter,
         value: getChapterSortValue(chapter),
       }))
-      .filter((entry): entry is { chapter: ChapterWithSlug; value: number } => entry.value !== null)
+      .filter(
+        (entry): entry is { chapter: ChapterWithSlug; value: number } =>
+          entry.value !== null,
+      )
       .sort((a, b) => a.value - b.value);
 
     if (numericCandidates.length > 0) {
@@ -65,9 +65,7 @@ export function ContinueReadingButton({
       try {
         const allProgress = await getAllReadingProgress();
         // Filter to this manga's progress
-        const mangaProgress = allProgress.filter(
-          (p) => p.mangaId === mangaId
-        );
+        const mangaProgress = allProgress.filter((p) => p.mangaId === mangaId);
 
         if (mangaProgress.length === 0) {
           setLastReadChapter(null);
@@ -76,11 +74,13 @@ export function ContinueReadingButton({
 
         // Find the most recently read chapter
         const mostRecent = mangaProgress.reduce((prev, current) =>
-          current.lastReadAt > prev.lastReadAt ? current : prev
+          current.lastReadAt > prev.lastReadAt ? current : prev,
         );
 
         // Find the corresponding chapter
-        const chapter = sortedChapters.find((ch) => ch.id === mostRecent.chapterId);
+        const chapter = sortedChapters.find(
+          (ch) => ch.id === mostRecent.chapterId,
+        );
         if (chapter) {
           setLastReadChapter({ chapter, progress: mostRecent });
         }
@@ -103,8 +103,7 @@ export function ContinueReadingButton({
       return null;
     }
 
-    const startLabel =
-      formatChapterTitle(earliestChapter);
+    const startLabel = formatChapterTitle(earliestChapter);
 
     return (
       <Link
@@ -131,7 +130,7 @@ export function ContinueReadingButton({
   const { chapter, progress } = lastReadChapter;
   const isComplete = progress.currentPage >= progress.totalPages - 1;
   const progressPercent = Math.round(
-    (progress.currentPage / progress.totalPages) * 100
+    (progress.currentPage / progress.totalPages) * 100,
   );
 
   const pageQuery = new URLSearchParams({

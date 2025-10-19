@@ -154,7 +154,15 @@ async function forceBuildPackage(pkg: string): Promise<void> {
   // Clean incremental cache and dist to force fresh build
   await runCommand({
     cmd: "pnpm",
-    args: ["--filter", pkg, "exec", "rm", "-rf", "tsconfig.tsbuildinfo", "dist"],
+    args: [
+      "--filter",
+      pkg,
+      "exec",
+      "rm",
+      "-rf",
+      "tsconfig.tsbuildinfo",
+      "dist",
+    ],
   });
   await runCommand({
     cmd: "pnpm",
@@ -193,7 +201,10 @@ async function buildBackend(): Promise<void> {
   // Phase 6: Build extensions in parallel (only need extension-sdk from phase 1)
   await runConcurrent([
     { cmd: "pnpm", args: ["--filter", "@jamra/example-extension", "build"] },
-    { cmd: "pnpm", args: ["--filter", "@jamra/weebcentral-extension", "build"] },
+    {
+      cmd: "pnpm",
+      args: ["--filter", "@jamra/weebcentral-extension", "build"],
+    },
   ]);
 }
 

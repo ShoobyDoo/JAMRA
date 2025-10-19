@@ -53,7 +53,7 @@ export function useSequentialPageLoader(
   mangaId: string,
   chapterId: string,
   extensionId: string | undefined,
-  config: Partial<SequentialPageLoaderConfig> = {}
+  config: Partial<SequentialPageLoaderConfig> = {},
 ): SequentialPageLoaderResult {
   const finalConfig = useMemo(() => {
     return {
@@ -101,7 +101,7 @@ export function useSequentialPageLoader(
         img.src = url;
       });
     },
-    [finalConfig.enableImagePreload]
+    [finalConfig.enableImagePreload],
   );
 
   // Update pages state from ref
@@ -161,7 +161,7 @@ export function useSequentialPageLoader(
         currentIndex = chunkEnd;
       }
     },
-    [finalConfig, preloadImage, updatePagesState]
+    [finalConfig, preloadImage, updatePagesState],
   );
 
   // Main loading function
@@ -221,7 +221,7 @@ export function useSequentialPageLoader(
         updatePagesState();
       }
     },
-    [preloadImage, updatePagesState]
+    [preloadImage, updatePagesState],
   );
 
   // Retry loading

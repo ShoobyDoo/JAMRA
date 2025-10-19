@@ -33,18 +33,22 @@ The chunked page loading system prioritizes loading the first chunk of pages imm
 #### Backend Stack
 
 **Extension SDK** (`packages/extension-sdk/src/handlers.ts`)
+
 - `FetchChapterPagesChunkRequest` - Request interface with chunk/chunkSize params
 - `ChapterPagesChunk` - Response interface with totalPages/totalChunks metadata
 
 **Extension Host** (`packages/extension-host/src/host.ts:343`)
+
 - `invokeChapterPagesChunk()` - Invokes extension handler
 - **Fallback**: If extension doesn't support chunking, fetches all pages then slices
 
 **Catalog Service** (`packages/catalog-service/src/catalogService.ts:178`)
+
 - `fetchChapterPagesChunk()` - Service-layer method
 - Supports both manga IDs and slugs via `resolveMangaId()`
 
 **API Server** (`packages/catalog-server/src/server.ts:951`)
+
 - `GET /api/manga/:id/chapters/:chapterId/pages/chunk/:chunk?size={chunkSize}`
 - Default chunk size: 10 pages
 - Returns: `{ chunk, chunkSize, totalChunks, totalPages, pages[] }`
@@ -52,15 +56,18 @@ The chunked page loading system prioritizes loading the first chunk of pages imm
 #### Frontend Stack
 
 **API Client** (`src/lib/api.ts:372`)
+
 - `fetchChapterPagesChunk()` - Fetches a specific chunk
 - Supports optional `extensionId` parameter
 
 **Reader Page** (`src/app/read/[slug]/chapter/[chapterSlug]/page.tsx:82`)
+
 - Fetches initial chunk (chunk 0, size 10) server-side
 - Passes `initialPages`, `totalPages`, `initialChunkIndex`, `totalChunks` to reader
 - **Fallback**: On chunk failure, falls back to full page fetch
 
 **Reader Component** (`src/components/reader/manga-reader.tsx:108`)
+
 - Manages `pagesRef` array (sparse, with null placeholders)
 - `loadChunk(chunkIndex)` - Loads specific chunk on-demand
 - `ensurePageAvailable(pageIndex)` - Ensures page is loaded before navigating

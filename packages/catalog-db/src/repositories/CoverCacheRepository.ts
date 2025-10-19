@@ -15,22 +15,27 @@ export interface CoverCacheRecord {
 export class CoverCacheRepository {
   constructor(private readonly db: Database.Database) {}
 
-  getCoverCache(extensionId: string, mangaId: string): CoverCacheRecord | undefined {
+  getCoverCache(
+    extensionId: string,
+    mangaId: string,
+  ): CoverCacheRecord | undefined {
     const row = this.db
       .prepare(
         `SELECT * FROM manga_cover_cache WHERE manga_id = ? AND extension_id = ?`,
       )
-      .get(mangaId, extensionId) as {
-      manga_id: string;
-      extension_id: string;
-      cover_url: string;
-      data_base64: string;
-      mime_type: string | null;
-      bytes: number | null;
-      metadata_json: string | null;
-      updated_at: number;
-      expires_at: number | null;
-    } | undefined;
+      .get(mangaId, extensionId) as
+      | {
+          manga_id: string;
+          extension_id: string;
+          cover_url: string;
+          data_base64: string;
+          mime_type: string | null;
+          bytes: number | null;
+          metadata_json: string | null;
+          updated_at: number;
+          expires_at: number | null;
+        }
+      | undefined;
 
     if (!row) return undefined;
 
@@ -104,7 +109,9 @@ export class CoverCacheRepository {
         data_base64: dataBase64,
         mime_type: options?.mimeType ?? null,
         bytes: options?.bytes ?? null,
-        metadata_json: options?.metadata ? JSON.stringify(options.metadata) : null,
+        metadata_json: options?.metadata
+          ? JSON.stringify(options.metadata)
+          : null,
         updated_at: now,
         expires_at: expiresAt,
       });
@@ -112,7 +119,9 @@ export class CoverCacheRepository {
 
   deleteCoverCache(extensionId: string, mangaId: string): void {
     this.db
-      .prepare("DELETE FROM manga_cover_cache WHERE manga_id = ? AND extension_id = ?")
+      .prepare(
+        "DELETE FROM manga_cover_cache WHERE manga_id = ? AND extension_id = ?",
+      )
       .run(mangaId, extensionId);
   }
 

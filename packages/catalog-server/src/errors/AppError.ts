@@ -84,12 +84,7 @@ export class ExtensionLoadError extends AppError {
  */
 export class DatabaseUnavailableError extends AppError {
   constructor(cause?: Error) {
-    super(
-      "Database is not available",
-      "DATABASE_UNAVAILABLE",
-      503,
-      cause,
-    );
+    super("Database is not available", "DATABASE_UNAVAILABLE", 503, cause);
   }
 }
 
@@ -109,23 +104,13 @@ export class StorageUnavailableError extends AppError {
  */
 export class MangaNotFoundError extends AppError {
   constructor(mangaId: string, cause?: Error) {
-    super(
-      `Manga ${mangaId} not found`,
-      "MANGA_NOT_FOUND",
-      404,
-      cause,
-    );
+    super(`Manga ${mangaId} not found`, "MANGA_NOT_FOUND", 404, cause);
   }
 }
 
 export class ChapterNotFoundError extends AppError {
   constructor(chapterId: string, cause?: Error) {
-    super(
-      `Chapter ${chapterId} not found`,
-      "CHAPTER_NOT_FOUND",
-      404,
-      cause,
-    );
+    super(`Chapter ${chapterId} not found`, "CHAPTER_NOT_FOUND", 404, cause);
   }
 }
 

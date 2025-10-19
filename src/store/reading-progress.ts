@@ -30,20 +30,20 @@ export interface ReadingProgressState {
     mangaId: string,
     chapterId: string,
     page: number,
-    total: number
+    total: number,
   ) => void;
   getProgress: (
     mangaId: string,
-    chapterId: string
+    chapterId: string,
   ) => ReadingProgress | undefined;
   loadProgressFromAPI: (
     mangaId: string,
-    chapterId: string
+    chapterId: string,
   ) => Promise<ReadingProgress | null>;
   setCurrentChapter: (
     mangaId: string,
     chapterId: string,
-    totalPages: number
+    totalPages: number,
   ) => void;
   setCurrentPage: (page: number) => void;
   addPreloadedImage: (url: string) => void;
@@ -162,7 +162,7 @@ export const useReadingProgress = create<ReadingProgressState>()(
         // Validate page is within bounds
         if (page < 0 || page >= totalPages) {
           console.warn(
-            `Invalid page ${page} for totalPages ${totalPages}, clamping to valid range`
+            `Invalid page ${page} for totalPages ${totalPages}, clamping to valid range`,
           );
           page = Math.max(0, Math.min(page, totalPages - 1));
         }
@@ -191,7 +191,7 @@ export const useReadingProgress = create<ReadingProgressState>()(
             currentMangaId,
             currentChapterId,
             page,
-            totalPages
+            totalPages,
           ).catch((error) => {
             console.error("Failed to save progress to API:", error);
           });
@@ -232,6 +232,6 @@ export const useReadingProgress = create<ReadingProgressState>()(
         // Only persist progress, not session state
         progress: state.progress,
       }),
-    }
-  )
+    },
+  ),
 );

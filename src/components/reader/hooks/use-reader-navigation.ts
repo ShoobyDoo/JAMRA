@@ -12,7 +12,12 @@ export interface NavigationCallbacks {
   onExitReader?: () => void;
 }
 
-const READING_MODES: ReadingMode[] = ["paged-ltr", "paged-rtl", "dual-page", "vertical"];
+const READING_MODES: ReadingMode[] = [
+  "paged-ltr",
+  "paged-rtl",
+  "dual-page",
+  "vertical",
+];
 
 export function useReaderNavigation(callbacks: NavigationCallbacks) {
   const { readingMode, setReadingMode, toggleZenMode } = useReaderSettings();

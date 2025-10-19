@@ -2,7 +2,13 @@
 
 import { Suspense, useState, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { Button, Select, MultiSelect, Pagination, Skeleton } from "@mantine/core";
+import {
+  Button,
+  Select,
+  MultiSelect,
+  Pagination,
+  Skeleton,
+} from "@mantine/core";
 import SearchLoading from "./loading";
 import { Filter, X } from "lucide-react";
 import { fetchCataloguePage } from "@/lib/api";

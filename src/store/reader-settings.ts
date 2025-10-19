@@ -81,23 +81,31 @@ export const useReaderSettings = create<ReaderSettings>()(
       setReadingMode: (mode) => set({ readingMode: mode }),
       setPageFit: (fit) => set({ pageFit: fit }),
       setBackgroundColor: (color) => set({ backgroundColor: color }),
-      setCustomWidth: (width) => set({ customWidth: Math.max(10, Math.min(100, width)) }),
-      setScrollSpeed: (speed) => set({ scrollSpeed: Math.max(1, Math.min(50, speed)) }),
+      setCustomWidth: (width) =>
+        set({ customWidth: Math.max(10, Math.min(100, width)) }),
+      setScrollSpeed: (speed) =>
+        set({ scrollSpeed: Math.max(1, Math.min(50, speed)) }),
       setGapSize: (size) => set({ gapSize: Math.max(0, Math.min(100, size)) }),
-      setDualPageGap: (gap) => set({ dualPageGap: Math.max(0, Math.min(100, gap)) }),
-      setPreloadCount: (count) => set({ preloadCount: Math.max(1, Math.min(10, count)) }),
-      setInitialPageCount: (count) => set({ initialPageCount: Math.max(1, Math.min(10, count)) }),
-      setPageChunkSize: (size) => set({ pageChunkSize: Math.max(1, Math.min(20, size)) }),
+      setDualPageGap: (gap) =>
+        set({ dualPageGap: Math.max(0, Math.min(100, gap)) }),
+      setPreloadCount: (count) =>
+        set({ preloadCount: Math.max(1, Math.min(10, count)) }),
+      setInitialPageCount: (count) =>
+        set({ initialPageCount: Math.max(1, Math.min(10, count)) }),
+      setPageChunkSize: (size) =>
+        set({ pageChunkSize: Math.max(1, Math.min(20, size)) }),
       setShowControls: (show) => set({ showControls: show }),
       setAutoHideControls: (autoHide) => set({ autoHideControls: autoHide }),
-      setAutoHideDelay: (delay) => set({ autoHideDelay: Math.max(500, Math.min(10000, delay)) }),
+      setAutoHideDelay: (delay) =>
+        set({ autoHideDelay: Math.max(500, Math.min(10000, delay)) }),
       setZenMode: (zen) => set({ zenMode: zen }),
       toggleZenMode: () => set((state) => ({ zenMode: !state.zenMode })),
-      setAutoAdvanceChapter: (autoAdvance) => set({ autoAdvanceChapter: autoAdvance }),
+      setAutoAdvanceChapter: (autoAdvance) =>
+        set({ autoAdvanceChapter: autoAdvance }),
       resetToDefaults: () => set(DEFAULT_SETTINGS),
     }),
     {
       name: "reader-settings-storage",
-    }
-  )
+    },
+  ),
 );

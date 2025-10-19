@@ -145,7 +145,9 @@ export function MangaReader({
   const handleChapterSelect = useCallback(
     (targetSlug: string) => {
       if (!targetSlug || targetSlug === chapterSlug) return;
-      const targetChapter = chapters.find((chapter) => chapter.slug === targetSlug);
+      const targetChapter = chapters.find(
+        (chapter) => chapter.slug === targetSlug,
+      );
       if (!targetChapter) return;
       const url = `/read/${encodeURIComponent(mangaSlug)}/chapter/${encodeURIComponent(targetChapter.slug)}`;
       router.push(url);
@@ -237,7 +239,9 @@ export function MangaReader({
     ) {
       return;
     }
-    const currentIndex = chapters.findIndex((chapter) => chapter.id === chapterId);
+    const currentIndex = chapters.findIndex(
+      (chapter) => chapter.id === chapterId,
+    );
     if (currentIndex === -1 || currentIndex >= chapters.length - 1) {
       return;
     }
@@ -255,7 +259,9 @@ export function MangaReader({
   ]);
 
   // Find next and previous chapters
-  const currentChapterIndex = chapters.findIndex((chapter) => chapter.id === chapterId);
+  const currentChapterIndex = chapters.findIndex(
+    (chapter) => chapter.id === chapterId,
+  );
   const nextChapter =
     currentChapterIndex >= 0 && currentChapterIndex < chapters.length - 1
       ? chapters[currentChapterIndex + 1]

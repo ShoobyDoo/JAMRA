@@ -124,7 +124,8 @@ export class CoverCacheManager {
       return;
     }
 
-    const timeoutMs = this.settings.fetchTimeoutMs ?? DEFAULT_SETTINGS.fetchTimeoutMs!;
+    const timeoutMs =
+      this.settings.fetchTimeoutMs ?? DEFAULT_SETTINGS.fetchTimeoutMs!;
 
     for (const url of urls) {
       try {

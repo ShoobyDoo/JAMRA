@@ -30,10 +30,20 @@ const STATUS_LABELS = {
 };
 
 export function LibraryCard({ entry, priority = false }: LibraryCardProps) {
-  const { manga, mangaId, extensionId, status, personalRating, favorite, totalChapters, readChapters } = entry;
+  const {
+    manga,
+    mangaId,
+    extensionId,
+    status,
+    personalRating,
+    favorite,
+    totalChapters,
+    readChapters,
+  } = entry;
 
   const destination = slugify(manga.title) ?? mangaId;
-  const { primary: coverPrimary, fallbacks: coverFallbacks } = resolveCoverSources(manga);
+  const { primary: coverPrimary, fallbacks: coverFallbacks } =
+    resolveCoverSources(manga);
 
   // Calculate progress
   const progress = totalChapters > 0 ? (readChapters / totalChapters) * 100 : 0;
@@ -110,7 +120,9 @@ export function LibraryCard({ entry, priority = false }: LibraryCardProps) {
         {status === "reading" && totalChapters > 0 && (
           <div className="space-y-1">
             <div className="flex justify-between text-xs text-muted-foreground">
-              <span>{readChapters}/{totalChapters}</span>
+              <span>
+                {readChapters}/{totalChapters}
+              </span>
               <span>{Math.round(progress)}%</span>
             </div>
             <div className="h-1.5 overflow-hidden rounded-full bg-muted">

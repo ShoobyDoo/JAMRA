@@ -59,7 +59,7 @@ export interface LibraryState {
       personalRating?: number;
       favorite?: boolean;
       notes?: string;
-    }
+    },
   ) => Promise<LibraryEntry>;
 
   updateEntry: (
@@ -69,7 +69,7 @@ export interface LibraryState {
       personalRating?: number | null;
       favorite?: boolean;
       notes?: string | null;
-    }
+    },
   ) => Promise<void>;
 
   removeEntry: (mangaId: string) => Promise<void>;
@@ -120,7 +120,12 @@ export const useLibrary = create<LibraryState>((set, get) => ({
   // Library Management
   addToLibrary: async (mangaId, extensionId, status, options) => {
     try {
-      const entry = await addToLibraryAPI(mangaId, extensionId, status, options);
+      const entry = await addToLibraryAPI(
+        mangaId,
+        extensionId,
+        status,
+        options,
+      );
 
       // Log to history (fire and forget)
       logHistoryEntry({
@@ -141,7 +146,8 @@ export const useLibrary = create<LibraryState>((set, get) => ({
 
       return entry;
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Failed to add to library";
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to add to library";
       set({ error: errorMessage });
       throw error;
     }
@@ -179,7 +185,8 @@ export const useLibrary = create<LibraryState>((set, get) => ({
         await get().loadStats();
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Failed to update entry";
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to update entry";
       set({ error: errorMessage });
       throw error;
     }
@@ -204,7 +211,8 @@ export const useLibrary = create<LibraryState>((set, get) => ({
 
       await get().loadStats();
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Failed to remove entry";
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to remove entry";
       set({ error: errorMessage });
       throw error;
     }
@@ -224,10 +232,13 @@ export const useLibrary = create<LibraryState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const entries = await getEnrichedLibraryEntriesAPI(filters);
-      const entriesMap = new Map(entries.map((entry) => [entry.mangaId, entry]));
+      const entriesMap = new Map(
+        entries.map((entry) => [entry.mangaId, entry]),
+      );
       set({ entries: entriesMap, isLoading: false });
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Failed to load library";
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to load library";
       set({ error: errorMessage, isLoading: false });
     }
   },
@@ -289,7 +300,9 @@ export const useLibrary = create<LibraryState>((set, get) => ({
   bulkUpdateStatus: async (status) => {
     const selected = Array.from(get().selectedMangaIds);
     try {
-      await Promise.all(selected.map((mangaId) => get().updateEntry(mangaId, { status })));
+      await Promise.all(
+        selected.map((mangaId) => get().updateEntry(mangaId, { status })),
+      );
       get().clearSelection();
       await get().loadLibrary(get().filters);
     } catch (error) {
@@ -363,13 +376,15 @@ export const useLibrary = create<LibraryState>((set, get) => ({
     }
 
     if (filters.favorite !== undefined) {
-      filtered = filtered.filter((entry) => entry.favorite === filters.favorite);
+      filtered = filtered.filter(
+        (entry) => entry.favorite === filters.favorite,
+      );
     }
 
     if (filters.searchQuery) {
       const query = filters.searchQuery.toLowerCase();
       filtered = filtered.filter((entry) =>
-        entry.manga.title.toLowerCase().includes(query)
+        entry.manga.title.toLowerCase().includes(query),
       );
     }
 
@@ -397,8 +412,10 @@ export const useLibrary = create<LibraryState>((set, get) => ({
           comparison = (a.personalRating ?? 0) - (b.personalRating ?? 0);
           break;
         case "progress":
-          const progressA = a.totalChapters > 0 ? a.readChapters / a.totalChapters : 0;
-          const progressB = b.totalChapters > 0 ? b.readChapters / b.totalChapters : 0;
+          const progressA =
+            a.totalChapters > 0 ? a.readChapters / a.totalChapters : 0;
+          const progressB =
+            b.totalChapters > 0 ? b.readChapters / b.totalChapters : 0;
           comparison = progressA - progressB;
           break;
       }

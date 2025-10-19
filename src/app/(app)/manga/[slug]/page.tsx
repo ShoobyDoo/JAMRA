@@ -44,7 +44,8 @@ export default async function MangaPage({ params }: MangaPageProps) {
   const chapters = withChapterSlugs(details.chapters ?? []);
   const mangaId = details.id;
   const canonicalSlug = details.slug ?? slug;
-  const { primary: coverPrimary, fallbacks: coverFallbacks } = resolveCoverSources(details);
+  const { primary: coverPrimary, fallbacks: coverFallbacks } =
+    resolveCoverSources(details);
 
   return (
     <div className="space-y-6 p-6">
@@ -102,7 +103,9 @@ export default async function MangaPage({ params }: MangaPageProps) {
             {details.genres && details.genres.length > 0 ? (
               <div className="col-span-2 sm:col-span-3 lg:col-span-4">
                 <dt className="text-muted-foreground mb-2">Genres</dt>
-                <dd><GenrePills genres={details.genres} /></dd>
+                <dd>
+                  <GenrePills genres={details.genres} />
+                </dd>
               </div>
             ) : null}
             {details.status ? (

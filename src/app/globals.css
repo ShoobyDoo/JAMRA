@@ -15,10 +15,7 @@
   /* Mantine Button hover styles */
   button:hover:where(:not([data-loading], :disabled, [data-disabled])),
   a:hover:where(:not([data-loading], :disabled, [data-disabled])) {
-    background-color: var(
-      --button-hover,
-      var(--mantine-color-default-hover)
-    );
+    background-color: var(--button-hover, var(--mantine-color-default-hover));
   }
 
   /* Mantine ActionIcon hover styles */
@@ -39,10 +36,7 @@
   [data-combobox-option]:hover:where(
       :not([data-combobox-option-disabled], [data-disabled])
     ) {
-    background-color: var(
-      --combobox-hover,
-      var(--mantine-color-default-hover)
-    );
+    background-color: var(--combobox-hover, var(--mantine-color-default-hover));
   }
 
   /* Mantine UnstyledButton hover styles */

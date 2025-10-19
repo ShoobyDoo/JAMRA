@@ -4,7 +4,11 @@ import type { ChapterSummary, ChapterPages } from "@jamra/extension-sdk";
 export class ChapterRepository {
   constructor(private readonly db: Database.Database) {}
 
-  upsertChapters(extensionId: string, mangaId: string, chapters: ChapterSummary[]): void {
+  upsertChapters(
+    extensionId: string,
+    mangaId: string,
+    chapters: ChapterSummary[],
+  ): void {
     if (chapters.length === 0) return;
 
     const stmt = this.db.prepare(`
@@ -68,7 +72,9 @@ export class ChapterRepository {
     mangaId: string,
     pages: ChapterPages,
   ): void {
-    this.db.prepare("DELETE FROM chapter_pages WHERE chapter_id = ?").run(pages.chapterId);
+    this.db
+      .prepare("DELETE FROM chapter_pages WHERE chapter_id = ?")
+      .run(pages.chapterId);
 
     if (pages.pages.length === 0) return;
 

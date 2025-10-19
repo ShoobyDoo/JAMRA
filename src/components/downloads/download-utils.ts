@@ -18,7 +18,8 @@ export function isFrozen(download: OfflineQueuedDownload): boolean {
   // Note: This would require a "lastProgressUpdate" timestamp from the backend
   // For now, we'll use a heuristic: if downloading for 2+ minutes with < 10% progress
   if (timeSinceStart > 120000 && download.progressTotal > 0) {
-    const percentComplete = (download.progressCurrent / download.progressTotal) * 100;
+    const percentComplete =
+      (download.progressCurrent / download.progressTotal) * 100;
     if (percentComplete < 10) {
       return true;
     }
@@ -58,12 +59,15 @@ export function formatETA(seconds: number): string {
 
 // Format download speed
 export function formatSpeed(pagesPerSecond: number): string {
-  if (pagesPerSecond < 1) return `${(pagesPerSecond * 60).toFixed(1)} pages/min`;
+  if (pagesPerSecond < 1)
+    return `${(pagesPerSecond * 60).toFixed(1)} pages/min`;
   return `${pagesPerSecond.toFixed(1)} pages/s`;
 }
 
 // Group downloads by manga
-export function groupByManga(downloads: OfflineQueuedDownload[]): Map<string, OfflineQueuedDownload[]> {
+export function groupByManga(
+  downloads: OfflineQueuedDownload[],
+): Map<string, OfflineQueuedDownload[]> {
   const groups = new Map<string, OfflineQueuedDownload[]>();
 
   for (const download of downloads) {
@@ -78,7 +82,9 @@ export function groupByManga(downloads: OfflineQueuedDownload[]): Map<string, Of
 }
 
 // Group downloads by extension
-export function groupByExtension(downloads: OfflineQueuedDownload[]): Map<string, OfflineQueuedDownload[]> {
+export function groupByExtension(
+  downloads: OfflineQueuedDownload[],
+): Map<string, OfflineQueuedDownload[]> {
   const groups = new Map<string, OfflineQueuedDownload[]>();
 
   for (const download of downloads) {
@@ -93,7 +99,9 @@ export function groupByExtension(downloads: OfflineQueuedDownload[]): Map<string
 }
 
 // Group downloads by status
-export function groupByStatus(downloads: OfflineQueuedDownload[]): Map<string, OfflineQueuedDownload[]> {
+export function groupByStatus(
+  downloads: OfflineQueuedDownload[],
+): Map<string, OfflineQueuedDownload[]> {
   const groups = new Map<string, OfflineQueuedDownload[]>();
 
   for (const download of downloads) {

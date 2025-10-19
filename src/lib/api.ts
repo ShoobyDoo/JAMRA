@@ -67,7 +67,10 @@ interface ApiRequestOptions extends RequestInit {
   allowStatuses?: number[];
 }
 
-async function request<T>(path: string, init: ApiRequestOptions = {}): Promise<T> {
+async function request<T>(
+  path: string,
+  init: ApiRequestOptions = {},
+): Promise<T> {
   const url = `${API_BASE}${path}`;
   const { allowStatuses, ...fetchInit } = init;
   const method = fetchInit.method || "GET";
@@ -75,8 +78,8 @@ async function request<T>(path: string, init: ApiRequestOptions = {}): Promise<T
 
   // Log the outgoing request
   logger.apiCall(url, method, {
-    component: 'API',
-    action: 'request',
+    component: "API",
+    action: "request",
     requestSize: fetchInit?.body ? JSON.stringify(fetchInit.body).length : 0,
   });
 
@@ -130,13 +133,13 @@ async function request<T>(path: string, init: ApiRequestOptions = {}): Promise<T
       let userMessage = cleanedDetail || response.statusText;
       if (cleanedDetail) {
         try {
-          const parsed = JSON.parse(detailText || '{}');
+          const parsed = JSON.parse(detailText || "{}");
           // Extract the most specific error message available
-          if (parsed.detail && typeof parsed.detail === 'string') {
+          if (parsed.detail && typeof parsed.detail === "string") {
             userMessage = parsed.detail;
-          } else if (parsed.error && typeof parsed.error === 'string') {
+          } else if (parsed.error && typeof parsed.error === "string") {
             userMessage = parsed.error;
-          } else if (parsed.message && typeof parsed.message === 'string') {
+          } else if (parsed.message && typeof parsed.message === "string") {
             userMessage = parsed.message;
           }
         } catch {
@@ -144,15 +147,18 @@ async function request<T>(path: string, init: ApiRequestOptions = {}): Promise<T
         }
       }
 
-      logger.error(`API request failed: ${response.status} ${response.statusText}`, {
-        component: 'API',
-        action: 'error',
-        url,
-        method,
-        statusCode: response.status,
-        duration,
-        error: new Error(userMessage),
-      });
+      logger.error(
+        `API request failed: ${response.status} ${response.statusText}`,
+        {
+          component: "API",
+          action: "error",
+          url,
+          method,
+          statusCode: response.status,
+          duration,
+          error: new Error(userMessage),
+        },
+      );
 
       throw new ApiError(
         userMessage,
@@ -170,8 +176,8 @@ async function request<T>(path: string, init: ApiRequestOptions = {}): Promise<T
 
     // Log successful data retrieval for debugging
     logger.debug(`API response data received`, {
-      component: 'API',
-      action: 'data-received',
+      component: "API",
+      action: "data-received",
       url,
       method,
       dataSize: JSON.stringify(responseData).length,
@@ -183,7 +189,8 @@ async function request<T>(path: string, init: ApiRequestOptions = {}): Promise<T
 
     if (
       error instanceof Error &&
-      ("name" in error && error.name === "AbortError")
+      "name" in error &&
+      error.name === "AbortError"
     ) {
       logger.debug(`API request aborted: ${method} ${url}`, {
         component: "API",
@@ -197,13 +204,13 @@ async function request<T>(path: string, init: ApiRequestOptions = {}): Promise<T
 
     if (error instanceof ApiError) {
       logger.apiError(url, method, error, duration, {
-        component: 'API',
-        action: 'api-error',
+        component: "API",
+        action: "api-error",
       });
     } else {
       logger.error(`Network or parsing error`, {
-        component: 'API',
-        action: 'network-error',
+        component: "API",
+        action: "network-error",
         url,
         method,
         duration,
@@ -385,7 +392,9 @@ export interface CoverReportPayload {
   attemptedUrls?: string[];
 }
 
-export async function reportMangaCoverResult(payload: CoverReportPayload): Promise<void> {
+export async function reportMangaCoverResult(
+  payload: CoverReportPayload,
+): Promise<void> {
   const originalAttempted = payload.attemptedUrls ?? [];
   let attemptedUrls = sanitizeAttemptedUrlList(originalAttempted);
 
@@ -394,14 +403,11 @@ export async function reportMangaCoverResult(payload: CoverReportPayload): Promi
     originalAttempted.length > 0 &&
     attemptedUrls.length < originalAttempted.length
   ) {
-    console.log(
-      "[API] Filtered attempted cover URLs for payload.",
-      {
-        original: originalAttempted.length,
-        retained: attemptedUrls.length,
-        dropped: originalAttempted.length - attemptedUrls.length,
-      },
-    );
+    console.log("[API] Filtered attempted cover URLs for payload.", {
+      original: originalAttempted.length,
+      retained: attemptedUrls.length,
+      dropped: originalAttempted.length - attemptedUrls.length,
+    });
   }
 
   // Hard failsafe: If payload is too large, aggressively trim URLs
@@ -416,11 +422,19 @@ export async function reportMangaCoverResult(payload: CoverReportPayload): Promi
 
   // If still too large, progressively reduce URLs
   let iterations = 0;
-  while (bodyStr.length > 90000 && attemptedUrls.length > 1 && iterations < 20) { // 90KB safety margin
+  while (
+    bodyStr.length > 90000 &&
+    attemptedUrls.length > 1 &&
+    iterations < 20
+  ) {
+    // 90KB safety margin
     iterations++;
     const oldLength = attemptedUrls.length;
     // More aggressive reduction: cut in half each time
-    attemptedUrls = attemptedUrls.slice(0, Math.max(1, Math.floor(attemptedUrls.length * 0.5)));
+    attemptedUrls = attemptedUrls.slice(
+      0,
+      Math.max(1, Math.floor(attemptedUrls.length * 0.5)),
+    );
     body = {
       url: payload.url,
       status: payload.status,
@@ -430,15 +444,21 @@ export async function reportMangaCoverResult(payload: CoverReportPayload): Promi
     bodyStr = JSON.stringify(body);
 
     if (process.env.NODE_ENV !== "production") {
-      console.log(`[API] Failsafe iteration ${iterations}: ${oldLength} -> ${attemptedUrls.length} URLs, payload: ${bodyStr.length} bytes`);
+      console.log(
+        `[API] Failsafe iteration ${iterations}: ${oldLength} -> ${attemptedUrls.length} URLs, payload: ${bodyStr.length} bytes`,
+      );
     }
   }
 
   // Debug logging for payload size
   if (process.env.NODE_ENV !== "production") {
-    console.log(`[API] Cover report payload size: ${bodyStr.length} bytes, URLs: ${body.attemptedUrls.length} (original: ${(payload.attemptedUrls ?? []).length})`);
+    console.log(
+      `[API] Cover report payload size: ${bodyStr.length} bytes, URLs: ${body.attemptedUrls.length} (original: ${(payload.attemptedUrls ?? []).length})`,
+    );
     if (bodyStr.length > 100000) {
-      console.error(`[API] PAYLOAD TOO LARGE: ${bodyStr.length} bytes > 100KB limit!`);
+      console.error(
+        `[API] PAYLOAD TOO LARGE: ${bodyStr.length} bytes > 100KB limit!`,
+      );
       console.log(`[API] Sample URLs:`, body.attemptedUrls.slice(0, 3));
     }
   }
@@ -911,7 +931,7 @@ export async function saveReadingProgress(
   mangaId: string,
   chapterId: string,
   currentPage: number,
-  totalPages: number
+  totalPages: number,
 ): Promise<void> {
   await request<{ success: boolean }>("/reading-progress", {
     method: "POST",
@@ -928,11 +948,11 @@ export async function saveReadingProgress(
 
 export async function getReadingProgress(
   mangaId: string,
-  chapterId: string
+  chapterId: string,
 ): Promise<ReadingProgressData | null> {
   const result = await request<ReadingProgressData | undefined>(
     `/reading-progress/${encodeURIComponent(mangaId)}/${encodeURIComponent(chapterId)}`,
-    { allowStatuses: [404] }
+    { allowStatuses: [404] },
   );
   return result ?? null;
 }
@@ -1030,7 +1050,7 @@ export interface LogHistoryEntryPayload {
 }
 
 export async function logHistoryEntry(
-  payload: LogHistoryEntryPayload
+  payload: LogHistoryEntryPayload,
 ): Promise<{ id: number; success: boolean }> {
   return request<{ id: number; success: boolean }>("/history", {
     method: "POST",
@@ -1039,7 +1059,7 @@ export async function logHistoryEntry(
 }
 
 export async function getHistory(
-  options?: GetHistoryOptions
+  options?: GetHistoryOptions,
 ): Promise<HistoryEntry[] | EnrichedHistoryEntry[]> {
   const params = new URLSearchParams();
 
@@ -1075,7 +1095,9 @@ export async function getHistoryStats(options?: {
   return request<HistoryStats>(`/history/stats${suffix}`);
 }
 
-export async function deleteHistoryEntry(id: number): Promise<{ success: boolean }> {
+export async function deleteHistoryEntry(
+  id: number,
+): Promise<{ success: boolean }> {
   return request<{ success: boolean }>(`/history/${id}`, {
     method: "DELETE",
   });
@@ -1091,9 +1113,12 @@ export async function clearHistory(beforeTimestamp?: number): Promise<{
   const query = params.toString();
   const suffix = query ? `?${query}` : "";
 
-  return request<{ success: boolean; deletedCount: number }>(`/history${suffix}`, {
-    method: "DELETE",
-  });
+  return request<{ success: boolean; deletedCount: number }>(
+    `/history${suffix}`,
+    {
+      method: "DELETE",
+    },
+  );
 }
 
 /**
@@ -1102,17 +1127,28 @@ export async function clearHistory(beforeTimestamp?: number): Promise<{
  *
  * Only available in development mode.
  */
-export async function nukeUserData(): Promise<{ success: boolean; message: string }> {
-  return request<{ success: boolean; message: string }>("/danger/nuke-user-data", {
-    method: "POST",
-  });
+export async function nukeUserData(): Promise<{
+  success: boolean;
+  message: string;
+}> {
+  return request<{ success: boolean; message: string }>(
+    "/danger/nuke-user-data",
+    {
+      method: "POST",
+    },
+  );
 }
 
 // ============================================================================
 // Offline Storage API
 // ============================================================================
 
-export type DownloadStatus = "queued" | "downloading" | "completed" | "failed" | "paused";
+export type DownloadStatus =
+  | "queued"
+  | "downloading"
+  | "completed"
+  | "failed"
+  | "paused";
 
 export interface OfflineQueuedDownload {
   id: number;
@@ -1202,7 +1238,7 @@ export async function queueChapterDownload(
   extensionId: string,
   mangaId: string,
   chapterId: string,
-  priority = 0
+  priority = 0,
 ): Promise<QueueChapterDownloadResponse> {
   return request<QueueChapterDownloadResponse>("/offline/download/chapter", {
     method: "POST",
@@ -1219,7 +1255,7 @@ export async function queueChapterDownload(
 export async function queueMangaDownload(
   extensionId: string,
   mangaId: string,
-  options: { chapterIds?: string[]; priority?: number } = {}
+  options: { chapterIds?: string[]; priority?: number } = {},
 ): Promise<QueueMangaDownloadResponse> {
   return request<QueueMangaDownloadResponse>("/offline/download/manga", {
     method: "POST",
@@ -1236,7 +1272,7 @@ export async function queueMangaDownload(
 export async function getOfflineChapterStatus(
   extensionId: string,
   mangaId: string,
-  chapterId: string
+  chapterId: string,
 ): Promise<boolean> {
   const params = new URLSearchParams({ extensionId });
   const response = await request<OfflineChapterStatusResponse>(
@@ -1247,7 +1283,7 @@ export async function getOfflineChapterStatus(
 
 export async function getOfflineChapters(
   extensionId: string,
-  mangaId: string
+  mangaId: string,
 ): Promise<OfflineChapterMetadata[]> {
   const params = new URLSearchParams({ extensionId });
   const response = await request<OfflineChaptersResponse>(
@@ -1258,7 +1294,7 @@ export async function getOfflineChapters(
 
 export async function getOfflineMangaMetadata(
   extensionId: string,
-  mangaId: string
+  mangaId: string,
 ): Promise<OfflineMangaMetadata | null> {
   const params = new URLSearchParams({ extensionId });
   const response = await request<OfflineMangaResponse | undefined>(
@@ -1291,7 +1327,7 @@ interface OfflineDownloadProgressResponse {
 }
 
 export async function getOfflineDownloadProgress(
-  queueId: number
+  queueId: number,
 ): Promise<OfflineDownloadProgressResponse["progress"] | null> {
   const response = await request<OfflineDownloadProgressResponse | undefined>(
     `/offline/queue/${encodeURIComponent(String(queueId))}`,
@@ -1300,7 +1336,9 @@ export async function getOfflineDownloadProgress(
   return response?.progress ?? null;
 }
 
-export async function cancelOfflineDownload(queueId: number): Promise<{ success: boolean }> {
+export async function cancelOfflineDownload(
+  queueId: number,
+): Promise<{ success: boolean }> {
   return request<{ success: boolean }>(
     `/offline/queue/${encodeURIComponent(String(queueId))}/cancel`,
     {
@@ -1310,7 +1348,9 @@ export async function cancelOfflineDownload(queueId: number): Promise<{ success:
   );
 }
 
-export async function retryOfflineDownload(queueId: number): Promise<{ success: boolean }> {
+export async function retryOfflineDownload(
+  queueId: number,
+): Promise<{ success: boolean }> {
   return request<{ success: boolean }>(
     `/offline/queue/${encodeURIComponent(String(queueId))}/retry`,
     {
@@ -1320,20 +1360,25 @@ export async function retryOfflineDownload(queueId: number): Promise<{ success: 
   );
 }
 
-export async function retryFrozenDownloads(): Promise<{ success: boolean; retriedCount: number; retriedIds: number[] }> {
-  return request<{ success: boolean; retriedCount: number; retriedIds: number[] }>(
-    `/offline/queue/retry-frozen`,
-    {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-    },
-  );
+export async function retryFrozenDownloads(): Promise<{
+  success: boolean;
+  retriedCount: number;
+  retriedIds: number[];
+}> {
+  return request<{
+    success: boolean;
+    retriedCount: number;
+    retriedIds: number[];
+  }>(`/offline/queue/retry-frozen`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+  });
 }
 
 export async function deleteOfflineChapter(
   extensionId: string,
   mangaId: string,
-  chapterId: string
+  chapterId: string,
 ): Promise<void> {
   const params = new URLSearchParams({ extensionId });
   await request(
@@ -1344,7 +1389,7 @@ export async function deleteOfflineChapter(
 
 export async function deleteOfflineManga(
   extensionId: string,
-  mangaId: string
+  mangaId: string,
 ): Promise<void> {
   const params = new URLSearchParams({ extensionId });
   await request(
@@ -1379,7 +1424,9 @@ interface OfflineDownloadHistoryResponse {
   history: OfflineDownloadHistoryItem[];
 }
 
-export async function getOfflineDownloadHistory(limit?: number): Promise<OfflineDownloadHistoryItem[]> {
+export async function getOfflineDownloadHistory(
+  limit?: number,
+): Promise<OfflineDownloadHistoryItem[]> {
   const params = new URLSearchParams();
   if (limit !== undefined) {
     params.set("limit", String(limit));
@@ -1388,18 +1435,24 @@ export async function getOfflineDownloadHistory(limit?: number): Promise<Offline
   const query = params.toString();
   const suffix = query.length > 0 ? `?${query}` : "";
 
-  const response = await request<OfflineDownloadHistoryResponse>(`/offline/history${suffix}`);
+  const response = await request<OfflineDownloadHistoryResponse>(
+    `/offline/history${suffix}`,
+  );
   return response.history;
 }
 
-export async function deleteOfflineHistoryItem(historyId: number): Promise<{ success: boolean }> {
+export async function deleteOfflineHistoryItem(
+  historyId: number,
+): Promise<{ success: boolean }> {
   return request<{ success: boolean }>(
     `/offline/history/${encodeURIComponent(String(historyId))}`,
     { method: "DELETE" },
   );
 }
 
-export async function clearOfflineDownloadHistory(): Promise<{ success: boolean }> {
+export async function clearOfflineDownloadHistory(): Promise<{
+  success: boolean;
+}> {
   return request<{ success: boolean }>("/offline/history", {
     method: "DELETE",
   });
@@ -1409,7 +1462,12 @@ export async function clearOfflineDownloadHistory(): Promise<{ success: boolean 
 // Library Management API
 // ============================================================================
 
-export type LibraryStatus = "reading" | "plan_to_read" | "completed" | "on_hold" | "dropped";
+export type LibraryStatus =
+  | "reading"
+  | "plan_to_read"
+  | "completed"
+  | "on_hold"
+  | "dropped";
 
 export interface LibraryEntry {
   mangaId: string;
@@ -1479,7 +1537,7 @@ export async function addToLibrary(
   mangaId: string,
   extensionId: string,
   status: LibraryStatus,
-  options?: AddToLibraryOptions
+  options?: AddToLibraryOptions,
 ): Promise<LibraryEntry> {
   return request<LibraryEntry>("/library", {
     method: "POST",
@@ -1494,7 +1552,7 @@ export async function addToLibrary(
 
 export async function updateLibraryEntry(
   mangaId: string,
-  updates: UpdateLibraryEntryOptions
+  updates: UpdateLibraryEntryOptions,
 ): Promise<LibraryEntry> {
   return request<LibraryEntry>(`/library/${encodeURIComponent(mangaId)}`, {
     method: "PUT",
@@ -1502,17 +1560,31 @@ export async function updateLibraryEntry(
   });
 }
 
-export async function removeFromLibrary(mangaId: string): Promise<{ success: boolean }> {
-  return request<{ success: boolean }>(`/library/${encodeURIComponent(mangaId)}`, {
-    method: "DELETE",
-  });
+export async function removeFromLibrary(
+  mangaId: string,
+): Promise<{ success: boolean }> {
+  return request<{ success: boolean }>(
+    `/library/${encodeURIComponent(mangaId)}`,
+    {
+      method: "DELETE",
+    },
+  );
 }
 
-export async function getLibraryEntry(mangaId: string): Promise<LibraryEntry | null> {
+export async function getLibraryEntry(
+  mangaId: string,
+): Promise<LibraryEntry | null> {
   try {
-    return await request<LibraryEntry>(`/library/${encodeURIComponent(mangaId)}`);
+    return await request<LibraryEntry>(
+      `/library/${encodeURIComponent(mangaId)}`,
+    );
   } catch (error) {
-    if (error && typeof error === "object" && "status" in error && error.status === 404) {
+    if (
+      error &&
+      typeof error === "object" &&
+      "status" in error &&
+      error.status === 404
+    ) {
       return null;
     }
     throw error;
@@ -1563,14 +1635,19 @@ export async function getLibraryStats(): Promise<LibraryStats> {
 // Library Tags API
 // ============================================================================
 
-export async function createLibraryTag(name: string, color?: string): Promise<LibraryTag> {
+export async function createLibraryTag(
+  name: string,
+  color?: string,
+): Promise<LibraryTag> {
   return request<LibraryTag>("/library/tags", {
     method: "POST",
     body: JSON.stringify({ name, color }),
   });
 }
 
-export async function deleteLibraryTag(tagId: number): Promise<{ success: boolean }> {
+export async function deleteLibraryTag(
+  tagId: number,
+): Promise<{ success: boolean }> {
   return request<{ success: boolean }>(`/library/tags/${tagId}`, {
     method: "DELETE",
   });
@@ -1582,24 +1659,26 @@ export async function getLibraryTags(): Promise<LibraryTag[]> {
 
 export async function addTagToLibraryEntry(
   mangaId: string,
-  tagId: number
+  tagId: number,
 ): Promise<{ success: boolean }> {
   return request<{ success: boolean }>(
     `/library/${encodeURIComponent(mangaId)}/tags/${tagId}`,
-    { method: "POST" }
+    { method: "POST" },
   );
 }
 
 export async function removeTagFromLibraryEntry(
   mangaId: string,
-  tagId: number
+  tagId: number,
 ): Promise<{ success: boolean }> {
   return request<{ success: boolean }>(
     `/library/${encodeURIComponent(mangaId)}/tags/${tagId}`,
-    { method: "DELETE" }
+    { method: "DELETE" },
   );
 }
 
-export async function getTagsForLibraryEntry(mangaId: string): Promise<LibraryTag[]> {
+export async function getTagsForLibraryEntry(
+  mangaId: string,
+): Promise<LibraryTag[]> {
   return request<LibraryTag[]>(`/library/${encodeURIComponent(mangaId)}/tags`);
 }

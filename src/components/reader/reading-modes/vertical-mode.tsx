@@ -52,7 +52,8 @@ export function VerticalMode({
 }: VerticalModeProps) {
   const router = useRouter();
   const routeSlug = mangaSlug ?? mangaId;
-  const { backgroundColor, gapSize, pageFit, customWidth } = useReaderSettings();
+  const { backgroundColor, gapSize, pageFit, customWidth } =
+    useReaderSettings();
 
   // Check if we have loaded pages
   const hasLoadedPages = pages.some((page) => page !== null);
@@ -91,7 +92,7 @@ export function VerticalMode({
       {
         root: container,
         threshold: 0.6,
-      }
+      },
     );
 
     observerRef.current = observer;
@@ -177,16 +178,20 @@ export function VerticalMode({
   const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!containerRef.current) return;
 
-    const zone = readerControls.getHotZone(e.clientX, e.clientY, containerRef.current);
+    const zone = readerControls.getHotZone(
+      e.clientX,
+      e.clientY,
+      containerRef.current,
+    );
 
-    if (zone === 'center') {
+    if (zone === "center") {
       // Toggle controls visibility
       readerControls.toggleControls();
-    } else if (zone === 'top') {
+    } else if (zone === "top") {
       // Navigate to previous page (scroll up)
       readerControls.hideControls();
       onPrevPage();
-    } else if (zone === 'bottom') {
+    } else if (zone === "bottom") {
       // Navigate to next page (scroll down)
       readerControls.hideControls();
       onNextPage();
@@ -272,11 +277,11 @@ export function VerticalMode({
             <div className="flex flex-col items-center gap-4">
               <div className="flex flex-col items-center gap-2 rounded-lg bg-muted px-8 py-6 text-center">
                 <CheckCircle className="h-8 w-8 text-muted-foreground" />
-                <span className="text-lg font-medium">
-                  Chapter Complete
-                </span>
+                <span className="text-lg font-medium">Chapter Complete</span>
                 <span className="text-sm text-muted-foreground">
-                  {nextChapter ? 'Use hot zones to navigate to next chapter' : 'No more chapters available'}
+                  {nextChapter
+                    ? "Use hot zones to navigate to next chapter"
+                    : "No more chapters available"}
                 </span>
               </div>
 

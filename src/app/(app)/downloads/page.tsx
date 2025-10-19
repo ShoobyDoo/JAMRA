@@ -35,7 +35,10 @@ import {
   clearOfflineDownloadHistory,
   type OfflineDownloadHistoryItem,
 } from "@/lib/api";
-import { useOfflineEvents, type OfflineDownloadEvent } from "@/hooks/use-offline-events";
+import {
+  useOfflineEvents,
+  type OfflineDownloadEvent,
+} from "@/hooks/use-offline-events";
 import {
   isFrozen,
   getDownloadStats,
@@ -58,7 +61,9 @@ export default function DownloadsPage() {
 
   // Selection state
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
-  const [lastSelectedIndex, setLastSelectedIndex] = useState<number | null>(null);
+  const [lastSelectedIndex, setLastSelectedIndex] = useState<number | null>(
+    null,
+  );
 
   // Filter/group state
   const [groupBy, setGroupBy] = useState<GroupBy>("manga");
@@ -87,9 +92,13 @@ export default function DownloadsPage() {
             setDownloads((prev) =>
               prev.map((item) =>
                 item.id === event.queueId
-                  ? { ...item, status: "downloading" as const, startedAt: Date.now() }
-                  : item
-              )
+                  ? {
+                      ...item,
+                      status: "downloading" as const,
+                      startedAt: Date.now(),
+                    }
+                  : item,
+              ),
             );
           }
           break;
@@ -102,11 +111,12 @@ export default function DownloadsPage() {
                   ? {
                       ...item,
                       status: "downloading" as const,
-                      progressCurrent: event.progressCurrent ?? item.progressCurrent,
+                      progressCurrent:
+                        event.progressCurrent ?? item.progressCurrent,
                       progressTotal: event.progressTotal ?? item.progressTotal,
                     }
-                  : item
-              )
+                  : item,
+              ),
             );
           }
           break;
@@ -114,7 +124,9 @@ export default function DownloadsPage() {
         case "download-completed":
           if (event.queueId !== undefined) {
             const completedId = event.queueId;
-            setDownloads((prev) => prev.filter((item) => item.id !== completedId));
+            setDownloads((prev) =>
+              prev.filter((item) => item.id !== completedId),
+            );
             setSelectedIds((prev) => {
               const next = new Set(prev);
               next.delete(completedId);
@@ -133,8 +145,8 @@ export default function DownloadsPage() {
                       status: "failed" as const,
                       errorMessage: event.error,
                     }
-                  : item
-              )
+                  : item,
+              ),
             );
           }
           break;
@@ -213,7 +225,7 @@ export default function DownloadsPage() {
       setSelectedIds(newSelected);
       setLastSelectedIndex(index);
     },
-    [selectedIds, lastSelectedIndex, filteredDownloads]
+    [selectedIds, lastSelectedIndex, filteredDownloads],
   );
 
   // Actions
@@ -294,17 +306,33 @@ export default function DownloadsPage() {
 
   // Stats
   const stats = useMemo(() => {
-    const activeCount = downloads.filter((d) => d.status === "downloading").length;
+    const activeCount = downloads.filter(
+      (d) => d.status === "downloading",
+    ).length;
     const queuedCount = downloads.filter((d) => d.status === "queued").length;
     const frozenCount = downloads.filter((d) => isFrozen(d)).length;
     const failedCount = downloads.filter((d) => d.status === "failed").length;
 
-    return { total: downloads.length, activeCount, queuedCount, frozenCount, failedCount };
+    return {
+      total: downloads.length,
+      activeCount,
+      queuedCount,
+      frozenCount,
+      failedCount,
+    };
   }, [downloads]);
 
   const getStatusBadge = (download: OfflineQueuedDownload) => {
     if (isFrozen(download)) {
-      return <Badge color="yellow" size="sm" leftSection={<AlertTriangle size={12} />}>Frozen</Badge>;
+      return (
+        <Badge
+          color="yellow"
+          size="sm"
+          leftSection={<AlertTriangle size={12} />}
+        >
+          Frozen
+        </Badge>
+      );
     }
 
     const statusMap = {
@@ -364,8 +392,14 @@ export default function DownloadsPage() {
           <Group justify="space-between" mb="md">
             <Group>
               <Checkbox
-                checked={selectedIds.size === filteredDownloads.length && filteredDownloads.length > 0}
-                indeterminate={selectedIds.size > 0 && selectedIds.size < filteredDownloads.length}
+                checked={
+                  selectedIds.size === filteredDownloads.length &&
+                  filteredDownloads.length > 0
+                }
+                indeterminate={
+                  selectedIds.size > 0 &&
+                  selectedIds.size < filteredDownloads.length
+                }
                 onChange={handleSelectAll}
                 label="Select All"
               />
@@ -463,149 +497,194 @@ export default function DownloadsPage() {
           {/* Downloads List */}
           {filteredDownloads.length === 0 ? (
             <Box ta="center" py="xl">
-              <Download size={48} className="mx-auto mb-4 text-muted-foreground" />
+              <Download
+                size={48}
+                className="mx-auto mb-4 text-muted-foreground"
+              />
               <Text c="dimmed" size="lg" mb="xs">
                 No active downloads
               </Text>
               <Text c="dimmed" size="sm">
-                Downloads will appear here when you start downloading manga chapters
+                Downloads will appear here when you start downloading manga
+                chapters
               </Text>
             </Box>
           ) : (
             <Stack gap="xs">
-              {Array.from(groupedDownloads.entries()).map(([groupKey, groupDownloads]) => (
-                <Box key={groupKey}>
-                  {groupBy !== "none" && (
-                    <Text fw={600} size="sm" c="dimmed" mb="xs" tt="capitalize">
-                      {groupKey} ({groupDownloads.length})
-                    </Text>
-                  )}
+              {Array.from(groupedDownloads.entries()).map(
+                ([groupKey, groupDownloads]) => (
+                  <Box key={groupKey}>
+                    {groupBy !== "none" && (
+                      <Text
+                        fw={600}
+                        size="sm"
+                        c="dimmed"
+                        mb="xs"
+                        tt="capitalize"
+                      >
+                        {groupKey} ({groupDownloads.length})
+                      </Text>
+                    )}
 
-                  <Stack gap="xs">
-                    {groupDownloads.map((download, index) => {
-                      const percent =
-                        download.progressTotal > 0
-                          ? Math.round((download.progressCurrent / download.progressTotal) * 100)
-                          : 0;
-                      const { speed, eta } = getDownloadStats(download);
-                      const chapterDisplay = formatChapterDisplay(download);
-                      const isSelected = selectedIds.has(download.id);
-                      const frozen = isFrozen(download);
+                    <Stack gap="xs">
+                      {groupDownloads.map((download, index) => {
+                        const percent =
+                          download.progressTotal > 0
+                            ? Math.round(
+                                (download.progressCurrent /
+                                  download.progressTotal) *
+                                  100,
+                              )
+                            : 0;
+                        const { speed, eta } = getDownloadStats(download);
+                        const chapterDisplay = formatChapterDisplay(download);
+                        const isSelected = selectedIds.has(download.id);
+                        const frozen = isFrozen(download);
 
-                      return (
-                        <Box
-                          key={download.id}
-                          className={`rounded border ${
-                            isSelected ? "border-blue-500 bg-blue-50 dark:bg-blue-950" : "border-border bg-background"
-                          } p-2 cursor-pointer hover:bg-muted/50 transition-colors`}
-                          onClick={(e) => handleSelect(download.id, index, e)}
-                        >
-                          <Group gap="xs" wrap="nowrap">
-                            <Checkbox
-                              checked={isSelected}
-                              onChange={() => {}}
-                              onClick={(e) => e.stopPropagation()}
-                            />
+                        return (
+                          <Box
+                            key={download.id}
+                            className={`rounded border ${
+                              isSelected
+                                ? "border-blue-500 bg-blue-50 dark:bg-blue-950"
+                                : "border-border bg-background"
+                            } p-2 cursor-pointer hover:bg-muted/50 transition-colors`}
+                            onClick={(e) => handleSelect(download.id, index, e)}
+                          >
+                            <Group gap="xs" wrap="nowrap">
+                              <Checkbox
+                                checked={isSelected}
+                                onChange={() => {}}
+                                onClick={(e) => e.stopPropagation()}
+                              />
 
-                            <Box className="flex-shrink-0" w={40} h={60}>
-                              <div className="w-full h-full bg-muted rounded overflow-hidden">
-                                {/* Placeholder for cover - could fetch from cache */}
-                                <div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground">
-                                  <Download size={16} />
+                              <Box className="flex-shrink-0" w={40} h={60}>
+                                <div className="w-full h-full bg-muted rounded overflow-hidden">
+                                  {/* Placeholder for cover - could fetch from cache */}
+                                  <div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground">
+                                    <Download size={16} />
+                                  </div>
                                 </div>
-                              </div>
-                            </Box>
+                              </Box>
 
-                            <Box className="flex-1 min-w-0">
-                              <Text fw={600} size="sm" className="truncate" mb={2}>
-                                {download.mangaTitle || download.mangaSlug}
-                              </Text>
-                              <Text size="xs" c="dimmed" className="truncate" mb={4}>
-                                {chapterDisplay}
-                              </Text>
-
-                              {download.status === "downloading" && (
-                                <Box>
-                                  <Progress
-                                    value={percent}
-                                    size="xs"
-                                    color={frozen ? "yellow" : "cyan"}
-                                    mb={4}
-                                  />
-                                  <Group gap="sm">
-                                    <Text size="xs" c="dimmed">
-                                      {download.progressCurrent} / {download.progressTotal} pages ({percent}%)
-                                    </Text>
-                                    {speed > 0 && (
-                                      <>
-                                        <Text size="xs" c="dimmed">
-                                          {formatSpeed(speed)}
-                                        </Text>
-                                        {eta && (
-                                          <Text size="xs" c="dimmed">
-                                            ETA: {formatETA(eta)}
-                                          </Text>
-                                        )}
-                                      </>
-                                    )}
-                                  </Group>
-                                </Box>
-                              )}
-
-                              {download.status === "failed" && download.errorMessage && (
-                                <Text size="xs" c="red" className="truncate">
-                                  Error: {download.errorMessage}
+                              <Box className="flex-1 min-w-0">
+                                <Text
+                                  fw={600}
+                                  size="sm"
+                                  className="truncate"
+                                  mb={2}
+                                >
+                                  {download.mangaTitle || download.mangaSlug}
                                 </Text>
-                              )}
-                            </Box>
+                                <Text
+                                  size="xs"
+                                  c="dimmed"
+                                  className="truncate"
+                                  mb={4}
+                                >
+                                  {chapterDisplay}
+                                </Text>
 
-                            <Group gap="xs" className="flex-shrink-0">
-                              {getStatusBadge(download)}
+                                {download.status === "downloading" && (
+                                  <Box>
+                                    <Progress
+                                      value={percent}
+                                      size="xs"
+                                      color={frozen ? "yellow" : "cyan"}
+                                      mb={4}
+                                    />
+                                    <Group gap="sm">
+                                      <Text size="xs" c="dimmed">
+                                        {download.progressCurrent} /{" "}
+                                        {download.progressTotal} pages (
+                                        {percent}%)
+                                      </Text>
+                                      {speed > 0 && (
+                                        <>
+                                          <Text size="xs" c="dimmed">
+                                            {formatSpeed(speed)}
+                                          </Text>
+                                          {eta && (
+                                            <Text size="xs" c="dimmed">
+                                              ETA: {formatETA(eta)}
+                                            </Text>
+                                          )}
+                                        </>
+                                      )}
+                                    </Group>
+                                  </Box>
+                                )}
 
-                              {(download.status === "queued" || download.status === "failed" || frozen) && (
-                                <Tooltip label="Cancel">
-                                  <ActionIcon
-                                    size="sm"
-                                    variant="subtle"
-                                    color="red"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleCancel(download.id);
-                                    }}
-                                  >
-                                    <X size={16} />
-                                  </ActionIcon>
-                                </Tooltip>
-                              )}
+                                {download.status === "failed" &&
+                                  download.errorMessage && (
+                                    <Text
+                                      size="xs"
+                                      c="red"
+                                      className="truncate"
+                                    >
+                                      Error: {download.errorMessage}
+                                    </Text>
+                                  )}
+                              </Box>
 
-                              {frozen && (
-                                <Tooltip label="Retry">
-                                  <ActionIcon
-                                    size="sm"
-                                    variant="subtle"
-                                    color="yellow"
-                                    onClick={async (e) => {
-                                      e.stopPropagation();
-                                      try {
-                                        await retryOfflineDownload(download.id);
-                                        console.log("Retrying download:", download.id);
-                                      } catch (error) {
-                                        console.error("Failed to retry download:", error);
-                                      }
-                                    }}
-                                  >
-                                    <RotateCw size={16} />
-                                  </ActionIcon>
-                                </Tooltip>
-                              )}
+                              <Group gap="xs" className="flex-shrink-0">
+                                {getStatusBadge(download)}
+
+                                {(download.status === "queued" ||
+                                  download.status === "failed" ||
+                                  frozen) && (
+                                  <Tooltip label="Cancel">
+                                    <ActionIcon
+                                      size="sm"
+                                      variant="subtle"
+                                      color="red"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleCancel(download.id);
+                                      }}
+                                    >
+                                      <X size={16} />
+                                    </ActionIcon>
+                                  </Tooltip>
+                                )}
+
+                                {frozen && (
+                                  <Tooltip label="Retry">
+                                    <ActionIcon
+                                      size="sm"
+                                      variant="subtle"
+                                      color="yellow"
+                                      onClick={async (e) => {
+                                        e.stopPropagation();
+                                        try {
+                                          await retryOfflineDownload(
+                                            download.id,
+                                          );
+                                          console.log(
+                                            "Retrying download:",
+                                            download.id,
+                                          );
+                                        } catch (error) {
+                                          console.error(
+                                            "Failed to retry download:",
+                                            error,
+                                          );
+                                        }
+                                      }}
+                                    >
+                                      <RotateCw size={16} />
+                                    </ActionIcon>
+                                  </Tooltip>
+                                )}
+                              </Group>
                             </Group>
-                          </Group>
-                        </Box>
-                      );
-                    })}
-                  </Stack>
-                </Box>
-              ))}
+                          </Box>
+                        );
+                      })}
+                    </Stack>
+                  </Box>
+                ),
+              )}
             </Stack>
           )}
         </Tabs.Panel>
@@ -631,7 +710,10 @@ export default function DownloadsPage() {
 
           {history.length === 0 ? (
             <Box ta="center" py="xl">
-              <History size={48} className="mx-auto mb-4 text-muted-foreground" />
+              <History
+                size={48}
+                className="mx-auto mb-4 text-muted-foreground"
+              />
               <Text c="dimmed" size="lg" mb="xs">
                 No download history
               </Text>
@@ -644,7 +726,9 @@ export default function DownloadsPage() {
               {history.map((item) => {
                 const percent =
                   item.progressTotal > 0
-                    ? Math.round((item.progressCurrent / item.progressTotal) * 100)
+                    ? Math.round(
+                        (item.progressCurrent / item.progressTotal) * 100,
+                      )
                     : 0;
 
                 let chapterDisplay = "Full manga";
@@ -662,10 +746,15 @@ export default function DownloadsPage() {
 
                 const completedDate = new Date(item.completedAt);
                 const formattedDate =
-                  completedDate.toLocaleDateString() + " " + completedDate.toLocaleTimeString();
+                  completedDate.toLocaleDateString() +
+                  " " +
+                  completedDate.toLocaleTimeString();
 
                 return (
-                  <Box key={item.id} className="rounded border border-border bg-background p-3">
+                  <Box
+                    key={item.id}
+                    className="rounded border border-border bg-background p-3"
+                  >
                     <Group justify="space-between" wrap="nowrap">
                       <Box className="flex-1 min-w-0">
                         <Text fw={600} size="sm" className="truncate" mb={2}>
@@ -679,7 +768,8 @@ export default function DownloadsPage() {
                         </Text>
                         {item.status === "completed" && (
                           <Text size="xs" c="green" mt={4}>
-                            ✓ {item.progressCurrent} / {item.progressTotal} pages ({percent}%)
+                            ✓ {item.progressCurrent} / {item.progressTotal}{" "}
+                            pages ({percent}%)
                           </Text>
                         )}
                         {item.status === "failed" && item.errorMessage && (

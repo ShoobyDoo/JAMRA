@@ -41,7 +41,10 @@ export default function LibraryPage() {
     setFilters({ searchQuery: query || undefined });
   };
 
-  const handleSortChange = (newSortBy: LibrarySortOption, order: "asc" | "desc") => {
+  const handleSortChange = (
+    newSortBy: LibrarySortOption,
+    order: "asc" | "desc",
+  ) => {
     setSortBy(newSortBy, order);
   };
 

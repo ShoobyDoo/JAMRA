@@ -74,7 +74,12 @@ export function OfflineDownloadControls() {
         </Badge>
 
         {hasActiveDownloads && (
-          <Badge variant="light" color="blue" size="lg" className="animate-pulse">
+          <Badge
+            variant="light"
+            color="blue"
+            size="lg"
+            className="animate-pulse"
+          >
             {offline.queueItems.length} downloading
           </Badge>
         )}
@@ -88,7 +93,9 @@ export function OfflineDownloadControls() {
           loading={offline.queueingManga || hasActiveDownloads}
           onClick={handleDownloadMissing}
         >
-          {downloadedCount === 0 ? "Download All" : `Download ${remainingChapters} More`}
+          {downloadedCount === 0
+            ? "Download All"
+            : `Download ${remainingChapters} More`}
         </Button>
       )}
     </div>

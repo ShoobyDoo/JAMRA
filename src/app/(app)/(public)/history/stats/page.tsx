@@ -3,7 +3,13 @@
 import { useEffect } from "react";
 import { useHistory } from "@/store/history";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { BookOpen, Library, TrendingUp, Star } from "lucide-react";
 import Link from "next/link";
 
@@ -19,7 +25,9 @@ export default function HistoryStatsPage() {
       <div className="space-y-4 p-6">
         <h1 className="text-2xl font-semibold">Reading Statistics</h1>
         <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4">
-          <p className="text-destructive font-medium">Failed to load statistics</p>
+          <p className="text-destructive font-medium">
+            Failed to load statistics
+          </p>
           <p className="text-sm text-muted-foreground mt-1">{error}</p>
         </div>
       </div>
@@ -56,7 +64,9 @@ export default function HistoryStatsPage() {
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Entries</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Total Entries
+              </CardTitle>
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -69,7 +79,9 @@ export default function HistoryStatsPage() {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Chapters Read</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Chapters Read
+              </CardTitle>
               <BookOpen className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -82,7 +94,9 @@ export default function HistoryStatsPage() {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Manga Started</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Manga Started
+              </CardTitle>
               <Star className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -95,7 +109,9 @@ export default function HistoryStatsPage() {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Library Additions</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Library Additions
+              </CardTitle>
               <Library className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -119,7 +135,8 @@ export default function HistoryStatsPage() {
             <div className="space-y-4">
               {Object.entries(stats.actionCounts).map(([action, count]) => {
                 const total = stats.totalEntries;
-                const percentage = total > 0 ? Math.round((count / total) * 100) : 0;
+                const percentage =
+                  total > 0 ? Math.round((count / total) * 100) : 0;
 
                 return (
                   <div key={action} className="space-y-2">
@@ -150,7 +167,9 @@ export default function HistoryStatsPage() {
         <Card>
           <CardHeader>
             <CardTitle>Most Read Manga</CardTitle>
-            <CardDescription>Your top 10 most frequently read titles</CardDescription>
+            <CardDescription>
+              Your top 10 most frequently read titles
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">

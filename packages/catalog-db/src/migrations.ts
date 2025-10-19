@@ -208,9 +208,7 @@ const MIGRATIONS: Migration[] = [
     id: 7,
     up: (db) => {
       // Add series_name column to manga table for WeebCentral caching
-      const columns = db
-        .prepare(`PRAGMA table_info(manga)`)
-        .all() as Array<{
+      const columns = db.prepare(`PRAGMA table_info(manga)`).all() as Array<{
         name: string;
       }>;
       const existing = new Set(columns.map((column) => column.name));
@@ -229,9 +227,7 @@ const MIGRATIONS: Migration[] = [
   {
     id: 8,
     up: (db) => {
-      const columns = db
-        .prepare(`PRAGMA table_info(manga)`)
-        .all() as Array<{
+      const columns = db.prepare(`PRAGMA table_info(manga)`).all() as Array<{
         name: string;
       }>;
       const existing = new Set(columns.map((column) => column.name));
@@ -264,9 +260,7 @@ const MIGRATIONS: Migration[] = [
   {
     id: 9,
     up: (db) => {
-      const columns = db
-        .prepare(`PRAGMA table_info(manga)`)
-        .all() as Array<{
+      const columns = db.prepare(`PRAGMA table_info(manga)`).all() as Array<{
         name: string;
       }>;
       const existing = new Set(columns.map((column) => column.name));

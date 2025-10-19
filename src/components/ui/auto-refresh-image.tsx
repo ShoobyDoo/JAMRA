@@ -44,7 +44,7 @@ function writeWorkingUrlCache(cache: WorkingUrlCache) {
 function getWorkingUrlFromCache(
   mangaId: string,
   extensionId: string | undefined,
-  ttlMs: number
+  ttlMs: number,
 ): string | null {
   if (typeof window === "undefined") return null;
   const cache = readWorkingUrlCache();
@@ -64,7 +64,7 @@ function getWorkingUrlFromCache(
 function setWorkingUrlInCache(
   mangaId: string,
   extensionId: string | undefined,
-  url: string
+  url: string,
 ): void {
   if (typeof window === "undefined") return;
   const cache = readWorkingUrlCache();
@@ -238,7 +238,7 @@ export function AutoRefreshImage({
   const workingUrlTtlMs = useMemo(
     () =>
       Math.max(1, imageCacheSettings.workingUrlTtlDays) * 24 * 60 * 60 * 1000,
-    [imageCacheSettings.workingUrlTtlDays]
+    [imageCacheSettings.workingUrlTtlDays],
   );
   const workingCacheEnabled = imageCacheSettings.enabled;
 
@@ -263,7 +263,7 @@ export function AutoRefreshImage({
 
   const serializedFallbacks = useMemo(
     () => JSON.stringify(fallbackUrls ?? []),
-    [fallbackUrls]
+    [fallbackUrls],
   );
 
   const { prioritizedUrls, urlsSignature } = useMemo(() => {
@@ -303,7 +303,7 @@ export function AutoRefreshImage({
       const cached = getWorkingUrlFromCache(
         mangaId,
         extensionId,
-        workingUrlTtlMs
+        workingUrlTtlMs,
       );
       if (cached) {
         if (!urls.includes(cached)) {
@@ -372,7 +372,7 @@ export function AutoRefreshImage({
       const cached = getWorkingUrlFromCache(
         mangaId,
         extensionId,
-        workingUrlTtlMs
+        workingUrlTtlMs,
       );
       if (cached === failedUrl) {
         clearWorkingUrlInCache(mangaId, extensionId);
@@ -459,8 +459,8 @@ export function AutoRefreshImage({
   ]);
 
   const memoizedSrc = useMemo(
-    () => currentSrc ? resolveImageSource(currentSrc) : "",
-    [currentSrc]
+    () => (currentSrc ? resolveImageSource(currentSrc) : ""),
+    [currentSrc],
   );
 
   if (showNoCover) {
@@ -468,7 +468,7 @@ export function AutoRefreshImage({
       <div
         className={cn(
           "flex items-center justify-center bg-muted text-muted-foreground/80",
-          imageProps.className
+          imageProps.className,
         )}
         style={{
           width: imageProps.width,
@@ -504,7 +504,7 @@ export function AutoRefreshImage({
         className={cn(
           "will-change-transform transition-transform duration-300",
           isLoading ? "opacity-0" : "opacity-100",
-          imageProps.className
+          imageProps.className,
         )}
       />
     </>

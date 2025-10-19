@@ -38,7 +38,7 @@ export class OfflineStorageManager {
   constructor(
     private readonly dataDir: string,
     private readonly repository: OfflineRepository,
-    private readonly catalogService: CatalogService
+    private readonly catalogService: CatalogService,
   ) {}
 
   // ==========================================================================
@@ -71,22 +71,29 @@ export class OfflineStorageManager {
     extensionId: string,
     mangaId: string,
     chapterId: string,
-    options: DownloadChapterOptions = {}
+    options: DownloadChapterOptions = {},
   ): Promise<number> {
     // Check if already downloaded
     const offlineManga = this.repository.getManga(extensionId, mangaId);
     if (offlineManga) {
       const chapters = this.repository.getChaptersByManga(offlineManga.id);
-      const existingChapter = chapters.find(c => c.chapter_id === chapterId);
+      const existingChapter = chapters.find((c) => c.chapter_id === chapterId);
       if (existingChapter) {
         throw new Error("Chapter already downloaded");
       }
     }
 
     // Get manga details to resolve slug and chapter info
-    const mangaDetails = await this.catalogService.syncManga(extensionId, mangaId);
-    const mangaSlug = sanitizeSlug(mangaDetails.details.slug || mangaDetails.details.title);
-    const chapter = mangaDetails.details.chapters?.find(c => c.id === chapterId);
+    const mangaDetails = await this.catalogService.syncManga(
+      extensionId,
+      mangaId,
+    );
+    const mangaSlug = sanitizeSlug(
+      mangaDetails.details.slug || mangaDetails.details.title,
+    );
+    const chapter = mangaDetails.details.chapters?.find(
+      (c) => c.id === chapterId,
+    );
 
     const queueId = this.repository.queueDownload({
       extension_id: extensionId,
@@ -115,15 +122,18 @@ export class OfflineStorageManager {
   async queueMangaDownload(
     extensionId: string,
     mangaId: string,
-    options: DownloadMangaOptions = {}
+    options: DownloadMangaOptions = {},
   ): Promise<number[]> {
     // Get manga details with chapters
-    const mangaDetails = await this.catalogService.syncManga(extensionId, mangaId);
+    const mangaDetails = await this.catalogService.syncManga(
+      extensionId,
+      mangaId,
+    );
     const chapters = mangaDetails.details.chapters || [];
 
     // Filter chapters if specific ones are requested
     const chaptersToDownload = options.chapterIds
-      ? chapters.filter(c => options.chapterIds!.includes(c.id))
+      ? chapters.filter((c) => options.chapterIds!.includes(c.id))
       : chapters;
 
     // Queue each chapter
@@ -134,12 +144,15 @@ export class OfflineStorageManager {
           extensionId,
           mangaId,
           chapter.id,
-          { priority: options.priority }
+          { priority: options.priority },
         );
         queueIds.push(queueId);
       } catch (error) {
         // Skip if chapter already downloaded
-        if (error instanceof Error && error.message.includes("already downloaded")) {
+        if (
+          error instanceof Error &&
+          error.message.includes("already downloaded")
+        ) {
           continue;
         }
         throw error;
@@ -208,8 +221,9 @@ export class OfflineStorageManager {
         // Consider frozen if downloading for 30+ seconds with no progress or very slow progress
         const isFrozen =
           (timeSinceStart > frozenThreshold && item.progressCurrent === 0) ||
-          (timeSinceStart > 120000 && item.progressTotal > 0 &&
-           (item.progressCurrent / item.progressTotal) < 0.1);
+          (timeSinceStart > 120000 &&
+            item.progressTotal > 0 &&
+            item.progressCurrent / item.progressTotal < 0.1);
 
         if (isFrozen) {
           this.repository.updateQueueStatus(item.id, "queued", undefined);
@@ -245,7 +259,9 @@ export class OfflineStorageManager {
   /**
    * Gets download history
    */
-  async getDownloadHistory(limit?: number): Promise<import("./types.js").DownloadHistoryItem[]> {
+  async getDownloadHistory(
+    limit?: number,
+  ): Promise<import("./types.js").DownloadHistoryItem[]> {
     return this.repository.getDownloadHistory(limit);
   }
 
@@ -273,7 +289,7 @@ export class OfflineStorageManager {
   async isChapterDownloaded(
     extensionId: string,
     mangaId: string,
-    chapterId: string
+    chapterId: string,
   ): Promise<boolean> {
     const offlineManga = this.repository.getManga(extensionId, mangaId);
     if (!offlineManga) return false;
@@ -285,7 +301,10 @@ export class OfflineStorageManager {
   /**
    * Checks if a manga has any downloaded chapters
    */
-  async isMangaDownloaded(extensionId: string, mangaId: string): Promise<boolean> {
+  async isMangaDownloaded(
+    extensionId: string,
+    mangaId: string,
+  ): Promise<boolean> {
     const offlineManga = this.repository.getManga(extensionId, mangaId);
     if (!offlineManga) return false;
 
@@ -302,11 +321,20 @@ export class OfflineStorageManager {
 
     for (const row of mangaRows) {
       try {
-        const paths = buildMangaPaths(this.dataDir, row.extension_id, row.manga_slug);
-        const metadata = await readJSON<OfflineMangaMetadata>(paths.metadataFile);
+        const paths = buildMangaPaths(
+          this.dataDir,
+          row.extension_id,
+          row.manga_slug,
+        );
+        const metadata = await readJSON<OfflineMangaMetadata>(
+          paths.metadataFile,
+        );
         result.push(metadata);
       } catch (error) {
-        console.error(`Failed to read metadata for manga ${row.manga_id}:`, error);
+        console.error(
+          `Failed to read metadata for manga ${row.manga_id}:`,
+          error,
+        );
       }
     }
 
@@ -318,13 +346,17 @@ export class OfflineStorageManager {
    */
   async getMangaMetadata(
     extensionId: string,
-    mangaId: string
+    mangaId: string,
   ): Promise<OfflineMangaMetadata | null> {
     const offlineManga = this.repository.getManga(extensionId, mangaId);
     if (!offlineManga) return null;
 
     try {
-      const paths = buildMangaPaths(this.dataDir, extensionId, offlineManga.manga_slug);
+      const paths = buildMangaPaths(
+        this.dataDir,
+        extensionId,
+        offlineManga.manga_slug,
+      );
       return await readJSON<OfflineMangaMetadata>(paths.metadataFile);
     } catch {
       return null;
@@ -336,7 +368,7 @@ export class OfflineStorageManager {
    */
   async getDownloadedChapters(
     extensionId: string,
-    mangaId: string
+    mangaId: string,
   ): Promise<OfflineChapterMetadata[]> {
     const metadata = await this.getMangaMetadata(extensionId, mangaId);
     return metadata?.chapters || [];
@@ -348,12 +380,12 @@ export class OfflineStorageManager {
   async getChapterPages(
     extensionId: string,
     mangaId: string,
-    chapterId: string
+    chapterId: string,
   ): Promise<OfflineChapterPages | null> {
     const metadata = await this.getMangaMetadata(extensionId, mangaId);
     if (!metadata) return null;
 
-    const chapter = metadata.chapters.find(c => c.chapterId === chapterId);
+    const chapter = metadata.chapters.find((c) => c.chapterId === chapterId);
     if (!chapter) return null;
 
     try {
@@ -361,7 +393,7 @@ export class OfflineStorageManager {
         this.dataDir,
         extensionId,
         metadata.slug,
-        chapter.folderName
+        chapter.folderName,
       );
       return await readJSON<OfflineChapterPages>(paths.metadataFile);
     } catch {
@@ -383,12 +415,14 @@ export class OfflineStorageManager {
     try {
       const mangaDetails = await this.catalogService.syncManga(
         item.extensionId,
-        item.mangaId
+        item.mangaId,
       );
       mangaTitle = mangaDetails.details.title;
 
       if (item.chapterId && mangaDetails.details.chapters) {
-        const chapter = mangaDetails.details.chapters.find(c => c.id === item.chapterId);
+        const chapter = mangaDetails.details.chapters.find(
+          (c) => c.id === item.chapterId,
+        );
         if (chapter) {
           chapterTitle = this.formatChapterTitle(chapter);
         }
@@ -397,9 +431,10 @@ export class OfflineStorageManager {
       // Ignore errors, use defaults
     }
 
-    const progressPercent = item.progressTotal > 0
-      ? Math.round((item.progressCurrent / item.progressTotal) * 100)
-      : 0;
+    const progressPercent =
+      item.progressTotal > 0
+        ? Math.round((item.progressCurrent / item.progressTotal) * 100)
+        : 0;
 
     return {
       queueId: item.id,
@@ -429,7 +464,11 @@ export class OfflineStorageManager {
   /**
    * Deletes a downloaded chapter
    */
-  async deleteChapter(extensionId: string, mangaId: string, chapterId: string): Promise<void> {
+  async deleteChapter(
+    extensionId: string,
+    mangaId: string,
+    chapterId: string,
+  ): Promise<void> {
     const offlineManga = this.repository.getManga(extensionId, mangaId);
     if (!offlineManga) {
       throw new Error("Manga not found in offline storage");
@@ -445,7 +484,7 @@ export class OfflineStorageManager {
       this.dataDir,
       extensionId,
       offlineManga.manga_slug,
-      chapter.folder_name
+      chapter.folder_name,
     );
     await deleteDir(paths.chapterDir);
 
@@ -455,20 +494,32 @@ export class OfflineStorageManager {
     // Update manga metadata
     const metadata = await this.getMangaMetadata(extensionId, mangaId);
     if (metadata) {
-      metadata.chapters = metadata.chapters.filter(c => c.chapterId !== chapterId);
+      metadata.chapters = metadata.chapters.filter(
+        (c) => c.chapterId !== chapterId,
+      );
       metadata.lastUpdatedAt = Date.now();
 
-      const mangaPaths = buildMangaPaths(this.dataDir, extensionId, offlineManga.manga_slug);
+      const mangaPaths = buildMangaPaths(
+        this.dataDir,
+        extensionId,
+        offlineManga.manga_slug,
+      );
       await writeJSON(mangaPaths.metadataFile, metadata);
     }
 
     // Recalculate manga size
-    const mangaPaths = buildMangaPaths(this.dataDir, extensionId, offlineManga.manga_slug);
+    const mangaPaths = buildMangaPaths(
+      this.dataDir,
+      extensionId,
+      offlineManga.manga_slug,
+    );
     const newSize = await getDirSize(mangaPaths.mangaDir);
     this.repository.updateMangaSize(extensionId, mangaId, newSize);
 
     // If no chapters left, delete the manga
-    const remainingChapters = this.repository.getChaptersByManga(offlineManga.id);
+    const remainingChapters = this.repository.getChaptersByManga(
+      offlineManga.id,
+    );
     if (remainingChapters.length === 0) {
       await this.deleteManga(extensionId, mangaId);
     }
@@ -486,7 +537,11 @@ export class OfflineStorageManager {
     }
 
     // Delete manga directory
-    const paths = buildMangaPaths(this.dataDir, extensionId, offlineManga.manga_slug);
+    const paths = buildMangaPaths(
+      this.dataDir,
+      extensionId,
+      offlineManga.manga_slug,
+    );
     await deleteDir(paths.mangaDir);
 
     // Remove from database (cascade deletes chapters)
@@ -524,7 +579,10 @@ export class OfflineStorageManager {
   /**
    * Gets storage size for a specific manga
    */
-  async getMangaStorageSize(extensionId: string, mangaId: string): Promise<number> {
+  async getMangaStorageSize(
+    extensionId: string,
+    mangaId: string,
+  ): Promise<number> {
     const offlineManga = this.repository.getManga(extensionId, mangaId);
     if (!offlineManga) return 0;
 
@@ -577,11 +635,15 @@ export class OfflineStorageManager {
   /**
    * Gets the absolute path to a page file
    */
-  getPagePath(mangaId: string, chapterId: string, filename: string): string | null {
+  getPagePath(
+    mangaId: string,
+    chapterId: string,
+    filename: string,
+  ): string | null {
     // This requires looking up the manga and chapter to get the paths
     // Will be used by the API server to serve offline images
     const allManga = this.repository.getAllManga();
-    const offlineManga = allManga.find(m => m.manga_id === mangaId);
+    const offlineManga = allManga.find((m) => m.manga_id === mangaId);
 
     if (!offlineManga) return null;
 
@@ -592,7 +654,7 @@ export class OfflineStorageManager {
       this.dataDir,
       offlineManga.extension_id,
       offlineManga.manga_slug,
-      chapter.folder_name
+      chapter.folder_name,
     );
 
     return `${paths.chapterDir}/${filename}`;

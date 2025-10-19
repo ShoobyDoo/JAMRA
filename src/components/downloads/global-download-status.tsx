@@ -81,8 +81,8 @@ export function GlobalDownloadStatus() {
               prev.map((item) =>
                 item.id === event.queueId
                   ? { ...item, status: "downloading" as const }
-                  : item
-              )
+                  : item,
+              ),
             );
           }
           break;
@@ -99,8 +99,8 @@ export function GlobalDownloadStatus() {
                         event.progressCurrent ?? item.progressCurrent,
                       progressTotal: event.progressTotal ?? item.progressTotal,
                     }
-                  : item
-              )
+                  : item,
+              ),
             );
           }
           break;
@@ -108,7 +108,7 @@ export function GlobalDownloadStatus() {
         case "download-completed":
           if (event.queueId !== undefined) {
             setDownloads((prev) =>
-              prev.filter((item) => item.id !== event.queueId)
+              prev.filter((item) => item.id !== event.queueId),
             );
           }
           break;
@@ -123,8 +123,8 @@ export function GlobalDownloadStatus() {
                       status: "failed" as const,
                       errorMessage: event.error,
                     }
-                  : item
-              )
+                  : item,
+              ),
             );
           }
           break;
@@ -144,7 +144,7 @@ export function GlobalDownloadStatus() {
       acc[download.mangaId].downloads.push(download);
       return acc;
     },
-    {} as DownloadsByManga
+    {} as DownloadsByManga,
   );
 
   const handleCancel = async (queueId: number) => {
@@ -203,7 +203,7 @@ export function GlobalDownloadStatus() {
                           ? Math.round(
                               (download.progressCurrent /
                                 download.progressTotal) *
-                                100
+                                100,
                             )
                           : 0;
 
@@ -227,7 +227,7 @@ export function GlobalDownloadStatus() {
                           key={download.id}
                           className={cn(
                             "rounded border border-border bg-background/50 p-2",
-                            DOWNLOAD_CLASSES.itemContainer
+                            DOWNLOAD_CLASSES.itemContainer,
                           )}
                         >
                           <div className={DOWNLOAD_CLASSES.itemHeader}>
@@ -289,7 +289,7 @@ export function GlobalDownloadStatus() {
                     })}
                   </Box>
                 </Box>
-              )
+              ),
             )}
           </Box>
         </ScrollArea.Autosize>
@@ -320,7 +320,7 @@ export function GlobalDownloadStatus() {
               onClick={() => setPopoverOpened(!popoverOpened)}
               className={cn(
                 "flex w-full items-center gap-2 p-3 hover:bg-muted/50 transition-colors relative",
-                "justify-center"
+                "justify-center",
               )}
               aria-label={`Downloads (${downloads.length} active)`}
             >
@@ -352,7 +352,7 @@ export function GlobalDownloadStatus() {
       <button
         onClick={() => setExpanded(!expanded)}
         className={cn(
-          "flex w-full items-center gap-2 p-3 hover:bg-muted/50 transition-colors"
+          "flex w-full items-center gap-2 p-3 hover:bg-muted/50 transition-colors",
         )}
       >
         <Download size={18} className="flex-shrink-0" />

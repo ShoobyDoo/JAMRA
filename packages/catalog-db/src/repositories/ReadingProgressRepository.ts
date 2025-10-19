@@ -49,26 +49,30 @@ export class ReadingProgressRepository {
   getReadingProgress(
     mangaId: string,
     chapterId: string,
-  ): {
-    mangaId: string;
-    chapterId: string;
-    currentPage: number;
-    totalPages: number;
-    scrollPosition: number | null;
-    lastReadAt: number;
-  } | undefined {
+  ):
+    | {
+        mangaId: string;
+        chapterId: string;
+        currentPage: number;
+        totalPages: number;
+        scrollPosition: number | null;
+        lastReadAt: number;
+      }
+    | undefined {
     const row = this.db
       .prepare(
         "SELECT * FROM reading_progress WHERE manga_id = ? AND chapter_id = ?",
       )
-      .get(mangaId, chapterId) as {
-      manga_id: string;
-      chapter_id: string;
-      current_page: number;
-      total_pages: number;
-      scroll_position: number | null;
-      last_read_at: number;
-    } | undefined;
+      .get(mangaId, chapterId) as
+      | {
+          manga_id: string;
+          chapter_id: string;
+          current_page: number;
+          total_pages: number;
+          scroll_position: number | null;
+          last_read_at: number;
+        }
+      | undefined;
 
     if (!row) return undefined;
 

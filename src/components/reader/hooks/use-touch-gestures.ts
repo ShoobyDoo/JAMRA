@@ -22,7 +22,7 @@ const LONG_PRESS_DELAY = 500; // delay for long press
 
 export function useTouchGestures(
   elementRef: React.RefObject<HTMLElement | null>,
-  callbacks: TouchGestureCallbacks
+  callbacks: TouchGestureCallbacks,
 ) {
   const touchStart = useRef<TouchPoint | null>(null);
   const touchEnd = useRef<TouchPoint | null>(null);
@@ -49,7 +49,7 @@ export function useTouchGestures(
         }, LONG_PRESS_DELAY);
       }
     },
-    [callbacks]
+    [callbacks],
   );
 
   const handleTouchMove = useCallback(() => {
@@ -122,7 +122,7 @@ export function useTouchGestures(
       touchStart.current = null;
       touchEnd.current = null;
     },
-    [callbacks]
+    [callbacks],
   );
 
   useEffect(() => {

@@ -14,20 +14,20 @@
  * Contains everything needed to rebuild the manga details page offline.
  */
 export interface OfflineMangaMetadata {
-  version: 1;                          // Schema version for future migrations
-  downloadedAt: number;                // Unix timestamp (ms)
-  lastUpdatedAt: number;               // Unix timestamp (ms)
+  version: 1; // Schema version for future migrations
+  downloadedAt: number; // Unix timestamp (ms)
+  lastUpdatedAt: number; // Unix timestamp (ms)
 
   // Manga identification
-  mangaId: string;                     // Stable internal ID
-  slug: string;                        // URL slug
-  extensionId: string;                 // Source extension
+  mangaId: string; // Stable internal ID
+  slug: string; // URL slug
+  extensionId: string; // Source extension
 
   // Manga details
   title: string;
   description?: string;
-  coverUrl?: string;                   // Original URL (for reference)
-  coverPath: string;                   // Relative path: "cover.jpg"
+  coverUrl?: string; // Original URL (for reference)
+  coverPath: string; // Relative path: "cover.jpg"
   authors?: string[];
   artists?: string[];
   genres?: string[];
@@ -46,21 +46,21 @@ export interface OfflineMangaMetadata {
  * Chapter metadata within manga metadata
  */
 export interface OfflineChapterMetadata {
-  chapterId: string;                   // Stable internal ID
-  slug: string;                        // URL slug
-  number?: string;                     // "1", "1.5", etc.
-  title?: string;                      // Chapter title: "Into the Fray!"
-  displayTitle: string;                // Computed: "Chapter 1 - Into the Fray!" or "Chapter 1"
+  chapterId: string; // Stable internal ID
+  slug: string; // URL slug
+  number?: string; // "1", "1.5", etc.
+  title?: string; // Chapter title: "Into the Fray!"
+  displayTitle: string; // Computed: "Chapter 1 - Into the Fray!" or "Chapter 1"
   volume?: string;
   publishedAt?: string;
   languageCode?: string;
   scanlators?: string[];
 
   // Storage info
-  folderName: string;                  // "chapter-0001"
+  folderName: string; // "chapter-0001"
   totalPages: number;
-  downloadedAt: number;                // Unix timestamp (ms)
-  sizeBytes: number;                   // Total size of all pages
+  downloadedAt: number; // Unix timestamp (ms)
+  sizeBytes: number; // Total size of all pages
 }
 
 /**
@@ -69,11 +69,11 @@ export interface OfflineChapterMetadata {
  */
 export interface OfflineChapterPages {
   version: 1;
-  downloadedAt: number;                // Unix timestamp (ms)
+  downloadedAt: number; // Unix timestamp (ms)
 
   chapterId: string;
   mangaId: string;
-  folderName: string;                  // "chapter-0001"
+  folderName: string; // "chapter-0001"
 
   pages: OfflinePageMetadata[];
 }
@@ -82,13 +82,13 @@ export interface OfflineChapterPages {
  * Individual page metadata
  */
 export interface OfflinePageMetadata {
-  index: number;                       // 0-indexed page number
-  originalUrl: string;                 // Original source URL
-  filename: string;                    // "page-0001.jpg"
+  index: number; // 0-indexed page number
+  originalUrl: string; // Original source URL
+  filename: string; // "page-0001.jpg"
   width?: number;
   height?: number;
   sizeBytes: number;
-  mimeType: string;                    // "image/jpeg", "image/png", etc.
+  mimeType: string; // "image/jpeg", "image/png", etc.
 }
 
 // ============================================================================
@@ -98,28 +98,33 @@ export interface OfflinePageMetadata {
 /**
  * Download queue status
  */
-export type DownloadStatus = "queued" | "downloading" | "completed" | "failed" | "paused";
+export type DownloadStatus =
+  | "queued"
+  | "downloading"
+  | "completed"
+  | "failed"
+  | "paused";
 
 /**
  * Queued download item
  */
 export interface QueuedDownload {
-  id: number;                          // Queue item ID
+  id: number; // Queue item ID
   extensionId: string;
   mangaId: string;
   mangaSlug: string;
-  mangaTitle?: string;                 // Manga title for display
-  chapterId?: string;                  // Undefined = download all chapters
-  chapterNumber?: string;              // Chapter number for display
-  chapterTitle?: string;               // Chapter title for display
+  mangaTitle?: string; // Manga title for display
+  chapterId?: string; // Undefined = download all chapters
+  chapterNumber?: string; // Chapter number for display
+  chapterTitle?: string; // Chapter title for display
   status: DownloadStatus;
-  priority: number;                    // Higher = more important
-  queuedAt: number;                    // Unix timestamp (ms)
-  startedAt?: number;                  // Unix timestamp (ms)
-  completedAt?: number;                // Unix timestamp (ms)
+  priority: number; // Higher = more important
+  queuedAt: number; // Unix timestamp (ms)
+  startedAt?: number; // Unix timestamp (ms)
+  completedAt?: number; // Unix timestamp (ms)
   errorMessage?: string;
-  progressCurrent: number;             // Pages downloaded
-  progressTotal: number;               // Total pages to download
+  progressCurrent: number; // Pages downloaded
+  progressTotal: number; // Total pages to download
 }
 
 /**
@@ -132,7 +137,7 @@ export interface DownloadProgress {
   status: DownloadStatus;
   progressCurrent: number;
   progressTotal: number;
-  progressPercent: number;             // 0-100
+  progressPercent: number; // 0-100
   downloadedBytes: number;
   totalBytes: number;
   speedBytesPerSecond?: number;
@@ -152,7 +157,7 @@ export interface StorageStats {
   mangaCount: number;
   chapterCount: number;
   pageCount: number;
-  byExtension: Record<string, number>;     // extensionId -> bytes
+  byExtension: Record<string, number>; // extensionId -> bytes
   byManga: MangaStorageInfo[];
 }
 
@@ -179,10 +184,10 @@ export interface MangaStorageInfo {
  * Storage cleanup policy
  */
 export interface CleanupPolicy {
-  maxStorageBytes?: number;            // Delete oldest when exceeded
-  maxAgeUnreadDays?: number;           // Delete unread chapters older than X days
-  keepReadChapters?: boolean;          // Never delete read chapters
-  keepFavorites?: boolean;             // Never delete favorited manga
+  maxStorageBytes?: number; // Delete oldest when exceeded
+  maxAgeUnreadDays?: number; // Delete unread chapters older than X days
+  keepReadChapters?: boolean; // Never delete read chapters
+  keepFavorites?: boolean; // Never delete favorited manga
 }
 
 // ============================================================================
@@ -193,17 +198,17 @@ export interface CleanupPolicy {
  * Options for queueing manga download
  */
 export interface DownloadMangaOptions {
-  chapterIds?: string[];               // Download specific chapters, or all if undefined
-  priority?: number;                   // Queue priority (default: 0)
-  imageQuality?: "original" | "high" | "medium";  // Future: image compression
+  chapterIds?: string[]; // Download specific chapters, or all if undefined
+  priority?: number; // Queue priority (default: 0)
+  imageQuality?: "original" | "high" | "medium"; // Future: image compression
 }
 
 /**
  * Options for queueing chapter download
  */
 export interface DownloadChapterOptions {
-  priority?: number;                   // Queue priority (default: 0)
-  imageQuality?: "original" | "high" | "medium";  // Future: image compression
+  priority?: number; // Queue priority (default: 0)
+  imageQuality?: "original" | "high" | "medium"; // Future: image compression
 }
 
 // ============================================================================
@@ -214,14 +219,14 @@ export interface DownloadChapterOptions {
  * Resolved file system paths for offline content
  */
 export interface OfflinePaths {
-  dataDir: string;                     // .jamra-data
-  offlineDir: string;                  // .jamra-data/offline
-  extensionDir: string;                // .jamra-data/offline/{extensionId}
-  mangaDir: string;                    // .jamra-data/offline/{extensionId}/{mangaSlug}
-  chaptersDir: string;                 // .jamra-data/offline/{extensionId}/{mangaSlug}/chapters
-  chapterDir: string;                  // .jamra-data/offline/{extensionId}/{mangaSlug}/chapters/{chapterFolder}
-  metadataFile: string;                // .jamra-data/offline/{extensionId}/{mangaSlug}/metadata.json
-  coverFile: string;                   // .jamra-data/offline/{extensionId}/{mangaSlug}/cover.jpg
+  dataDir: string; // .jamra-data
+  offlineDir: string; // .jamra-data/offline
+  extensionDir: string; // .jamra-data/offline/{extensionId}
+  mangaDir: string; // .jamra-data/offline/{extensionId}/{mangaSlug}
+  chaptersDir: string; // .jamra-data/offline/{extensionId}/{mangaSlug}/chapters
+  chapterDir: string; // .jamra-data/offline/{extensionId}/{mangaSlug}/chapters/{chapterFolder}
+  metadataFile: string; // .jamra-data/offline/{extensionId}/{mangaSlug}/metadata.json
+  coverFile: string; // .jamra-data/offline/{extensionId}/{mangaSlug}/cover.jpg
 }
 
 // ============================================================================
@@ -329,14 +334,46 @@ export interface DownloadHistoryItem {
  * Events emitted by the offline storage system
  */
 export type OfflineStorageEvent =
-  | { type: "download-started"; queueId: number; mangaId: string; chapterId?: string }
-  | { type: "download-progress"; queueId: number; mangaId: string; chapterId?: string; progressCurrent: number; progressTotal: number }
-  | { type: "download-completed"; queueId: number; mangaId: string; chapterId?: string }
-  | { type: "download-failed"; queueId: number; mangaId: string; chapterId?: string; error: string }
-  | { type: "download-retried"; queueId: number; mangaId: string; chapterId?: string }
+  | {
+      type: "download-started";
+      queueId: number;
+      mangaId: string;
+      chapterId?: string;
+    }
+  | {
+      type: "download-progress";
+      queueId: number;
+      mangaId: string;
+      chapterId?: string;
+      progressCurrent: number;
+      progressTotal: number;
+    }
+  | {
+      type: "download-completed";
+      queueId: number;
+      mangaId: string;
+      chapterId?: string;
+    }
+  | {
+      type: "download-failed";
+      queueId: number;
+      mangaId: string;
+      chapterId?: string;
+      error: string;
+    }
+  | {
+      type: "download-retried";
+      queueId: number;
+      mangaId: string;
+      chapterId?: string;
+    }
   | { type: "chapter-deleted"; mangaId: string; chapterId: string }
   | { type: "manga-deleted"; mangaId: string }
-  | { type: "cleanup-performed"; deletedBytes: number; deletedChapters: number };
+  | {
+      type: "cleanup-performed";
+      deletedBytes: number;
+      deletedChapters: number;
+    };
 
 /**
  * Event listener callback

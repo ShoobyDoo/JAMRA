@@ -17,7 +17,9 @@ async function main() {
   await rm(destDir, { recursive: true, force: true });
   await mkdir(destDir, { recursive: true });
   await cp(sourceDir, destDir, { recursive: true });
-  console.log(`Copied catalog-server assets to ${path.relative(repoRoot, destDir)}`);
+  console.log(
+    `Copied catalog-server assets to ${path.relative(repoRoot, destDir)}`,
+  );
 }
 
 main().catch((error) => {

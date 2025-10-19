@@ -6,7 +6,9 @@ import {
 import { logger } from "@/lib/logger";
 import type { MangaDetails, ReadingProgressData } from "@/lib/api";
 
-function buildProgress(overrides: Partial<ReadingProgressData> = {}): ReadingProgressData {
+function buildProgress(
+  overrides: Partial<ReadingProgressData> = {},
+): ReadingProgressData {
   return {
     mangaId: overrides.mangaId ?? "manga-1",
     chapterId: overrides.chapterId ?? "chapter-1",
@@ -46,12 +48,21 @@ export async function runReadingHistoryTests(): Promise<void> {
 
     const enriched = await hydrateProgressWithDetails(data);
 
-    assert.equal(calls.filter((id) => id === "manga-1").length, 1, "manga-1 should be fetched once");
+    assert.equal(
+      calls.filter((id) => id === "manga-1").length,
+      1,
+      "manga-1 should be fetched once",
+    );
     assert.equal(enriched.length, 3);
     const successEntry = enriched.find((entry) => entry.mangaId === "manga-1");
-    assert(successEntry?.manga, "Successful entry should include manga details");
+    assert(
+      successEntry?.manga,
+      "Successful entry should include manga details",
+    );
 
-    const errorEntry = enriched.find((entry) => entry.mangaId === "manga-error");
+    const errorEntry = enriched.find(
+      (entry) => entry.mangaId === "manga-error",
+    );
     assert(errorEntry);
     assert.equal(errorEntry.error, "boom");
     assert.equal(errorEntry.manga, null);

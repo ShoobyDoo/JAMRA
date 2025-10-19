@@ -44,8 +44,12 @@ export default async function HomePage() {
   }
 
   // Separate available and unavailable manga
-  const availableManga = enrichedHistory.filter((item) => !item.error && item.manga);
-  const unavailableManga = enrichedHistory.filter((item) => item.error || !item.manga);
+  const availableManga = enrichedHistory.filter(
+    (item) => !item.error && item.manga,
+  );
+  const unavailableManga = enrichedHistory.filter(
+    (item) => item.error || !item.manga,
+  );
 
   return (
     <div className="space-y-8 p-6">
@@ -86,7 +90,8 @@ export default async function HomePage() {
             </h2>
             <p className="text-sm text-muted-foreground">
               These manga cannot be loaded because their extensions are disabled
-              or unavailable. Enable the required extensions to continue reading.
+              or unavailable. Enable the required extensions to continue
+              reading.
             </p>
           </div>
 

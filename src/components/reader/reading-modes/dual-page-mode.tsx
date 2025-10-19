@@ -17,8 +17,18 @@ interface DualPageModeProps {
   currentPage: number;
   totalPages: number;
   onPageChange: (pageIndex: number) => void;
-  nextChapter?: { id: string; slug: string; title?: string; number?: string } | null;
-  prevChapter?: { id: string; slug: string; title?: string; number?: string } | null;
+  nextChapter?: {
+    id: string;
+    slug: string;
+    title?: string;
+    number?: string;
+  } | null;
+  prevChapter?: {
+    id: string;
+    slug: string;
+    title?: string;
+    number?: string;
+  } | null;
   mangaId?: string;
   mangaSlug?: string;
   readerControls: ReturnType<typeof useReaderControls>;
@@ -40,7 +50,8 @@ export function DualPageMode({
   onNextPage,
 }: DualPageModeProps) {
   const router = useRouter();
-  const { pageFit, backgroundColor, dualPageGap, readingMode, customWidth } = useReaderSettings();
+  const { pageFit, backgroundColor, dualPageGap, readingMode, customWidth } =
+    useReaderSettings();
   const containerRef = useRef<HTMLDivElement>(null);
   const pagesRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);
@@ -60,7 +71,8 @@ export function DualPageMode({
 
     return {
       left: pages[leftPageIndex] ?? null,
-      right: rightPageIndex < pages.length ? pages[rightPageIndex] ?? null : null,
+      right:
+        rightPageIndex < pages.length ? (pages[rightPageIndex] ?? null) : null,
     };
   };
 
@@ -69,12 +81,16 @@ export function DualPageMode({
   const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!containerRef.current || isDragging.current) return;
 
-    const zone = readerControls.getHotZone(e.clientX, e.clientY, containerRef.current);
+    const zone = readerControls.getHotZone(
+      e.clientX,
+      e.clientY,
+      containerRef.current,
+    );
 
-    if (zone === 'center') {
+    if (zone === "center") {
       // Toggle controls visibility
       readerControls.toggleControls();
-    } else if (zone === 'left') {
+    } else if (zone === "left") {
       // Navigate based on reading direction
       readerControls.hideControls();
       if (isRTL) {
@@ -84,7 +100,7 @@ export function DualPageMode({
         // LTR: left side goes backward
         onPrevPage();
       }
-    } else if (zone === 'right') {
+    } else if (zone === "right") {
       // Navigate based on reading direction
       readerControls.hideControls();
       if (isRTL) {
@@ -157,7 +173,9 @@ export function DualPageMode({
             if (currentPage < totalPages - 1) {
               onPageChange(Math.min(totalPages - 1, currentPage + step));
             } else if (nextChapter && routeSlug) {
-              router.push(`/read/${encodeURIComponent(routeSlug)}/chapter/${encodeURIComponent(nextChapter.slug)}`);
+              router.push(
+                `/read/${encodeURIComponent(routeSlug)}/chapter/${encodeURIComponent(nextChapter.slug)}`,
+              );
             }
           } else if (dragDelta > 0 && currentPage > 0) {
             onPageChange(Math.max(0, currentPage - step));
@@ -168,7 +186,9 @@ export function DualPageMode({
             if (currentPage < totalPages - 1) {
               onPageChange(Math.min(totalPages - 1, currentPage + step));
             } else if (nextChapter && routeSlug) {
-              router.push(`/read/${encodeURIComponent(routeSlug)}/chapter/${encodeURIComponent(nextChapter.slug)}`);
+              router.push(
+                `/read/${encodeURIComponent(routeSlug)}/chapter/${encodeURIComponent(nextChapter.slug)}`,
+              );
             }
           } else if (dragDelta > 0 && currentPage > 0) {
             onPageChange(Math.max(0, currentPage - step));
@@ -193,7 +213,17 @@ export function DualPageMode({
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseup", handleMouseUp);
     };
-  }, [currentPage, totalPages, onPageChange, displayPages.right, nextChapter, routeSlug, router, isRTL, readerControls]);
+  }, [
+    currentPage,
+    totalPages,
+    onPageChange,
+    displayPages.right,
+    nextChapter,
+    routeSlug,
+    router,
+    isRTL,
+    readerControls,
+  ]);
 
   const getImageStyles = (page: typeof displayPages.left) => {
     if (!page) return {};
@@ -250,7 +280,11 @@ export function DualPageMode({
     "dark-gray": "bg-gray-900",
   };
 
-  const renderPage = (page: typeof displayPages.left, key: string, pageIndex: number) => (
+  const renderPage = (
+    page: typeof displayPages.left,
+    key: string,
+    pageIndex: number,
+  ) => (
     <div key={key} className="flex h-full items-center justify-center">
       {page ? (
         <Image
@@ -266,7 +300,9 @@ export function DualPageMode({
       ) : (
         <div className="flex flex-col items-center gap-3 rounded-lg border border-border bg-background/50 backdrop-blur-sm px-6 py-4">
           <Loader2 className="h-6 w-6 animate-spin text-foreground" />
-          <span className="text-xs text-foreground">Loading page {pageIndex + 1}...</span>
+          <span className="text-xs text-foreground">
+            Loading page {pageIndex + 1}...
+          </span>
         </div>
       )}
     </div>
@@ -284,7 +320,9 @@ export function DualPageMode({
       <div className="absolute inset-0 flex pointer-events-none">
         {/* Left edge */}
         <div className="relative flex-1 group">
-          <div className={`absolute left-0 top-1/2 -translate-y-1/2 pl-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200 ${currentPage > 0 || isRTL ? 'block' : 'hidden'}`}>
+          <div
+            className={`absolute left-0 top-1/2 -translate-y-1/2 pl-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200 ${currentPage > 0 || isRTL ? "block" : "hidden"}`}
+          >
             <div className="flex items-center justify-center w-12 h-12 rounded-full bg-black/50 backdrop-blur-sm">
               <ChevronLeft className="h-6 w-6 text-white" />
             </div>
@@ -292,7 +330,9 @@ export function DualPageMode({
         </div>
         {/* Right edge */}
         <div className="relative flex-1 group">
-          <div className={`absolute right-0 top-1/2 -translate-y-1/2 pr-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200 ${currentPage < totalPages - 1 || !isRTL ? 'block' : 'hidden'}`}>
+          <div
+            className={`absolute right-0 top-1/2 -translate-y-1/2 pr-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200 ${currentPage < totalPages - 1 || !isRTL ? "block" : "hidden"}`}
+          >
             <div className="flex items-center justify-center w-12 h-12 rounded-full bg-black/50 backdrop-blur-sm">
               <ChevronRight className="h-6 w-6 text-white" />
             </div>
@@ -306,12 +346,21 @@ export function DualPageMode({
           className={`absolute ${isRTL ? "right-0" : "left-0"} top-0 bottom-0 flex items-center px-6 z-20`}
         >
           <button
-            onClick={() => router.push(`/read/${encodeURIComponent(routeSlug)}/chapter/${encodeURIComponent(prevChapter.slug)}?page=last`)}
+            onClick={() =>
+              router.push(
+                `/read/${encodeURIComponent(routeSlug)}/chapter/${encodeURIComponent(prevChapter.slug)}?page=last`,
+              )
+            }
             className="flex flex-col items-center gap-2 rounded-lg bg-black/80 px-4 py-3 text-white transition hover:bg-black/90"
           >
-            {isRTL ? <ChevronRight className="h-6 w-6" /> : <ChevronLeft className="h-6 w-6" />}
+            {isRTL ? (
+              <ChevronRight className="h-6 w-6" />
+            ) : (
+              <ChevronLeft className="h-6 w-6" />
+            )}
             <span className="text-xs text-center">
-              {prevChapter.title || `Chapter ${prevChapter.number || prevChapter.slug}`}
+              {prevChapter.title ||
+                `Chapter ${prevChapter.number || prevChapter.slug}`}
             </span>
             <span className="text-xs text-white/60">Previous Chapter</span>
           </button>
@@ -325,12 +374,21 @@ export function DualPageMode({
         >
           {nextChapter && routeSlug ? (
             <button
-              onClick={() => router.push(`/read/${encodeURIComponent(routeSlug)}/chapter/${encodeURIComponent(nextChapter.slug)}`)}
+              onClick={() =>
+                router.push(
+                  `/read/${encodeURIComponent(routeSlug)}/chapter/${encodeURIComponent(nextChapter.slug)}`,
+                )
+              }
               className="flex flex-col items-center gap-2 rounded-lg bg-black/80 px-4 py-3 text-white transition hover:bg-black/90"
             >
-              {isRTL ? <ChevronLeft className="h-6 w-6" /> : <ChevronRight className="h-6 w-6" />}
+              {isRTL ? (
+                <ChevronLeft className="h-6 w-6" />
+              ) : (
+                <ChevronRight className="h-6 w-6" />
+              )}
               <span className="text-xs text-center">
-                {nextChapter.title || `Chapter ${nextChapter.number || nextChapter.slug}`}
+                {nextChapter.title ||
+                  `Chapter ${nextChapter.number || nextChapter.slug}`}
               </span>
               <span className="text-xs text-white/60">Click to continue</span>
             </button>
@@ -349,15 +407,19 @@ export function DualPageMode({
         className="relative z-10 flex h-full items-center justify-center gap-0 transition-transform"
         style={{
           transform: `translateX(${dragOffset}px)`,
-          transition: dragOffset === 0 ? 'transform 0.2s ease-out' : 'none',
-          cursor: showDragCursor ? 'grabbing' : 'default',
+          transition: dragOffset === 0 ? "transform 0.2s ease-out" : "none",
+          cursor: showDragCursor ? "grabbing" : "default",
         }}
       >
         <div
           className="flex h-full items-center justify-center"
           style={{ paddingRight: displayPages.right ? dualPageGap / 2 : 0 }}
         >
-          {renderPage(displayPages.left, "left", isRTL ? currentPage + 1 : currentPage)}
+          {renderPage(
+            displayPages.left,
+            "left",
+            isRTL ? currentPage + 1 : currentPage,
+          )}
         </div>
 
         {displayPages.right ? (
@@ -365,7 +427,11 @@ export function DualPageMode({
             className="flex h-full items-center justify-center"
             style={{ paddingLeft: dualPageGap / 2 }}
           >
-            {renderPage(displayPages.right, "right", isRTL ? currentPage : currentPage + 1)}
+            {renderPage(
+              displayPages.right,
+              "right",
+              isRTL ? currentPage : currentPage + 1,
+            )}
           </div>
         ) : null}
       </div>

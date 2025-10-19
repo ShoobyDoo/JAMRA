@@ -73,7 +73,9 @@ export type CoverReportInput = z.infer<typeof CoverReportSchema>;
 /**
  * Extension Settings Validation
  */
-export const ExtensionSettingsSchema = z.record(z.string(), z.unknown()).nullable();
+export const ExtensionSettingsSchema = z
+  .record(z.string(), z.unknown())
+  .nullable();
 
 export type ExtensionSettingsInput = z.infer<typeof ExtensionSettingsSchema>;
 
@@ -82,7 +84,10 @@ export type ExtensionSettingsInput = z.infer<typeof ExtensionSettingsSchema>;
  */
 export const CreateLibraryTagSchema = z.object({
   name: z.string().min(1).max(100),
-  color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
+  color: z
+    .string()
+    .regex(/^#[0-9A-Fa-f]{6}$/)
+    .optional(),
 });
 
 export type CreateLibraryTagInput = z.infer<typeof CreateLibraryTagSchema>;

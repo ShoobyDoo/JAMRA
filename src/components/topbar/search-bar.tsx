@@ -132,7 +132,7 @@ export function SearchBar() {
         router.push(`/search?q=${encodeURIComponent(query.trim())}`);
       }
     },
-    [query, router]
+    [query, router],
   );
 
   const handleResultClick = useCallback(
@@ -142,7 +142,7 @@ export function SearchBar() {
       const destination = slugify(manga.slug ?? manga.title) ?? manga.id;
       router.push(`/manga/${encodeURIComponent(destination)}`);
     },
-    [router]
+    [router],
   );
 
   const handleClear = useCallback(() => {

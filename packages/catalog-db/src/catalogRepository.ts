@@ -507,7 +507,7 @@ export class CatalogRepository {
   upsertMangaSummaries(
     extensionId: string,
     items: MangaSummary[],
-    seriesNames?: Map<string, string>
+    seriesNames?: Map<string, string>,
   ): void {
     const stmt = this.db.prepare(`
       INSERT INTO manga (
@@ -556,7 +556,9 @@ export class CatalogRepository {
           alt_titles_json: serialize(item.altTitles),
           description: item.description ?? null,
           cover_url: item.coverUrl ?? null,
-          cover_urls_json: serialize(item.coverUrls ?? (item.coverUrl ? [item.coverUrl] : undefined)),
+          cover_urls_json: serialize(
+            item.coverUrls ?? (item.coverUrl ? [item.coverUrl] : undefined),
+          ),
           status: item.status ?? null,
           tags_json: serialize(item.tags),
           demographic: item.demographic ?? null,
@@ -675,12 +677,14 @@ export class CatalogRepository {
     payload: ChapterPages,
   ): void {
     // Validate payload structure
-    if (!payload || typeof payload !== 'object') {
-      throw new Error('Invalid chapter pages payload: expected object');
+    if (!payload || typeof payload !== "object") {
+      throw new Error("Invalid chapter pages payload: expected object");
     }
 
     if (!payload.pages || !Array.isArray(payload.pages)) {
-      throw new Error(`Invalid chapter pages payload: pages is not iterable (got ${typeof payload.pages})`);
+      throw new Error(
+        `Invalid chapter pages payload: pages is not iterable (got ${typeof payload.pages})`,
+      );
     }
 
     const deleteStmt = this.db.prepare(
@@ -727,7 +731,7 @@ export class CatalogRepository {
     chapterId: string,
     currentPage: number,
     totalPages: number,
-    scrollPosition?: number
+    scrollPosition?: number,
   ): void {
     this.db
       .prepare(
@@ -745,7 +749,7 @@ export class CatalogRepository {
         total_pages = excluded.total_pages,
         scroll_position = excluded.scroll_position,
         last_read_at = excluded.last_read_at;
-    `
+    `,
       )
       .run({
         manga_id: mangaId,
@@ -759,15 +763,17 @@ export class CatalogRepository {
 
   getReadingProgress(
     mangaId: string,
-    chapterId: string
-  ): {
-    mangaId: string;
-    chapterId: string;
-    currentPage: number;
-    totalPages: number;
-    scrollPosition: number;
-    lastReadAt: number;
-  } | undefined {
+    chapterId: string,
+  ):
+    | {
+        mangaId: string;
+        chapterId: string;
+        currentPage: number;
+        totalPages: number;
+        scrollPosition: number;
+        lastReadAt: number;
+      }
+    | undefined {
     const row = this.db
       .prepare(
         `
@@ -780,7 +786,7 @@ export class CatalogRepository {
         last_read_at as lastReadAt
       FROM reading_progress
       WHERE manga_id = @manga_id AND chapter_id = @chapter_id
-    `
+    `,
       )
       .get({
         manga_id: mangaId,
@@ -819,7 +825,7 @@ export class CatalogRepository {
         last_read_at as lastReadAt
       FROM reading_progress
       ORDER BY last_read_at DESC
-    `
+    `,
       )
       .all() as Array<{
       mangaId: string;
@@ -862,7 +868,7 @@ export class CatalogRepository {
       )
       WHERE rn = 1
       ORDER BY lastReadAt DESC
-    `
+    `,
       )
       .all() as Array<{
       mangaId: string;
@@ -874,14 +880,14 @@ export class CatalogRepository {
     }>;
   }
 
-  getMangaWithDetails(
-    mangaId: string
-  ): {
-    extensionId: string;
-    details: MangaDetails;
-    chapters: ChapterSummary[];
-    summaryLastSyncedAt?: number;
-  } | undefined {
+  getMangaWithDetails(mangaId: string):
+    | {
+        extensionId: string;
+        details: MangaDetails;
+        chapters: ChapterSummary[];
+        summaryLastSyncedAt?: number;
+      }
+    | undefined {
     const mangaRow = this.db
       .prepare(
         `
@@ -904,7 +910,7 @@ export class CatalogRepository {
         FROM manga
         WHERE id = @manga_id
         LIMIT 1
-      `
+      `,
       )
       .get({ manga_id: mangaId }) as
       | {
@@ -943,7 +949,7 @@ export class CatalogRepository {
         FROM manga_details
         WHERE manga_id = @manga_id
         LIMIT 1
-      `
+      `,
       )
       .get({ manga_id: mangaId }) as
       | {
@@ -977,7 +983,7 @@ export class CatalogRepository {
           published_at DESC,
           chapter_number DESC,
           id DESC
-      `
+      `,
       )
       .all({ manga_id: mangaId }) as Array<{
       id: string;
@@ -1011,16 +1017,17 @@ export class CatalogRepository {
       languageCode: mangaRow.languageCode ?? undefined,
       updatedAt: mangaRow.updatedAt ?? undefined,
       authors: detailsRow
-        ? deserialize<string[]>(detailsRow.authorsJson) ?? undefined
+        ? (deserialize<string[]>(detailsRow.authorsJson) ?? undefined)
         : undefined,
       artists: detailsRow
-        ? deserialize<string[]>(detailsRow.artistsJson) ?? undefined
+        ? (deserialize<string[]>(detailsRow.artistsJson) ?? undefined)
         : undefined,
       genres: detailsRow
-        ? deserialize<string[]>(detailsRow.genresJson) ?? undefined
+        ? (deserialize<string[]>(detailsRow.genresJson) ?? undefined)
         : undefined,
       links: detailsRow
-        ? deserialize<Record<string, string>>(detailsRow.linksJson) ?? undefined
+        ? (deserialize<Record<string, string>>(detailsRow.linksJson) ??
+          undefined)
         : undefined,
       rating: detailsRow?.rating ?? undefined,
       year: detailsRow?.year ?? undefined,
@@ -1044,13 +1051,16 @@ export class CatalogRepository {
     };
   }
 
-  getMangaCoverUrls(extensionId: string, mangaId: string): string[] | undefined {
+  getMangaCoverUrls(
+    extensionId: string,
+    mangaId: string,
+  ): string[] | undefined {
     const row = this.db
       .prepare(
         `SELECT cover_urls_json as coverUrlsJson
          FROM manga
          WHERE id = @manga_id AND extension_id = @extension_id
-         LIMIT 1`
+         LIMIT 1`,
       )
       .get({ manga_id: mangaId, extension_id: extensionId }) as
       | { coverUrlsJson: string | null }
@@ -1060,12 +1070,16 @@ export class CatalogRepository {
     return deserialize<string[]>(row.coverUrlsJson) ?? undefined;
   }
 
-  updateMangaCoverUrls(extensionId: string, mangaId: string, urls: string[]): void {
+  updateMangaCoverUrls(
+    extensionId: string,
+    mangaId: string,
+    urls: string[],
+  ): void {
     const stmt = this.db.prepare(
       `UPDATE manga
        SET cover_urls_json = @cover_urls_json,
            cover_url = COALESCE(@cover_url, cover_url)
-       WHERE id = @manga_id AND extension_id = @extension_id`
+       WHERE id = @manga_id AND extension_id = @extension_id`,
     );
 
     stmt.run({
@@ -1076,7 +1090,10 @@ export class CatalogRepository {
     });
   }
 
-  getCoverCache(extensionId: string, mangaId: string): CoverCacheRecord | undefined {
+  getCoverCache(
+    extensionId: string,
+    mangaId: string,
+  ): CoverCacheRecord | undefined {
     const row = this.db
       .prepare(
         `SELECT
@@ -1089,9 +1106,11 @@ export class CatalogRepository {
            expires_at as expiresAt
          FROM manga_cover_cache
          WHERE manga_id = @manga_id AND extension_id = @extension_id
-         LIMIT 1`
+         LIMIT 1`,
       )
-      .get({ manga_id: mangaId, extension_id: extensionId }) as RawCoverCacheRow | undefined;
+      .get({ manga_id: mangaId, extension_id: extensionId }) as
+      | RawCoverCacheRow
+      | undefined;
 
     if (!row) return undefined;
 
@@ -1109,7 +1128,7 @@ export class CatalogRepository {
   upsertCoverCache(
     extensionId: string,
     mangaId: string,
-    entry: CoverCacheRecord & { expiresAt?: number | null }
+    entry: CoverCacheRecord & { expiresAt?: number | null },
   ): void {
     const stmt = this.db.prepare(
       `INSERT INTO manga_cover_cache (
@@ -1132,7 +1151,7 @@ export class CatalogRepository {
          metadata_json = excluded.metadata_json,
          updated_at = excluded.updated_at,
          expires_at = excluded.expires_at;
-      `
+      `,
     );
 
     stmt.run({
@@ -1152,7 +1171,7 @@ export class CatalogRepository {
     this.db
       .prepare(
         `DELETE FROM manga_cover_cache
-         WHERE manga_id = @manga_id AND extension_id = @extension_id`
+         WHERE manga_id = @manga_id AND extension_id = @extension_id`,
       )
       .run({ manga_id: mangaId, extension_id: extensionId });
   }
@@ -1179,7 +1198,7 @@ export class CatalogRepository {
            FROM manga_cover_cache
            ORDER BY updated_at ASC
            LIMIT @limit
-         )`
+         )`,
       )
       .run({ limit: toDelete });
   }
@@ -1188,7 +1207,7 @@ export class CatalogRepository {
     const result = this.db
       .prepare(
         `DELETE FROM manga_cover_cache
-         WHERE expires_at IS NOT NULL AND expires_at <= @now`
+         WHERE expires_at IS NOT NULL AND expires_at <= @now`,
       )
       .run({ now: nowTs });
 
@@ -1201,7 +1220,7 @@ export class CatalogRepository {
         `SELECT value
          FROM app_settings
          WHERE key = @key
-         LIMIT 1`
+         LIMIT 1`,
       )
       .get({ key }) as { value: string } | undefined;
 
@@ -1220,7 +1239,7 @@ export class CatalogRepository {
        VALUES (@key, @value, @updated_at)
        ON CONFLICT(key) DO UPDATE SET
          value = excluded.value,
-         updated_at = excluded.updated_at`
+         updated_at = excluded.updated_at`,
     );
 
     stmt.run({
@@ -1232,13 +1251,15 @@ export class CatalogRepository {
 
   getMangaBySlug(
     extensionId: string,
-    slug: string
-  ): {
-    id: string;
-    extensionId: string;
-    slug: string | null;
-    title: string;
-  } | undefined {
+    slug: string,
+  ):
+    | {
+        id: string;
+        extensionId: string;
+        slug: string | null;
+        title: string;
+      }
+    | undefined {
     const lookupSlug = slug.trim().toLowerCase();
 
     const row = this.db
@@ -1253,7 +1274,7 @@ export class CatalogRepository {
       WHERE extension_id = @extension_id
         AND slug = @slug
       LIMIT 1
-    `
+    `,
       )
       .get({
         extension_id: extensionId,
@@ -1277,7 +1298,7 @@ export class CatalogRepository {
       SELECT series_name
       FROM manga
       WHERE id = @manga_id
-    `
+    `,
       )
       .get({ manga_id: mangaId }) as { series_name: string | null } | undefined;
 
@@ -1291,7 +1312,7 @@ export class CatalogRepository {
       UPDATE manga
       SET series_name = @series_name
       WHERE id = @manga_id
-    `
+    `,
       )
       .run({
         manga_id: mangaId,
@@ -1311,7 +1332,7 @@ export class CatalogRepository {
       notes?: string;
       startedAt?: number;
       completedAt?: number;
-    }
+    },
   ): {
     mangaId: string;
     extensionId: string;
@@ -1361,7 +1382,7 @@ export class CatalogRepository {
         updated_at = excluded.updated_at,
         started_at = excluded.started_at,
         completed_at = excluded.completed_at;
-    `
+    `,
       )
       .run({
         manga_id: mangaId,
@@ -1399,10 +1420,13 @@ export class CatalogRepository {
       notes?: string | null;
       startedAt?: number | null;
       completedAt?: number | null;
-    }
+    },
   ): void {
     const fields: string[] = [];
-    const params: Record<string, unknown> = { manga_id: mangaId, updated_at: now() };
+    const params: Record<string, unknown> = {
+      manga_id: mangaId,
+      updated_at: now(),
+    };
 
     if (updates.status !== undefined) {
       fields.push("status = @status");
@@ -1439,7 +1463,7 @@ export class CatalogRepository {
       UPDATE library_entries
       SET ${fields.join(", ")}
       WHERE manga_id = @manga_id
-    `
+    `,
       )
       .run(params);
   }
@@ -1450,18 +1474,20 @@ export class CatalogRepository {
       .run({ manga_id: mangaId });
   }
 
-  getLibraryEntry(mangaId: string): {
-    mangaId: string;
-    extensionId: string;
-    status: string;
-    personalRating: number | null;
-    favorite: boolean;
-    notes: string | null;
-    addedAt: number;
-    updatedAt: number;
-    startedAt: number | null;
-    completedAt: number | null;
-  } | undefined {
+  getLibraryEntry(mangaId: string):
+    | {
+        mangaId: string;
+        extensionId: string;
+        status: string;
+        personalRating: number | null;
+        favorite: boolean;
+        notes: string | null;
+        addedAt: number;
+        updatedAt: number;
+        startedAt: number | null;
+        completedAt: number | null;
+      }
+    | undefined {
     const row = this.db
       .prepare(
         `
@@ -1478,7 +1504,7 @@ export class CatalogRepository {
         completed_at as completedAt
       FROM library_entries
       WHERE manga_id = @manga_id
-    `
+    `,
       )
       .get({ manga_id: mangaId }) as
       | {
@@ -1503,10 +1529,7 @@ export class CatalogRepository {
     };
   }
 
-  getLibraryEntries(filters?: {
-    status?: string;
-    favorite?: boolean;
-  }): Array<{
+  getLibraryEntries(filters?: { status?: string; favorite?: boolean }): Array<{
     mangaId: string;
     extensionId: string;
     status: string;
@@ -1706,12 +1729,14 @@ export class CatalogRepository {
       SELECT status, COUNT(*) as count
       FROM library_entries
       GROUP BY status
-    `
+    `,
       )
       .all() as Array<{ status: string; count: number }>;
 
     const favoritesRow = this.db
-      .prepare("SELECT COUNT(*) as count FROM library_entries WHERE favorite = 1")
+      .prepare(
+        "SELECT COUNT(*) as count FROM library_entries WHERE favorite = 1",
+      )
       .get() as { count: number };
 
     const chaptersRow = this.db
@@ -1720,7 +1745,7 @@ export class CatalogRepository {
       SELECT COUNT(DISTINCT chapter_id) as count
       FROM reading_progress
       WHERE manga_id IN (SELECT manga_id FROM library_entries)
-    `
+    `,
       )
       .get() as { count: number };
 
@@ -1748,7 +1773,10 @@ export class CatalogRepository {
 
   // ==================== Library Tags ====================
 
-  createLibraryTag(name: string, color?: string): {
+  createLibraryTag(
+    name: string,
+    color?: string,
+  ): {
     id: number;
     name: string;
     color: string | null;
@@ -1762,7 +1790,7 @@ export class CatalogRepository {
       ON CONFLICT(name) DO UPDATE SET
         color = excluded.color
       RETURNING id, name, color, created_at as createdAt
-    `
+    `,
       )
       .get({
         name,
@@ -1779,7 +1807,9 @@ export class CatalogRepository {
   }
 
   deleteLibraryTag(tagId: number): void {
-    this.db.prepare("DELETE FROM library_tags WHERE id = @tag_id").run({ tag_id: tagId });
+    this.db
+      .prepare("DELETE FROM library_tags WHERE id = @tag_id")
+      .run({ tag_id: tagId });
   }
 
   getLibraryTags(): Array<{
@@ -1802,7 +1832,7 @@ export class CatalogRepository {
       LEFT JOIN library_entry_tags let ON lt.id = let.tag_id
       GROUP BY lt.id
       ORDER BY lt.name ASC
-    `
+    `,
       )
       .all() as Array<{
       id: number;
@@ -1822,14 +1852,16 @@ export class CatalogRepository {
       INSERT INTO library_entry_tags (manga_id, tag_id)
       VALUES (@manga_id, @tag_id)
       ON CONFLICT DO NOTHING
-    `
+    `,
       )
       .run({ manga_id: mangaId, tag_id: tagId });
   }
 
   removeTagFromLibraryEntry(mangaId: string, tagId: number): void {
     this.db
-      .prepare("DELETE FROM library_entry_tags WHERE manga_id = @manga_id AND tag_id = @tag_id")
+      .prepare(
+        "DELETE FROM library_entry_tags WHERE manga_id = @manga_id AND tag_id = @tag_id",
+      )
       .run({ manga_id: mangaId, tag_id: tagId });
   }
 
@@ -1846,7 +1878,7 @@ export class CatalogRepository {
       INNER JOIN library_entry_tags let ON lt.id = let.tag_id
       WHERE let.manga_id = @manga_id
       ORDER BY lt.name ASC
-    `
+    `,
       )
       .all({ manga_id: mangaId }) as Array<{
       id: number;
@@ -1878,7 +1910,7 @@ export class CatalogRepository {
         extension_id,
         metadata
       ) VALUES (@manga_id, @chapter_id, @action_type, @timestamp, @extension_id, @metadata)
-    `
+    `,
       )
       .run({
         manga_id: entry.mangaId,
@@ -1931,7 +1963,8 @@ export class CatalogRepository {
       params.end_date = options.endDate;
     }
 
-    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+    const whereClause =
+      conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 
     let query = `
       SELECT
@@ -2021,7 +2054,8 @@ export class CatalogRepository {
       params.end_date = options.endDate;
     }
 
-    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+    const whereClause =
+      conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 
     let query = `
       SELECT
@@ -2095,7 +2129,7 @@ export class CatalogRepository {
 
   getHistoryByManga(
     mangaId: string,
-    limit?: number
+    limit?: number,
   ): Array<{
     id: number;
     mangaId: string;
@@ -2124,10 +2158,7 @@ export class CatalogRepository {
     this.db.prepare("DELETE FROM history_entries WHERE id = @id").run({ id });
   }
 
-  getHistoryStats(options?: {
-    startDate?: number;
-    endDate?: number;
-  }): {
+  getHistoryStats(options?: { startDate?: number; endDate?: number }): {
     totalEntries: number;
     chaptersRead: number;
     mangaStarted: number;
@@ -2148,7 +2179,8 @@ export class CatalogRepository {
       params.end_date = options.endDate;
     }
 
-    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+    const whereClause =
+      conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 
     const totalRow = this.db
       .prepare(`SELECT COUNT(*) as count FROM history_entries ${whereClause}`)
@@ -2156,19 +2188,19 @@ export class CatalogRepository {
 
     const chaptersReadRow = this.db
       .prepare(
-        `SELECT COUNT(*) as count FROM history_entries ${whereClause} ${whereClause ? "AND" : "WHERE"} action_type = 'read'`
+        `SELECT COUNT(*) as count FROM history_entries ${whereClause} ${whereClause ? "AND" : "WHERE"} action_type = 'read'`,
       )
       .get(params) as { count: number };
 
     const mangaStartedRow = this.db
       .prepare(
-        `SELECT COUNT(DISTINCT manga_id) as count FROM history_entries ${whereClause} ${whereClause ? "AND" : "WHERE"} action_type = 'read'`
+        `SELECT COUNT(DISTINCT manga_id) as count FROM history_entries ${whereClause} ${whereClause ? "AND" : "WHERE"} action_type = 'read'`,
       )
       .get(params) as { count: number };
 
     const libraryAdditionsRow = this.db
       .prepare(
-        `SELECT COUNT(*) as count FROM history_entries ${whereClause} ${whereClause ? "AND" : "WHERE"} action_type = 'library_add'`
+        `SELECT COUNT(*) as count FROM history_entries ${whereClause} ${whereClause ? "AND" : "WHERE"} action_type = 'library_add'`,
       )
       .get(params) as { count: number };
 
@@ -2180,7 +2212,7 @@ export class CatalogRepository {
       ${whereClause}
       GROUP BY action_type
       ORDER BY count DESC
-    `
+    `,
       )
       .all(params) as Array<{ action_type: string; count: number }>;
 
@@ -2202,9 +2234,13 @@ export class CatalogRepository {
       GROUP BY h.manga_id
       ORDER BY count DESC
       LIMIT 10
-    `
+    `,
       )
-      .all(params) as Array<{ mangaId: string; title: string | null; count: number }>;
+      .all(params) as Array<{
+      mangaId: string;
+      title: string | null;
+      count: number;
+    }>;
 
     return {
       totalEntries: totalRow.count,

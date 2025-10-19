@@ -50,11 +50,7 @@ export function HydrationBoundary({ children }: { children: React.ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [
-    applyServerImageCacheSettings,
-    imageCacheSynced,
-    storesHydrated,
-  ]);
+  }, [applyServerImageCacheSettings, imageCacheSynced, storesHydrated]);
 
   useEffect(() => {
     // Failsafe: if hydration takes too long (>2s), show content anyway

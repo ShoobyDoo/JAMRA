@@ -28,28 +28,28 @@ export function AppLayout({ children }: PropsWithChildren) {
       gridTemplateRows: `${HEADER_HEIGHT}px 1fr`,
       gridTemplateAreas: '"sidebar header" "sidebar content"',
     }),
-    [computedSidebarWidth]
+    [computedSidebarWidth],
   );
 
   const sidebarStyle = useMemo<CSSProperties>(
     () => ({
       gridArea: "sidebar",
     }),
-    []
+    [],
   );
 
   const headerStyle = useMemo<CSSProperties>(
     () => ({
       gridArea: "header",
     }),
-    []
+    [],
   );
 
   const mainStyle = useMemo<CSSProperties>(
     () => ({
       gridArea: "content",
     }),
-    []
+    [],
   );
 
   return (

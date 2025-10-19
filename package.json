@@ -11,6 +11,7 @@
     "pnpm": ">=10"
   },
   "scripts": {
+    "format": "prettier --write .",
     "run": "tsx scripts/run.ts",
     "dev": "pnpm run run bootstrap web",
     "build": "pnpm run run build all",

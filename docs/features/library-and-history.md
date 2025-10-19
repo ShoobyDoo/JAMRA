@@ -7,11 +7,13 @@ This document outlines the implementation plan for the Library and History featu
 ## Current Infrastructure
 
 ### Existing Database Tables
+
 - `reading_progress` - Tracks reading progress for each chapter (manga_id, chapter_id, current_page, total_pages, last_read_at)
 - `offline_manga` - Tracks downloaded manga
 - `offline_chapters` - Tracks downloaded chapters
 
 ### Existing Functionality
+
 - Reading progress is already tracked in `packages/catalog-db/src/catalogRepository.ts`
 - Methods: `saveReadingProgress()`, `getReadingProgress()`, `getAllReadingProgress()`, `getLatestReadingProgressPerManga()`
 - Offline manga tracking in `packages/offline-storage`
@@ -19,7 +21,9 @@ This document outlines the implementation plan for the Library and History featu
 ## Library Feature
 
 ### Purpose
+
 The Library is a curated collection of manga that the user is actively following or interested in. It should include:
+
 - Manga the user is currently reading (has reading progress)
 - Manga the user has downloaded for offline reading
 - Manga the user has manually added to their library
@@ -27,6 +31,7 @@ The Library is a curated collection of manga that the user is actively following
 ### Database Schema
 
 #### New Table: `library`
+
 ```sql
 CREATE TABLE library (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -82,6 +87,7 @@ Response: { success: boolean, affected: number }
 ### Auto-Population Logic
 
 The library should be automatically populated based on:
+
 1. **Reading Progress**: When a user reads a chapter, automatically add to library with status "reading"
 2. **Offline Downloads**: When a user downloads chapters, add to library with appropriate status
 3. **Manual Addition**: User explicitly adds via "Add to Library" button
@@ -89,6 +95,7 @@ The library should be automatically populated based on:
 ### Frontend Components
 
 #### Library Page (`src/app/(app)/library/page.tsx`)
+
 - **Filter Bar**: Filter by status, favorites, offline availability
 - **Sort Options**: Last accessed, title, date added, progress
 - **Grid/List View**: Toggle between compact and detailed views
@@ -96,10 +103,11 @@ The library should be automatically populated based on:
 - **Bulk Selection**: Select multiple manga for bulk operations
 
 #### Library Card Component
+
 ```typescript
 interface LibraryCardProps {
   manga: LibraryManga;
-  view: 'grid' | 'list';
+  view: "grid" | "list";
   onStatusChange: (status: LibraryStatus) => void;
   onFavoriteToggle: () => void;
   onRemove: () => void;
@@ -107,6 +115,7 @@ interface LibraryCardProps {
 ```
 
 Display:
+
 - Cover image
 - Title and alt titles
 - Current chapter / total chapters
@@ -119,11 +128,13 @@ Display:
 ## History Feature
 
 ### Purpose
+
 History tracks all manga the user has viewed or interacted with, providing a chronological record of their activity.
 
 ### Database Schema
 
 #### New Table: `history`
+
 ```sql
 CREATE TABLE history (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -174,6 +185,7 @@ Response: {
 ### Auto-Tracking Logic
 
 History should automatically track:
+
 1. **Manga Views**: When user visits manga details page
 2. **Chapter Reads**: When user reads a chapter (every N pages or on exit)
 3. **Search Activity**: When user searches and clicks on results
@@ -182,6 +194,7 @@ History should automatically track:
 ### Frontend Components
 
 #### History Page (`src/app/(app)/history/page.tsx`)
+
 - **Timeline View**: Chronological list of activities
 - **Filter Options**: By action type (viewed, read, downloaded)
 - **Date Range Picker**: Filter by date range
@@ -189,6 +202,7 @@ History should automatically track:
 - **Pagination**: Infinite scroll or page-based
 
 #### History Item Component
+
 ```typescript
 interface HistoryItemProps {
   entry: HistoryEntry;
@@ -198,6 +212,7 @@ interface HistoryItemProps {
 ```
 
 Display:
+
 - Cover image (small)
 - Title
 - Action description ("Read Chapter 5", "Viewed", "Downloaded 3 chapters")
@@ -207,6 +222,7 @@ Display:
 ## Implementation Phases
 
 ### Phase 1: Database & Backend (Priority: High)
+
 1. Create migration script for new tables
 2. Implement repository methods in `catalog-db`
 3. Create API endpoints in `catalog-server`
@@ -214,6 +230,7 @@ Display:
 5. Write unit tests for repository methods
 
 ### Phase 2: Frontend - Library (Priority: High)
+
 1. Create Library page with grid/list views
 2. Implement filtering and sorting
 3. Create Library card component
@@ -222,6 +239,7 @@ Display:
 6. Add bulk operations support
 
 ### Phase 3: Frontend - History (Priority: Medium)
+
 1. Create History page with timeline view
 2. Implement filtering by action type and date
 3. Create History item component
@@ -229,6 +247,7 @@ Display:
 5. Add "Clear History" functionality
 
 ### Phase 4: Polish & Integration (Priority: Medium)
+
 1. Add library stats to home page (total manga, chapters read, etc.)
 2. Create library widget for sidebar
 3. Add keyboard shortcuts for common actions
@@ -286,17 +305,20 @@ export function down(db: Database) {
 ## Integration with Existing Features
 
 ### Reading Progress Integration
+
 - When `saveReadingProgress()` is called, automatically add/update library entry
 - Update `last_accessed_at` timestamp
 - If user completes a manga (read all chapters), suggest changing status to "completed"
 
 ### Offline Storage Integration
+
 - When manga is downloaded, add to library if not already present
 - Show offline indicator on library cards
 - Filter library by "Downloaded" status
 - Sync library status with offline downloads
 
 ### Continue Reading Integration
+
 - Home page "Continue Reading" widget should pull from library items with status "reading"
 - Sort by `last_accessed_at` to show most recently read first
 - Show progress percentage based on chapters read vs total chapters

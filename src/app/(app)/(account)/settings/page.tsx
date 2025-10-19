@@ -17,7 +17,11 @@ import {
 import { modals } from "@mantine/modals";
 import { notifications } from "@mantine/notifications";
 import { AlertTriangle, RefreshCw, Sidebar } from "lucide-react";
-import { nukeUserData, updateCacheSettings, fetchCacheSettings } from "@/lib/api";
+import {
+  nukeUserData,
+  updateCacheSettings,
+  fetchCacheSettings,
+} from "@/lib/api";
 import { useUIStore, MIN_SIDEBAR_WIDTH, MAX_SIDEBAR_WIDTH } from "@/store/ui";
 import { useSettingsStore } from "@/store/settings";
 
@@ -67,9 +71,10 @@ export default function SettingsPage() {
       return "Caching disabled — covers will always load from the source.";
     }
     const ttlHours = cacheForm.ttlDays * 24;
-    const prettyTtl = ttlHours < 48
-      ? `${Math.max(ttlHours, 1).toFixed(0)} hour${ttlHours >= 2 ? "s" : ""}`
-      : `${cacheForm.ttlDays.toFixed(1)} days`;
+    const prettyTtl =
+      ttlHours < 48
+        ? `${Math.max(ttlHours, 1).toFixed(0)} hour${ttlHours >= 2 ? "s" : ""}`
+        : `${cacheForm.ttlDays.toFixed(1)} days`;
     return `Caching enabled — storing up to ${cacheForm.maxEntries} covers for ${prettyTtl}.`;
   }, [cacheForm]);
 
@@ -187,7 +192,8 @@ export default function SettingsPage() {
                 be gone forever.
               </Text>
               <Text size="sm" fw={600} c="red">
-                Type &quot;DELETE&quot; in your mind and click confirm if you&apos;re certain.
+                Type &quot;DELETE&quot; in your mind and click confirm if
+                you&apos;re certain.
               </Text>
             </Stack>
           ),
@@ -331,7 +337,9 @@ export default function SettingsPage() {
               setCacheForm((prev) => ({
                 ...prev,
                 maxEntries:
-                  typeof value === "number" ? Math.max(0, Math.round(value)) : 0,
+                  typeof value === "number"
+                    ? Math.max(0, Math.round(value))
+                    : 0,
               }))
             }
             min={0}

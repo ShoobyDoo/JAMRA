@@ -1,6 +1,11 @@
 import type Database from "better-sqlite3";
 
-export type LibraryStatus = "reading" | "plan_to_read" | "completed" | "on_hold" | "dropped";
+export type LibraryStatus =
+  | "reading"
+  | "plan_to_read"
+  | "completed"
+  | "on_hold"
+  | "dropped";
 
 export interface LibraryEntry {
   mangaId: string;
@@ -115,7 +120,10 @@ export class LibraryRepository {
     },
   ): void {
     const fields: string[] = [];
-    const params: Record<string, unknown> = { manga_id: mangaId, updated_at: Date.now() };
+    const params: Record<string, unknown> = {
+      manga_id: mangaId,
+      updated_at: Date.now(),
+    };
 
     if (updates.status !== undefined) {
       fields.push("status = @status");
@@ -147,29 +155,35 @@ export class LibraryRepository {
     fields.push("updated_at = @updated_at");
 
     this.db
-      .prepare(`UPDATE library_entries SET ${fields.join(", ")} WHERE manga_id = @manga_id`)
+      .prepare(
+        `UPDATE library_entries SET ${fields.join(", ")} WHERE manga_id = @manga_id`,
+      )
       .run(params);
   }
 
   removeFromLibrary(mangaId: string): void {
-    this.db.prepare("DELETE FROM library_entries WHERE manga_id = ?").run(mangaId);
+    this.db
+      .prepare("DELETE FROM library_entries WHERE manga_id = ?")
+      .run(mangaId);
   }
 
   getLibraryEntry(mangaId: string): LibraryEntry | undefined {
     const row = this.db
       .prepare("SELECT * FROM library_entries WHERE manga_id = ?")
-      .get(mangaId) as {
-      manga_id: string;
-      extension_id: string;
-      status: LibraryStatus;
-      personal_rating: number | null;
-      favorite: number;
-      notes: string | null;
-      added_at: number;
-      updated_at: number;
-      started_at: number | null;
-      completed_at: number | null;
-    } | undefined;
+      .get(mangaId) as
+      | {
+          manga_id: string;
+          extension_id: string;
+          status: LibraryStatus;
+          personal_rating: number | null;
+          favorite: number;
+          notes: string | null;
+          added_at: number;
+          updated_at: number;
+          started_at: number | null;
+          completed_at: number | null;
+        }
+      | undefined;
 
     if (!row) return undefined;
 
@@ -269,7 +283,9 @@ export class LibraryRepository {
   }
 
   getLibraryTags(): LibraryTag[] {
-    const rows = this.db.prepare("SELECT * FROM library_tags ORDER BY name ASC").all() as Array<{
+    const rows = this.db
+      .prepare("SELECT * FROM library_tags ORDER BY name ASC")
+      .all() as Array<{
       id: number;
       name: string;
       color: string | null;
@@ -298,7 +314,9 @@ export class LibraryRepository {
 
   removeTagFromLibraryEntry(mangaId: string, tagId: number): void {
     this.db
-      .prepare("DELETE FROM library_entry_tags WHERE manga_id = ? AND tag_id = ?")
+      .prepare(
+        "DELETE FROM library_entry_tags WHERE manga_id = ? AND tag_id = ?",
+      )
       .run(mangaId, tagId);
   }
 

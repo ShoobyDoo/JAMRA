@@ -22,9 +22,14 @@ export class ExtensionRepository {
   ): void {
     const entryPath = options?.entryPath ?? null;
     const enabled = options?.enabled ?? true;
-    const settingsJson = options?.settings !== undefined ? JSON.stringify(options.settings) : null;
-    const sourceMetadataJson = options?.sourceMetadata ? JSON.stringify(options.sourceMetadata) : null;
-    const updateStateJson = options?.updateState ? JSON.stringify(options.updateState) : null;
+    const settingsJson =
+      options?.settings !== undefined ? JSON.stringify(options.settings) : null;
+    const sourceMetadataJson = options?.sourceMetadata
+      ? JSON.stringify(options.sourceMetadata)
+      : null;
+    const updateStateJson = options?.updateState
+      ? JSON.stringify(options.updateState)
+      : null;
 
     this.db
       .prepare(
@@ -112,7 +117,8 @@ export class ExtensionRepository {
     const params: Record<string, string | number> = {};
 
     if (options.search) {
-      sql += " AND (name LIKE @search OR author_name LIKE @search OR id LIKE @search)";
+      sql +=
+        " AND (name LIKE @search OR author_name LIKE @search OR id LIKE @search)";
       params.search = `%${options.search}%`;
     }
 
@@ -163,50 +169,67 @@ export class ExtensionRepository {
   }
 
   getExtension(id: string): StoredExtension | undefined {
-    const row = this.db.prepare("SELECT * FROM extensions WHERE id = ?").get(id) as {
-      id: string;
-      name: string;
-      version: string;
-      description: string | null;
-      homepage: string | null;
-      icon: string | null;
-      author_name: string;
-      author_url: string | null;
-      author_contact: string | null;
-      language_codes: string;
-      capabilities_json: string;
-      manifest_json: string;
-      entry_path: string | null;
-      is_enabled: number;
-      settings_json: string | null;
-      source_metadata_json: string | null;
-      update_state_json: string | null;
-      installed_at: number;
-    } | undefined;
+    const row = this.db
+      .prepare("SELECT * FROM extensions WHERE id = ?")
+      .get(id) as
+      | {
+          id: string;
+          name: string;
+          version: string;
+          description: string | null;
+          homepage: string | null;
+          icon: string | null;
+          author_name: string;
+          author_url: string | null;
+          author_contact: string | null;
+          language_codes: string;
+          capabilities_json: string;
+          manifest_json: string;
+          entry_path: string | null;
+          is_enabled: number;
+          settings_json: string | null;
+          source_metadata_json: string | null;
+          update_state_json: string | null;
+          installed_at: number;
+        }
+      | undefined;
 
     return row ? this.rowToStoredExtension(row) : undefined;
   }
 
   setExtensionEnabled(id: string, enabled: boolean): void {
-    this.db.prepare("UPDATE extensions SET is_enabled = ? WHERE id = ?").run(enabled ? 1 : 0, id);
+    this.db
+      .prepare("UPDATE extensions SET is_enabled = ? WHERE id = ?")
+      .run(enabled ? 1 : 0, id);
   }
 
   removeExtension(id: string): void {
     this.db.prepare("DELETE FROM extensions WHERE id = ?").run(id);
   }
 
-  updateExtensionSettings(id: string, settings: Record<string, unknown> | null): void {
+  updateExtensionSettings(
+    id: string,
+    settings: Record<string, unknown> | null,
+  ): void {
     const settingsJson = settings !== null ? JSON.stringify(settings) : null;
-    this.db.prepare("UPDATE extensions SET settings_json = ? WHERE id = ?").run(settingsJson, id);
+    this.db
+      .prepare("UPDATE extensions SET settings_json = ? WHERE id = ?")
+      .run(settingsJson, id);
   }
 
-  updateExtensionSourceMetadata(id: string, metadata: StoredExtensionSourceMetadata): void {
+  updateExtensionSourceMetadata(
+    id: string,
+    metadata: StoredExtensionSourceMetadata,
+  ): void {
     this.db
       .prepare("UPDATE extensions SET source_metadata_json = ? WHERE id = ?")
       .run(JSON.stringify(metadata), id);
   }
 
-  updateExtensionUpdateState(id: string, updateState: StoredExtensionUpdateState): void {
+  updateExtensionUpdateState(
+    id: string,
+    updateState: StoredExtensionUpdateState,
+  ): void {
     this.db
       .prepare("UPDATE extensions SET update_state_json = ? WHERE id = ?")
       .run(JSON.stringify(updateState), id);
@@ -250,9 +273,13 @@ export class ExtensionRepository {
       manifest,
       entryPath: row.entry_path ?? undefined,
       enabled: row.is_enabled === 1,
-      settings: row.settings_json ? (JSON.parse(row.settings_json) as Record<string, unknown>) : undefined,
+      settings: row.settings_json
+        ? (JSON.parse(row.settings_json) as Record<string, unknown>)
+        : undefined,
       source: row.source_metadata_json
-        ? (JSON.parse(row.source_metadata_json) as StoredExtensionSourceMetadata)
+        ? (JSON.parse(
+            row.source_metadata_json,
+          ) as StoredExtensionSourceMetadata)
         : undefined,
       updateState: row.update_state_json
         ? (JSON.parse(row.update_state_json) as StoredExtensionUpdateState)

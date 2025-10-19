@@ -22,7 +22,7 @@ export async function GET(request: Request): Promise<Response> {
   if (!targetUrl) {
     return NextResponse.json(
       { error: "Invalid or missing src parameter" },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -39,7 +39,7 @@ export async function GET(request: Request): Promise<Response> {
     if (!upstream.ok) {
       return NextResponse.json(
         { error: `Upstream responded with ${upstream.status}` },
-        { status: upstream.status }
+        { status: upstream.status },
       );
     }
 
@@ -62,7 +62,7 @@ export async function GET(request: Request): Promise<Response> {
   } catch (error) {
     return NextResponse.json(
       { error: `Failed to fetch upstream image: ${String(error)}` },
-      { status: 502 }
+      { status: 502 },
     );
   }
 }

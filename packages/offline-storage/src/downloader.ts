@@ -34,8 +34,8 @@ import type {
 } from "./types.js";
 
 export interface DownloadWorkerOptions {
-  concurrency?: number;              // Max concurrent page downloads (default: 3)
-  pollingInterval?: number;          // Queue polling interval in ms (default: 1000)
+  concurrency?: number; // Max concurrent page downloads (default: 3)
+  pollingInterval?: number; // Queue polling interval in ms (default: 1000)
 }
 
 export class DownloadWorker {
@@ -50,7 +50,7 @@ export class DownloadWorker {
     private readonly dataDir: string,
     private readonly repository: OfflineRepository,
     private readonly catalogService: CatalogService,
-    options: DownloadWorkerOptions = {}
+    options: DownloadWorkerOptions = {},
   ) {
     this.imageDownloader = new ImageDownloader();
     this.concurrency = options.concurrency ?? 3;
@@ -216,31 +216,45 @@ export class DownloadWorker {
     // Fetch manga and chapter details
     const mangaDetails = await this.catalogService.syncManga(
       item.extensionId,
-      item.mangaId
+      item.mangaId,
     );
 
-    const chapter = mangaDetails.details.chapters?.find(c => c.id === item.chapterId);
+    const chapter = mangaDetails.details.chapters?.find(
+      (c) => c.id === item.chapterId,
+    );
     if (!chapter) {
-      throw new Error(`Chapter ${item.chapterId} not found in manga ${item.mangaId}`);
+      throw new Error(
+        `Chapter ${item.chapterId} not found in manga ${item.mangaId}`,
+      );
     }
 
     const mangaSlug = sanitizeSlug(
-      mangaDetails.details.slug || mangaDetails.details.title
+      mangaDetails.details.slug || mangaDetails.details.title,
     );
 
     // Ensure manga metadata exists
-    await this.ensureMangaMetadata(item.extensionId, mangaDetails.details, mangaSlug);
+    await this.ensureMangaMetadata(
+      item.extensionId,
+      mangaDetails.details,
+      mangaSlug,
+    );
 
     // Fetch chapter pages
     const { pages: chapterPages } = await this.catalogService.syncChapterPages(
       item.extensionId,
       item.mangaId,
-      item.chapterId!
+      item.chapterId!,
     );
 
     // Validate chapter pages
-    if (!chapterPages || !chapterPages.pages || !Array.isArray(chapterPages.pages)) {
-      throw new Error(`Invalid chapter pages response: pages is ${chapterPages?.pages === undefined ? 'undefined' : typeof chapterPages?.pages}`);
+    if (
+      !chapterPages ||
+      !chapterPages.pages ||
+      !Array.isArray(chapterPages.pages)
+    ) {
+      throw new Error(
+        `Invalid chapter pages response: pages is ${chapterPages?.pages === undefined ? "undefined" : typeof chapterPages?.pages}`,
+      );
     }
 
     if (chapterPages.pages.length === 0) {
@@ -277,7 +291,7 @@ export class DownloadWorker {
           progressCurrent: current,
           progressTotal: total,
         });
-      }
+      },
     );
   }
 
@@ -288,27 +302,32 @@ export class DownloadWorker {
     // Fetch manga details with chapters
     const mangaDetails = await this.catalogService.syncManga(
       item.extensionId,
-      item.mangaId
+      item.mangaId,
     );
 
     const chapters = mangaDetails.details.chapters || [];
     const mangaSlug = sanitizeSlug(
-      mangaDetails.details.slug || mangaDetails.details.title
+      mangaDetails.details.slug || mangaDetails.details.title,
     );
 
     // Ensure manga metadata exists
-    await this.ensureMangaMetadata(item.extensionId, mangaDetails.details, mangaSlug);
+    await this.ensureMangaMetadata(
+      item.extensionId,
+      mangaDetails.details,
+      mangaSlug,
+    );
 
     // Download each chapter
     for (let i = 0; i < chapters.length; i++) {
       const chapter = chapters[i];
 
       // Fetch chapter pages
-      const { pages: chapterPages } = await this.catalogService.syncChapterPages(
-        item.extensionId,
-        item.mangaId,
-        chapter.id
-      );
+      const { pages: chapterPages } =
+        await this.catalogService.syncChapterPages(
+          item.extensionId,
+          item.mangaId,
+          chapter.id,
+        );
 
       await this.downloadChapterPages(
         item.extensionId,
@@ -320,10 +339,16 @@ export class DownloadWorker {
           // Calculate overall progress
           const chapterProgress = current / total;
           const overallProgress = (i + chapterProgress) / chapters.length;
-          const progressCurrent = Math.floor(overallProgress * chapters.length * 100);
+          const progressCurrent = Math.floor(
+            overallProgress * chapters.length * 100,
+          );
           const progressTotal = chapters.length * 100;
 
-          this.repository.updateQueueProgress(item.id, progressCurrent, progressTotal);
+          this.repository.updateQueueProgress(
+            item.id,
+            progressCurrent,
+            progressTotal,
+          );
           this.emit({
             type: "download-progress",
             queueId: item.id,
@@ -332,7 +357,7 @@ export class DownloadWorker {
             progressCurrent,
             progressTotal,
           });
-        }
+        },
       );
     }
   }
@@ -343,7 +368,7 @@ export class DownloadWorker {
   private async ensureMangaMetadata(
     extensionId: string,
     mangaDetails: MangaDetails,
-    mangaSlug: string
+    mangaSlug: string,
   ): Promise<void> {
     const paths = buildMangaPaths(this.dataDir, extensionId, mangaSlug);
 
@@ -368,11 +393,14 @@ export class DownloadWorker {
       try {
         const result = await this.imageDownloader.download(
           mangaDetails.coverUrl,
-          paths.coverFile
+          paths.coverFile,
         );
         coverPath = `cover.${result.filename.split(".").pop()}`;
       } catch (error) {
-        console.warn(`Failed to download cover for ${mangaDetails.title}:`, error);
+        console.warn(
+          `Failed to download cover for ${mangaDetails.title}:`,
+          error,
+        );
       }
     }
 
@@ -422,11 +450,21 @@ export class DownloadWorker {
     mangaSlug: string,
     mangaId: string,
     chapter: ChapterSummary,
-    pages: Array<{ index: number; url: string; width?: number; height?: number }>,
-    onProgress: (current: number, total: number) => void
+    pages: Array<{
+      index: number;
+      url: string;
+      width?: number;
+      height?: number;
+    }>,
+    onProgress: (current: number, total: number) => void,
   ): Promise<void> {
     const folderName = generateChapterFolderName(chapter.number || chapter.id);
-    const chapterPaths = buildChapterPaths(this.dataDir, extensionId, mangaSlug, folderName);
+    const chapterPaths = buildChapterPaths(
+      this.dataDir,
+      extensionId,
+      mangaSlug,
+      folderName,
+    );
 
     await ensureDir(chapterPaths.chapterDir);
 
@@ -434,14 +472,14 @@ export class DownloadWorker {
     const pageMetadata: OfflinePageMetadata[] = [];
     let completed = 0;
 
-    const downloads = pages.map(page => ({
+    const downloads = pages.map((page) => ({
       url: page.url,
       destPath: buildPagePath(
         this.dataDir,
         extensionId,
         mangaSlug,
         folderName,
-        generatePageFilename(page.index)
+        generatePageFilename(page.index),
       ),
       pageData: page,
     }));
@@ -468,7 +506,7 @@ export class DownloadWorker {
             sizeBytes: result.sizeBytes,
             mimeType: result.mimeType,
           };
-        })
+        }),
       );
 
       pageMetadata.push(...results);
@@ -488,7 +526,9 @@ export class DownloadWorker {
 
     // Update manga metadata
     const mangaPaths = buildMangaPaths(this.dataDir, extensionId, mangaSlug);
-    const mangaMetadata = await readJSON<OfflineMangaMetadata>(mangaPaths.metadataFile);
+    const mangaMetadata = await readJSON<OfflineMangaMetadata>(
+      mangaPaths.metadataFile,
+    );
 
     const displayTitle = this.formatChapterTitle(chapter);
     const chapterSize = await getDirSize(chapterPaths.chapterDir);
@@ -510,7 +550,9 @@ export class DownloadWorker {
     };
 
     // Add or update chapter in manga metadata
-    const existingIndex = mangaMetadata.chapters.findIndex(c => c.chapterId === chapter.id);
+    const existingIndex = mangaMetadata.chapters.findIndex(
+      (c) => c.chapterId === chapter.id,
+    );
     if (existingIndex >= 0) {
       mangaMetadata.chapters[existingIndex] = chapterMetadata;
     } else {
@@ -543,12 +585,15 @@ export class DownloadWorker {
   /**
    * Handles download errors
    */
-  private async handleDownloadError(item: QueuedDownload, error: unknown): Promise<void> {
+  private async handleDownloadError(
+    item: QueuedDownload,
+    error: unknown,
+  ): Promise<void> {
     const errorMessage = error instanceof Error ? error.message : String(error);
 
     console.error(
       `Download failed for queue item ${item.id} (${item.mangaSlug}):`,
-      errorMessage
+      errorMessage,
     );
 
     this.repository.updateQueueStatus(item.id, "failed", errorMessage);
@@ -583,6 +628,6 @@ export class DownloadWorker {
    * Helper to sleep for a specified duration
    */
   private sleep(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 }

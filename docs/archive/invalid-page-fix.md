@@ -1,10 +1,13 @@
 # Invalid Page Number Fix
 
 ## Problem
+
 Opening a manga chapter shows "page 4/3" with "No page data" error, even though the URL is correct (`/read/example-1/chapter/1`).
 
 ## Root Cause
+
 **Stale/invalid progress data** in localStorage:
+
 - User previously navigated to a page that no longer exists (e.g., page 4)
 - Progress was saved: `{ currentPage: 4, totalPages: X }`
 - When reopening, the chapter now has only 3 pages
@@ -12,9 +15,11 @@ Opening a manga chapter shows "page 4/3" with "No page data" error, even though 
 - Page 4 doesn't exist → "No page data"
 
 ## Solution
+
 Added **validation** when loading and setting page numbers:
 
 ### 1. Validate on Chapter Load
+
 ```typescript
 setCurrentChapter: (mangaId, chapterId, totalPages) => {
   const existingProgress = get().getProgress(mangaId, chapterId);
@@ -34,6 +39,7 @@ setCurrentChapter: (mangaId, chapterId, totalPages) => {
 ```
 
 ### 2. Validate on Page Change
+
 ```typescript
 setCurrentPage: (page) => {
   // Clamp to valid range
@@ -48,22 +54,24 @@ setCurrentPage: (page) => {
 
 ## Validation Rules
 
-| Scenario | Invalid Page | Corrected To |
-|----------|--------------|--------------|
-| Stale progress (page > max) | 4 (total: 3) | 0 (start) |
-| Negative page | -1 | 0 (first page) |
-| Page >= totalPages | 5 (total: 3) | 2 (last page) |
-| Valid page | 1 (total: 3) | 1 (unchanged) |
+| Scenario                    | Invalid Page | Corrected To   |
+| --------------------------- | ------------ | -------------- |
+| Stale progress (page > max) | 4 (total: 3) | 0 (start)      |
+| Negative page               | -1           | 0 (first page) |
+| Page >= totalPages          | 5 (total: 3) | 2 (last page)  |
+| Valid page                  | 1 (total: 3) | 1 (unchanged)  |
 
 ## Why This Happens
 
 ### Common Scenarios:
+
 1. **Chapter content changed** - Chapter had 5 pages, now has 3
 2. **Different manga versions** - Different sources have different page counts
 3. **Testing/development** - Switching between test data with different lengths
 4. **Data corruption** - localStorage got corrupted values
 
 ### Prevention:
+
 ✅ Always validate saved progress against current chapter data
 ✅ Clamp invalid values instead of crashing
 ✅ Log warnings for debugging
@@ -72,33 +80,39 @@ setCurrentPage: (page) => {
 ## Files Modified
 
 **src/store/reading-progress.ts**
+
 1. `setCurrentChapter` - Validates saved progress before loading
 2. `setCurrentPage` - Clamps page to valid range [0, totalPages-1]
 
 ## Result
 
 ### Before:
+
 ```
 Open manga → Load page 4 from localStorage → Show "No page data"
 ```
 
 ### After:
+
 ```
 Open manga → Load page 4 from localStorage → Validate (4 >= 3) → Clamp to 0 → Show page 0
 ```
 
 ### Console Output (Debug):
+
 ```
 Invalid page 4 for totalPages 3, clamping to valid range
 ```
 
 ## Build Status
+
 ✅ ESLint: Passing
 ✅ TypeScript: Passing
 ✅ Build: Success
 ✅ Reader: 10.6 kB
 
 ## Testing
+
 - [x] Stale progress with page > totalPages → Starts at page 0
 - [x] Valid saved progress → Starts at saved page
 - [x] Navigation always stays within bounds

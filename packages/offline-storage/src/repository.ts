@@ -5,7 +5,7 @@
  * tracking downloaded manga/chapters and managing the download queue.
  */
 
-import type {Database} from "better-sqlite3";
+import type { Database } from "better-sqlite3";
 import type {
   OfflineMangaRow,
   OfflineChapterRow,
@@ -197,7 +197,7 @@ export class OfflineRepository {
       manga.download_path,
       manga.downloaded_at,
       manga.last_updated_at,
-      manga.total_size_bytes
+      manga.total_size_bytes,
     ) as { id: number };
 
     return result.id;
@@ -211,7 +211,10 @@ export class OfflineRepository {
     return stmt.get(extensionId, mangaId) as OfflineMangaRow | undefined;
   }
 
-  getMangaBySlug(extensionId: string, mangaSlug: string): OfflineMangaRow | undefined {
+  getMangaBySlug(
+    extensionId: string,
+    mangaSlug: string,
+  ): OfflineMangaRow | undefined {
     const stmt = this.db.prepare(`
       SELECT * FROM offline_manga
       WHERE extension_id = ? AND manga_slug = ?
@@ -235,7 +238,11 @@ export class OfflineRepository {
     stmt.run(extensionId, mangaId);
   }
 
-  updateMangaSize(extensionId: string, mangaId: string, totalSizeBytes: number): void {
+  updateMangaSize(
+    extensionId: string,
+    mangaId: string,
+    totalSizeBytes: number,
+  ): void {
     const stmt = this.db.prepare(`
       UPDATE offline_manga
       SET total_size_bytes = ?, last_updated_at = ?
@@ -268,13 +275,16 @@ export class OfflineRepository {
       chapter.folder_name,
       chapter.total_pages,
       chapter.downloaded_at,
-      chapter.size_bytes
+      chapter.size_bytes,
     ) as { id: number };
 
     return result.id;
   }
 
-  getChapter(mangaId: number, chapterId: string): OfflineChapterRow | undefined {
+  getChapter(
+    mangaId: number,
+    chapterId: string,
+  ): OfflineChapterRow | undefined {
     const stmt = this.db.prepare(`
       SELECT * FROM offline_chapters
       WHERE offline_manga_id = ? AND chapter_id = ?
@@ -340,7 +350,7 @@ export class OfflineRepository {
       download.completed_at,
       download.error_message,
       download.progress_current,
-      download.progress_total
+      download.progress_total,
     ) as { id: number };
 
     return result.id;
@@ -364,7 +374,7 @@ export class OfflineRepository {
       ORDER BY priority DESC, queued_at ASC
     `);
     const rows = stmt.all() as DownloadQueueRow[];
-    return rows.map(row => this.transformQueueRow(row));
+    return rows.map((row) => this.transformQueueRow(row));
   }
 
   getAllQueueItems(): QueuedDownload[] {
@@ -373,7 +383,7 @@ export class OfflineRepository {
       ORDER BY queued_at DESC
     `);
     const rows = stmt.all() as DownloadQueueRow[];
-    return rows.map(row => this.transformQueueRow(row));
+    return rows.map((row) => this.transformQueueRow(row));
   }
 
   getQueueItem(queueId: number): QueuedDownload | undefined {
@@ -388,7 +398,7 @@ export class OfflineRepository {
   updateQueueStatus(
     queueId: number,
     status: DownloadStatus,
-    errorMessage?: string
+    errorMessage?: string,
   ): void {
     const now = Date.now();
     const stmt = this.db.prepare(`
@@ -407,7 +417,7 @@ export class OfflineRepository {
   updateQueueProgress(
     queueId: number,
     progressCurrent: number,
-    progressTotal: number
+    progressTotal: number,
   ): void {
     const stmt = this.db.prepare(`
       UPDATE download_queue
@@ -576,7 +586,7 @@ export class OfflineRepository {
       queueItem.completedAt,
       queueItem.errorMessage || null,
       queueItem.progressCurrent,
-      queueItem.progressTotal
+      queueItem.progressTotal,
     );
 
     this.deleteQueueItem(queueId);
@@ -597,20 +607,23 @@ export class OfflineRepository {
 
     const stmt = this.db.prepare(query);
     const rows = stmt.all() as DownloadHistoryRow[];
-    return rows.map(row => this.transformHistoryRow(row));
+    return rows.map((row) => this.transformHistoryRow(row));
   }
 
   /**
    * Get download history for a specific manga
    */
-  getDownloadHistoryForManga(extensionId: string, mangaId: string): DownloadHistoryItem[] {
+  getDownloadHistoryForManga(
+    extensionId: string,
+    mangaId: string,
+  ): DownloadHistoryItem[] {
     const stmt = this.db.prepare(`
       SELECT * FROM download_history
       WHERE extension_id = ? AND manga_id = ?
       ORDER BY completed_at DESC
     `);
     const rows = stmt.all(extensionId, mangaId) as DownloadHistoryRow[];
-    return rows.map(row => this.transformHistoryRow(row));
+    return rows.map((row) => this.transformHistoryRow(row));
   }
 
   /**

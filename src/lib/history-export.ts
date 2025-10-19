@@ -34,7 +34,7 @@ export function exportHistoryToCSV(entries: EnrichedHistoryEntry[]): Blob {
   const csvContent = [
     headers.join(","),
     ...rows.map((row) =>
-      row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(",")
+      row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","),
     ),
   ].join("\n");
 
@@ -77,11 +77,12 @@ export function exportHistoryToMarkdown(entries: EnrichedHistoryEntry[]): Blob {
         minute: "2-digit",
       });
       const manga = entry.manga?.title ?? "Unknown";
-      const chapter = entry.chapter?.chapterNumber ?? entry.chapter?.title ?? "";
+      const chapter =
+        entry.chapter?.chapterNumber ?? entry.chapter?.title ?? "";
       const action = entry.actionType.replace(/_/g, " ");
 
       lines.push(
-        `- **${time}** - ${action}: ${manga}${chapter ? ` - Chapter ${chapter}` : ""}`
+        `- **${time}** - ${action}: ${manga}${chapter ? ` - Chapter ${chapter}` : ""}`,
       );
     }
 
@@ -104,7 +105,7 @@ export function downloadBlob(blob: Blob, filename: string): void {
 
 export function exportHistory(
   entries: EnrichedHistoryEntry[],
-  format: ExportFormat
+  format: ExportFormat,
 ): void {
   const timestamp = new Date().toISOString().split("T")[0];
   let blob: Blob;

@@ -60,10 +60,8 @@ class ConsoleLogger implements Logger {
   }
 }
 
-export function createLogger(
-  namespace: string,
-  level?: LogLevel,
-): Logger {
-  const envLevel = (process.env.LOG_LEVEL?.toLowerCase() as LogLevel) ?? level ?? "info";
+export function createLogger(namespace: string, level?: LogLevel): Logger {
+  const envLevel =
+    (process.env.LOG_LEVEL?.toLowerCase() as LogLevel) ?? level ?? "info";
   return new ConsoleLogger(namespace, envLevel);
 }

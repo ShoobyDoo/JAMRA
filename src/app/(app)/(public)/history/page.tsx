@@ -60,7 +60,9 @@ export default function HistoryPage() {
     }
   };
 
-  const handleActionTypeChange = (actionType: HistoryActionType | undefined) => {
+  const handleActionTypeChange = (
+    actionType: HistoryActionType | undefined,
+  ) => {
     setFilters({ actionType });
   };
 
@@ -134,7 +136,9 @@ export default function HistoryPage() {
                 className="text-destructive"
               >
                 <Trash2 className="h-4 w-4 mr-2" />
-                {showClearConfirm ? "Click again to confirm" : "Clear All History"}
+                {showClearConfirm
+                  ? "Click again to confirm"
+                  : "Clear All History"}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -164,7 +168,10 @@ export default function HistoryPage() {
       {isLoading && entries.length === 0 ? (
         <div className="space-y-4">
           {Array.from({ length: 10 }).map((_, i) => (
-            <div key={i} className="flex items-start gap-4 rounded-lg border p-4">
+            <div
+              key={i}
+              className="flex items-start gap-4 rounded-lg border p-4"
+            >
               <Skeleton className="h-12 w-12 rounded" />
               <div className="flex-1 space-y-2">
                 <Skeleton className="h-4 w-3/4" />

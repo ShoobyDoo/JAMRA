@@ -10,9 +10,9 @@ import { ensureDir } from "./file-system.js";
 import { getImageExtension } from "./paths.js";
 
 export interface DownloadImageOptions {
-  maxRetries?: number;              // Default: 3
-  retryDelay?: number;              // Default: 1000ms
-  timeout?: number;                 // Default: 30000ms (30 seconds)
+  maxRetries?: number; // Default: 3
+  retryDelay?: number; // Default: 1000ms
+  timeout?: number; // Default: 30000ms (30 seconds)
   onProgress?: (bytesDownloaded: number) => void;
 }
 
@@ -42,7 +42,7 @@ export class ImageDownloader {
   async download(
     url: string,
     destPath: string,
-    options: DownloadImageOptions = {}
+    options: DownloadImageOptions = {},
   ): Promise<DownloadImageResult> {
     const maxRetries = options.maxRetries ?? this.maxRetries;
     const retryDelay = options.retryDelay ?? this.retryDelay;
@@ -53,7 +53,12 @@ export class ImageDownloader {
 
     while (attempt < maxRetries) {
       try {
-        return await this.attemptDownload(url, destPath, timeout, options.onProgress);
+        return await this.attemptDownload(
+          url,
+          destPath,
+          timeout,
+          options.onProgress,
+        );
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
         attempt++;
@@ -72,7 +77,7 @@ export class ImageDownloader {
     }
 
     throw new Error(
-      `Failed to download image after ${maxRetries} attempts: ${lastError?.message}`
+      `Failed to download image after ${maxRetries} attempts: ${lastError?.message}`,
     );
   }
 
@@ -83,7 +88,7 @@ export class ImageDownloader {
     url: string,
     destPath: string,
     timeout: number,
-    onProgress?: (bytes: number) => void
+    onProgress?: (bytes: number) => void,
   ): Promise<DownloadImageResult> {
     // Create abort controller for timeout
     const controller = new AbortController();
@@ -115,7 +120,10 @@ export class ImageDownloader {
       // Determine final filename with correct extension
       const extension = getImageExtension(url, mimeType);
       const baseName = path.basename(destPath, path.extname(destPath));
-      const finalPath = path.join(path.dirname(destPath), `${baseName}.${extension}`);
+      const finalPath = path.join(
+        path.dirname(destPath),
+        `${baseName}.${extension}`,
+      );
 
       // Write file to disk
       await fs.writeFile(finalPath, Buffer.from(buffer));
@@ -141,27 +149,30 @@ export class ImageDownloader {
   async downloadBatch(
     downloads: Array<{ url: string; destPath: string }>,
     concurrency: number = 3,
-    onProgress?: (completed: number, total: number) => void
+    onProgress?: (completed: number, total: number) => void,
   ): Promise<DownloadImageResult[]> {
     const results: DownloadImageResult[] = [];
     const queue = [...downloads];
     let completed = 0;
 
     // Process downloads with concurrency limit
-    const workers = Array.from({ length: Math.min(concurrency, downloads.length) }, async () => {
-      while (queue.length > 0) {
-        const item = queue.shift();
-        if (!item) break;
+    const workers = Array.from(
+      { length: Math.min(concurrency, downloads.length) },
+      async () => {
+        while (queue.length > 0) {
+          const item = queue.shift();
+          if (!item) break;
 
-        const result = await this.download(item.url, item.destPath);
-        results.push(result);
+          const result = await this.download(item.url, item.destPath);
+          results.push(result);
 
-        completed++;
-        if (onProgress) {
-          onProgress(completed, downloads.length);
+          completed++;
+          if (onProgress) {
+            onProgress(completed, downloads.length);
+          }
         }
-      }
-    });
+      },
+    );
 
     await Promise.all(workers);
 
@@ -185,7 +196,7 @@ export class ImageDownloader {
       const header = buffer.slice(0, 12);
 
       // Check for common image format signatures
-      const isJPEG = header[0] === 0xFF && header[1] === 0xD8;
+      const isJPEG = header[0] === 0xff && header[1] === 0xd8;
       const isPNG = header[0] === 0x89 && header[1] === 0x50;
       const isGIF = header[0] === 0x47 && header[1] === 0x49;
       const isWebP = header[8] === 0x57 && header[9] === 0x45;
@@ -200,7 +211,7 @@ export class ImageDownloader {
    * Helper to sleep for a specified duration
    */
   private sleep(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 }
 

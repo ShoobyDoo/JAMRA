@@ -3,7 +3,13 @@
 import { useEffect, useRef, useState } from "react";
 
 export interface OfflineDownloadEvent {
-  type: "download-started" | "download-progress" | "download-completed" | "download-failed" | "chapter-deleted" | "manga-deleted";
+  type:
+    | "download-started"
+    | "download-progress"
+    | "download-completed"
+    | "download-failed"
+    | "chapter-deleted"
+    | "manga-deleted";
   queueId?: number;
   mangaId?: string;
   chapterId?: string;
@@ -44,9 +50,12 @@ export function useOfflineEvents(options: UseOfflineEventsOptions = {}) {
 
         // Check if offline storage is available before connecting
         try {
-          const checkResponse = await fetch(`${normalizedApiBase}/offline/queue`, {
-            method: 'HEAD',
-          });
+          const checkResponse = await fetch(
+            `${normalizedApiBase}/offline/queue`,
+            {
+              method: "HEAD",
+            },
+          );
 
           if (cancelled) return;
 
@@ -59,10 +68,14 @@ export function useOfflineEvents(options: UseOfflineEventsOptions = {}) {
         } catch {
           if (cancelled) return;
           // Network error - will retry
-          console.warn("[Offline Events] Failed to check offline storage availability, will retry");
+          console.warn(
+            "[Offline Events] Failed to check offline storage availability, will retry",
+          );
         }
 
-        const eventSource = new EventSource(`${normalizedApiBase}/offline/events`);
+        const eventSource = new EventSource(
+          `${normalizedApiBase}/offline/events`,
+        );
         eventSourceRef.current = eventSource;
 
         eventSource.addEventListener("connected", () => {
@@ -122,7 +135,9 @@ export function useOfflineEvents(options: UseOfflineEventsOptions = {}) {
 
           // Only retry a few times before giving up
           if (reconnectAttemptsRef.current >= 3) {
-            console.warn("[Offline Events] Failed to connect after 3 attempts, offline features may not be available");
+            console.warn(
+              "[Offline Events] Failed to connect after 3 attempts, offline features may not be available",
+            );
             offlineStorageDisabledRef.current = true;
             return;
           }
@@ -130,7 +145,7 @@ export function useOfflineEvents(options: UseOfflineEventsOptions = {}) {
           // Attempt to reconnect with exponential backoff
           const delay = Math.min(
             reconnectDelay * Math.pow(2, reconnectAttemptsRef.current),
-            30000
+            30000,
           );
           reconnectAttemptsRef.current++;
 
@@ -139,7 +154,9 @@ export function useOfflineEvents(options: UseOfflineEventsOptions = {}) {
           }, delay);
         };
       } catch {
-        console.warn("[Offline Events] Failed to connect to SSE stream, offline features may not be available");
+        console.warn(
+          "[Offline Events] Failed to connect to SSE stream, offline features may not be available",
+        );
         setConnected(false);
       }
     };

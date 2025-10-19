@@ -8,11 +8,13 @@
 ---
 
 ## Overview
+
 A fully-featured, modern manga reader with support for multiple reading modes, intelligent preloading, and comprehensive customization options.
 
 ## Features Implemented
 
 ### Reading Modes (✅ Complete)
+
 All four reading modes are fully functional with proper navigation and rendering:
 
 - ✅ **Paged LTR**: Traditional left-to-right pagination (like Western comics)
@@ -25,6 +27,7 @@ All four reading modes are fully functional with proper navigation and rendering
 ### Navigation (✅ Complete)
 
 #### Keyboard Controls (✅ All Working)
+
 `src/components/reader/hooks/use-reader-navigation.ts`
 
 - ✅ `Arrow Left/Right`: Navigate pages (respects RTL mode)
@@ -39,6 +42,7 @@ All four reading modes are fully functional with proper navigation and rendering
 - ✅ `Esc`: Exit reader
 
 #### Touch Gestures (✅ All Working)
+
 `src/components/reader/hooks/use-touch-gestures.ts`
 
 - ✅ **Swipe Left/Right**: Navigate pages (direction-aware based on reading mode)
@@ -46,6 +50,7 @@ All four reading modes are fully functional with proper navigation and rendering
 - ✅ **Long Press**: Open settings panel
 
 #### Mouse Controls (✅ All Working)
+
 - ✅ **Click Left/Right Side**: Navigate to previous/next page
 - ✅ **Drag Scroll**: Drag pages in paged modes
 - ✅ **Slider**: Jump to specific page
@@ -53,6 +58,7 @@ All four reading modes are fully functional with proper navigation and rendering
 ### Display Options (✅ Complete)
 
 #### Page Fit Modes (✅ All Working)
+
 - ✅ **Auto**: Smart fitting based on image aspect ratio
 - ✅ **Fit Width**: Scale to container width
 - ✅ **Fit Height**: Scale to container height
@@ -60,6 +66,7 @@ All four reading modes are fully functional with proper navigation and rendering
 - ✅ **Custom Width**: User-defined width percentage (10-100%)
 
 #### Background Colors (✅ All Working)
+
 - ✅ Black (default for manga)
 - ✅ Dark Gray
 - ✅ White (for light mode readers)
@@ -68,6 +75,7 @@ All four reading modes are fully functional with proper navigation and rendering
 ### Performance Features (✅ Complete)
 
 #### Intelligent Image Preloading (✅ Working)
+
 `src/components/reader/hooks/use-chapter-page-preloader.ts`
 
 - ✅ Preloads 5 pages ahead by default (configurable 1-10)
@@ -77,6 +85,7 @@ All four reading modes are fully functional with proper navigation and rendering
 - ✅ Deduplication prevents duplicate requests
 
 #### Chunked Page Loading (✅ Working)
+
 `src/components/reader/manga-reader.tsx` + `src/app/read/[slug]/chapter/[chapterSlug]/page.tsx`
 
 - ✅ Loads first 10 pages immediately (~1 second)
@@ -88,6 +97,7 @@ All four reading modes are fully functional with proper navigation and rendering
 **See**: `docs/architecture/lazy-page-loading.md` for full details
 
 #### Vertical Mode Optimizations (✅ Working)
+
 - ✅ Custom scroll speed control (1-50 scale)
 - ✅ Intersection Observer for page tracking
 - ✅ Virtual scrolling with overscan (renders visible + 3 pages each direction)
@@ -97,12 +107,14 @@ All four reading modes are fully functional with proper navigation and rendering
 ### UI/UX Features (✅ Complete)
 
 #### Zen Mode (✅ Working)
+
 - ✅ Fullscreen reading experience
 - ✅ Auto-hide controls (configurable delay: 0.5s - 10s)
 - ✅ Minimal distraction overlay
 - ✅ Show controls on mouse move/keyboard/touch
 
 #### Progress Tracking (✅ Working)
+
 `src/store/reading-progress.ts` + API endpoints
 
 - ✅ Auto-save current page position (both localStorage + API)
@@ -115,6 +127,7 @@ All four reading modes are fully functional with proper navigation and rendering
 **See**: Continue Reading on home page (`/`) displays Netflix-style cards
 
 #### Reader Controls (✅ Working)
+
 - ✅ **Top Bar**: Back button, manga/chapter title, mode indicator, fullscreen toggle, settings
 - ✅ **Bottom Bar**: Page navigation, progress slider, page counter
 - ✅ **Settings Panel**: Slide-out panel with all customization options
@@ -122,6 +135,7 @@ All four reading modes are fully functional with proper navigation and rendering
 ### Customization Settings (✅ Complete)
 
 #### Reading Preferences (✅ All Working)
+
 `src/store/reader-settings.ts`
 
 - ✅ Reading mode selection
@@ -131,10 +145,12 @@ All four reading modes are fully functional with proper navigation and rendering
 - ✅ Custom width percentage
 
 #### Mode-Specific Settings (✅ All Working)
+
 - ✅ **Vertical Mode**: Scroll speed (1-50), gap between pages (0-100px)
 - ✅ **Dual Page Mode**: Gap between pages (0-100px)
 
 #### UI Behavior (✅ All Working)
+
 - ✅ Auto-hide controls toggle
 - ✅ Auto-hide delay (customizable 500ms-10s)
 - ✅ Reset to defaults option
@@ -143,6 +159,7 @@ All four reading modes are fully functional with proper navigation and rendering
 ### State Management (✅ Complete)
 
 #### Zustand Stores
+
 Both stores use Zustand with persistence middleware:
 
 - ✅ **reader-settings**: User preferences (persisted to localStorage)
@@ -171,6 +188,7 @@ Both stores use Zustand with persistence middleware:
 ### Technical Implementation (✅ Complete)
 
 #### Component Structure
+
 ```
 src/components/reader/
 ├── manga-reader.tsx              # Main orchestrator (chunk management, state)
@@ -189,6 +207,7 @@ src/components/reader/
 ```
 
 #### State Flow
+
 1. ✅ Server Component fetches first chunk of chapter pages
 2. ✅ MangaReader client component orchestrates chunk loading
 3. ✅ Settings/progress from Zustand stores (persisted)
@@ -215,6 +234,7 @@ These features are **not yet implemented** but could be added in future:
 ## Usage
 
 ### Basic Integration
+
 ```tsx
 import { MangaReader } from "@/components/reader/manga-reader";
 
@@ -236,6 +256,7 @@ import { MangaReader } from "@/components/reader/manga-reader";
 ```
 
 ### Accessing Reader Settings
+
 ```tsx
 import { useReaderSettings } from "@/store/reader-settings";
 
@@ -243,6 +264,7 @@ const { readingMode, setReadingMode, autoAdvanceChapter } = useReaderSettings();
 ```
 
 ### Accessing Reading Progress
+
 ```tsx
 import { useReadingProgress } from "@/store/reading-progress";
 
@@ -255,6 +277,7 @@ const chapterProgress = getProgress(mangaId, chapterId);
 ## Testing Checklist
 
 **Fully Tested** ✅
+
 - ✅ All reading modes work correctly (paged-ltr, paged-rtl, dual-page, vertical)
 - ✅ Keyboard navigation (all shortcuts)
 - ✅ Touch gestures (swipe, double-tap, long-press)
@@ -267,6 +290,7 @@ const chapterProgress = getProgress(mangaId, chapterId);
 - ✅ Chapter navigation (manual)
 
 **Needs Testing** ⚠️
+
 - ⚠️ Mobile responsiveness (iOS/Android browsers)
 - ⚠️ Cross-browser testing (Safari, Firefox, Chrome)
 - ⚠️ Performance with very large chapters (100+ pages)

@@ -10,7 +10,7 @@ export function Logo({ size = 32, className }: LogoProps) {
     <div
       className={cn(
         "flex items-center justify-center rounded-md bg-primary text-primary-foreground font-bold",
-        className
+        className,
       )}
       style={{
         width: size,

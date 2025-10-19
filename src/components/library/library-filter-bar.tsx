@@ -100,7 +100,12 @@ export function LibraryFilterBar({
 
         {/* Sort */}
         <div className="flex gap-2">
-          <Select value={sortBy} onValueChange={(value) => onSortChange(value as LibrarySortOption, sortOrder)}>
+          <Select
+            value={sortBy}
+            onValueChange={(value) =>
+              onSortChange(value as LibrarySortOption, sortOrder)
+            }
+          >
             <SelectTrigger className="w-[180px]">
               <SelectValue placeholder="Sort by" />
             </SelectTrigger>
@@ -114,7 +119,11 @@ export function LibraryFilterBar({
           </Select>
 
           <Button variant="outline" size="icon" onClick={toggleSortOrder}>
-            {sortOrder === "asc" ? <SortAsc className="h-4 w-4" /> : <SortDesc className="h-4 w-4" />}
+            {sortOrder === "asc" ? (
+              <SortAsc className="h-4 w-4" />
+            ) : (
+              <SortDesc className="h-4 w-4" />
+            )}
           </Button>
 
           <Button
@@ -123,7 +132,9 @@ export function LibraryFilterBar({
             onClick={onFavoriteToggle}
             title="Show favorites only"
           >
-            <Heart className={`h-4 w-4 ${favoriteOnly ? "fill-current" : ""}`} />
+            <Heart
+              className={`h-4 w-4 ${favoriteOnly ? "fill-current" : ""}`}
+            />
           </Button>
         </div>
       </div>

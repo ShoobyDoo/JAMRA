@@ -1,6 +1,12 @@
 "use client";
 
-import { Search, SlidersHorizontal, Grid2X2, List, LayoutGrid } from "lucide-react";
+import {
+  Search,
+  SlidersHorizontal,
+  Grid2X2,
+  List,
+  LayoutGrid,
+} from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -80,7 +86,9 @@ export function HistoryFilterBar({
         <Select
           value={actionType ?? "all"}
           onValueChange={(value) =>
-            onActionTypeChange(value === "all" ? undefined : (value as HistoryActionType))
+            onActionTypeChange(
+              value === "all" ? undefined : (value as HistoryActionType),
+            )
           }
         >
           <SelectTrigger className="w-full sm:w-[180px]">
@@ -124,7 +132,10 @@ export function HistoryFilterBar({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <SlidersHorizontal className="h-4 w-4 text-muted-foreground" />
-          <Select value={sortBy} onValueChange={(value) => onSortChange(value as HistorySortOption)}>
+          <Select
+            value={sortBy}
+            onValueChange={(value) => onSortChange(value as HistorySortOption)}
+          >
             <SelectTrigger className="w-[180px]">
               <SelectValue placeholder="Sort by" />
             </SelectTrigger>

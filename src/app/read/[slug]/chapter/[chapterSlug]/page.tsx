@@ -15,7 +15,10 @@ interface ReaderPageProps {
   searchParams?: Promise<RouteSearchParams>;
 }
 
-export default async function ReaderPage({ params, searchParams }: ReaderPageProps) {
+export default async function ReaderPage({
+  params,
+  searchParams,
+}: ReaderPageProps) {
   const { slug: rawSlug, chapterSlug: rawChapterSlug } = await params;
   const requestedSlug = decodeRouteParam(rawSlug);
   const chapterSlug = decodeRouteParam(rawChapterSlug);
@@ -52,7 +55,9 @@ export default async function ReaderPage({ params, searchParams }: ReaderPagePro
   }
 
   if (targetChapter.slug !== chapterSlug) {
-    redirect(`/read/${encodeURIComponent(canonicalSlug)}/chapter/${encodeURIComponent(targetChapter.slug)}`);
+    redirect(
+      `/read/${encodeURIComponent(canonicalSlug)}/chapter/${encodeURIComponent(targetChapter.slug)}`,
+    );
   }
 
   const chapterId = targetChapter.id;

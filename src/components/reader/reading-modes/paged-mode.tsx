@@ -17,8 +17,18 @@ interface PagedModeProps {
   currentPage: number;
   totalPages: number;
   onPageChange: (pageIndex: number) => void;
-  nextChapter?: { id: string; slug: string; title?: string; number?: string } | null;
-  prevChapter?: { id: string; slug: string; title?: string; number?: string } | null;
+  nextChapter?: {
+    id: string;
+    slug: string;
+    title?: string;
+    number?: string;
+  } | null;
+  prevChapter?: {
+    id: string;
+    slug: string;
+    title?: string;
+    number?: string;
+  } | null;
   mangaId?: string;
   mangaSlug?: string;
   readerControls: ReturnType<typeof useReaderControls>;
@@ -40,7 +50,8 @@ export function PagedMode({
   onNextPage,
 }: PagedModeProps) {
   const router = useRouter();
-  const { pageFit, backgroundColor, readingMode, customWidth } = useReaderSettings();
+  const { pageFit, backgroundColor, readingMode, customWidth } =
+    useReaderSettings();
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
@@ -75,12 +86,16 @@ export function PagedMode({
   const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!containerRef.current || isDragging.current) return;
 
-    const zone = readerControls.getHotZone(e.clientX, e.clientY, containerRef.current);
+    const zone = readerControls.getHotZone(
+      e.clientX,
+      e.clientY,
+      containerRef.current,
+    );
 
-    if (zone === 'center') {
+    if (zone === "center") {
       // Toggle controls visibility
       readerControls.toggleControls();
-    } else if (zone === 'left') {
+    } else if (zone === "left") {
       // Navigate based on reading direction
       readerControls.hideControls();
       if (isRTL) {
@@ -90,7 +105,7 @@ export function PagedMode({
         // LTR: left side goes backward
         onPrevPage();
       }
-    } else if (zone === 'right') {
+    } else if (zone === "right") {
       // Navigate based on reading direction
       readerControls.hideControls();
       if (isRTL) {
@@ -172,7 +187,9 @@ export function PagedMode({
             if (currentPage < totalPages - 1) {
               onPageChange(currentPage + 1);
             } else if (nextChapter && routeSlug) {
-              router.push(`/read/${encodeURIComponent(routeSlug)}/chapter/${encodeURIComponent(nextChapter.slug)}`);
+              router.push(
+                `/read/${encodeURIComponent(routeSlug)}/chapter/${encodeURIComponent(nextChapter.slug)}`,
+              );
             }
           } else if (dragDelta > 0 && currentPage > 0) {
             // Dragged right = previous page
@@ -185,7 +202,9 @@ export function PagedMode({
             if (currentPage < totalPages - 1) {
               onPageChange(currentPage + 1);
             } else if (nextChapter && routeSlug) {
-              router.push(`/read/${encodeURIComponent(routeSlug)}/chapter/${encodeURIComponent(nextChapter.slug)}`);
+              router.push(
+                `/read/${encodeURIComponent(routeSlug)}/chapter/${encodeURIComponent(nextChapter.slug)}`,
+              );
             }
           } else if (dragDelta > 0 && currentPage > 0) {
             // Dragged right = previous page
@@ -211,7 +230,16 @@ export function PagedMode({
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseup", handleMouseUp);
     };
-  }, [currentPage, totalPages, onPageChange, nextChapter, routeSlug, router, isRTL, readerControls]);
+  }, [
+    currentPage,
+    totalPages,
+    onPageChange,
+    nextChapter,
+    routeSlug,
+    router,
+    isRTL,
+    readerControls,
+  ]);
 
   const getImageStyles = (): React.CSSProperties => {
     if (!currentPageData) return {};
@@ -303,7 +331,9 @@ export function PagedMode({
     >
       <div className="flex flex-col items-center gap-3 rounded-lg border border-border bg-background/50 backdrop-blur-sm px-6 py-4">
         <Loader2 className="h-8 w-8 animate-spin text-foreground" />
-        <span className="text-sm text-foreground">Loading page {currentPage + 1}...</span>
+        <span className="text-sm text-foreground">
+          Loading page {currentPage + 1}...
+        </span>
       </div>
     </div>
   );
@@ -324,7 +354,9 @@ export function PagedMode({
       <div className="absolute inset-0 flex pointer-events-none">
         {/* Left edge */}
         <div className="relative flex-1 group">
-          <div className={`absolute left-0 top-1/2 -translate-y-1/2 pl-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200 ${!isFirstPage || isRTL ? 'block' : 'hidden'}`}>
+          <div
+            className={`absolute left-0 top-1/2 -translate-y-1/2 pl-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200 ${!isFirstPage || isRTL ? "block" : "hidden"}`}
+          >
             <div className="flex items-center justify-center w-12 h-12 rounded-full bg-black/50 backdrop-blur-sm">
               <ChevronLeft className="h-6 w-6 text-white" />
             </div>
@@ -332,7 +364,9 @@ export function PagedMode({
         </div>
         {/* Right edge */}
         <div className="relative flex-1 group">
-          <div className={`absolute right-0 top-1/2 -translate-y-1/2 pr-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200 ${!isLastPage || !isRTL ? 'block' : 'hidden'}`}>
+          <div
+            className={`absolute right-0 top-1/2 -translate-y-1/2 pr-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200 ${!isLastPage || !isRTL ? "block" : "hidden"}`}
+          >
             <div className="flex items-center justify-center w-12 h-12 rounded-full bg-black/50 backdrop-blur-sm">
               <ChevronRight className="h-6 w-6 text-white" />
             </div>
@@ -357,8 +391,8 @@ export function PagedMode({
         style={{
           ...getImageStyles(),
           transform: `translateX(${dragOffset}px)`,
-          transition: dragOffset === 0 ? 'transform 0.2s ease-out' : 'none',
-          cursor: showDragCursor ? 'grabbing' : 'default',
+          transition: dragOffset === 0 ? "transform 0.2s ease-out" : "none",
+          cursor: showDragCursor ? "grabbing" : "default",
         }}
       >
         <Image

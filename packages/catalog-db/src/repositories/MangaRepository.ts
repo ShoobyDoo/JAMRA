@@ -1,5 +1,9 @@
 import type Database from "better-sqlite3";
-import type { MangaSummary, MangaDetails, ChapterSummary } from "@jamra/extension-sdk";
+import type {
+  MangaSummary,
+  MangaDetails,
+  ChapterSummary,
+} from "@jamra/extension-sdk";
 
 export class MangaRepository {
   constructor(private readonly db: Database.Database) {}
@@ -56,15 +60,19 @@ export class MangaRepository {
     const run = this.db.transaction((entries: MangaSummary[]) => {
       for (const item of entries) {
         // seriesName and slug might not exist on MangaSummary - handle gracefully
-        const seriesName = (item as MangaSummary & { seriesName?: string }).seriesName;
+        const seriesName = (item as MangaSummary & { seriesName?: string })
+          .seriesName;
         const itemSlug = (item as MangaSummary & { slug?: string }).slug;
-        const slug = itemSlug ?? (seriesName ? seriesName.toLowerCase() : undefined);
+        const slug =
+          itemSlug ?? (seriesName ? seriesName.toLowerCase() : undefined);
 
         stmt.run({
           id: item.id,
           extension_id: extensionId,
           title: item.title,
-          alt_titles_json: item.altTitles ? JSON.stringify(item.altTitles) : null,
+          alt_titles_json: item.altTitles
+            ? JSON.stringify(item.altTitles)
+            : null,
           description: item.description ?? null,
           cover_url: item.coverUrl ?? null,
           status: item.status ?? null,
@@ -82,7 +90,8 @@ export class MangaRepository {
   }
 
   upsertMangaDetails(extensionId: string, details: MangaDetails): void {
-    const seriesName = (details as MangaDetails & { seriesName?: string }).seriesName;
+    const seriesName = (details as MangaDetails & { seriesName?: string })
+      .seriesName;
     const slug = (details as MangaDetails & { slug?: string }).slug;
 
     this.db
@@ -137,7 +146,9 @@ export class MangaRepository {
         id: details.id,
         extension_id: extensionId,
         title: details.title,
-        alt_titles_json: details.altTitles ? JSON.stringify(details.altTitles) : null,
+        alt_titles_json: details.altTitles
+          ? JSON.stringify(details.altTitles)
+          : null,
         description: details.description ?? null,
         cover_url: details.coverUrl ?? null,
         status: details.status ?? null,
@@ -194,12 +205,17 @@ export class MangaRepository {
       });
   }
 
-  getMangaBySlug(extensionId: string, slug: string): { id: string; extensionId: string } | undefined {
+  getMangaBySlug(
+    extensionId: string,
+    slug: string,
+  ): { id: string; extensionId: string } | undefined {
     const row = this.db
       .prepare(
         `SELECT id, extension_id FROM manga WHERE extension_id = ? AND slug = ? LIMIT 1`,
       )
-      .get(extensionId, slug) as { id: string; extension_id: string } | undefined;
+      .get(extensionId, slug) as
+      | { id: string; extension_id: string }
+      | undefined;
 
     if (!row) return undefined;
 
@@ -218,13 +234,22 @@ export class MangaRepository {
   }
 
   setSeriesName(mangaId: string, seriesName: string): void {
-    this.db.prepare("UPDATE manga SET series_name = ? WHERE id = ?").run(seriesName, mangaId);
+    this.db
+      .prepare("UPDATE manga SET series_name = ? WHERE id = ?")
+      .run(seriesName, mangaId);
   }
 
-  getMangaCoverUrls(extensionId: string, mangaId: string): string[] | undefined {
+  getMangaCoverUrls(
+    extensionId: string,
+    mangaId: string,
+  ): string[] | undefined {
     const row = this.db
-      .prepare("SELECT cover_urls_json FROM manga WHERE extension_id = ? AND id = ?")
-      .get(extensionId, mangaId) as { cover_urls_json: string | null } | undefined;
+      .prepare(
+        "SELECT cover_urls_json FROM manga WHERE extension_id = ? AND id = ?",
+      )
+      .get(extensionId, mangaId) as
+      | { cover_urls_json: string | null }
+      | undefined;
 
     if (!row?.cover_urls_json) return undefined;
 
@@ -232,53 +257,67 @@ export class MangaRepository {
     return parsed.length > 0 ? parsed : undefined;
   }
 
-  updateMangaCoverUrls(extensionId: string, mangaId: string, urls: string[]): void {
+  updateMangaCoverUrls(
+    extensionId: string,
+    mangaId: string,
+    urls: string[],
+  ): void {
     this.db
-      .prepare("UPDATE manga SET cover_urls_json = ? WHERE extension_id = ? AND id = ?")
+      .prepare(
+        "UPDATE manga SET cover_urls_json = ? WHERE extension_id = ? AND id = ?",
+      )
       .run(JSON.stringify(urls), extensionId, mangaId);
   }
 
-  getMangaWithDetails(mangaId: string): {
-    id: string;
-    extensionId: string;
-    title: string;
-    details?: MangaDetails;
-    chapters?: ChapterSummary[];
-  } | undefined {
+  getMangaWithDetails(mangaId: string):
+    | {
+        id: string;
+        extensionId: string;
+        title: string;
+        details?: MangaDetails;
+        chapters?: ChapterSummary[];
+      }
+    | undefined {
     const mangaRow = this.db
       .prepare("SELECT * FROM manga WHERE id = ?")
-      .get(mangaId) as {
-      id: string;
-      extension_id: string;
-      title: string;
-      alt_titles_json: string | null;
-      description: string | null;
-      cover_url: string | null;
-      status: string | null;
-      tags_json: string | null;
-      demographic: string | null;
-      language_code: string | null;
-      updated_at: string | null;
-      series_name: string | null;
-      slug: string | null;
-      cover_urls_json: string | null;
-    } | undefined;
+      .get(mangaId) as
+      | {
+          id: string;
+          extension_id: string;
+          title: string;
+          alt_titles_json: string | null;
+          description: string | null;
+          cover_url: string | null;
+          status: string | null;
+          tags_json: string | null;
+          demographic: string | null;
+          language_code: string | null;
+          updated_at: string | null;
+          series_name: string | null;
+          slug: string | null;
+          cover_urls_json: string | null;
+        }
+      | undefined;
 
     if (!mangaRow) return undefined;
 
     const detailsRow = this.db
       .prepare("SELECT * FROM manga_details WHERE manga_id = ?")
-      .get(mangaId) as {
-      authors_json: string | null;
-      artists_json: string | null;
-      genres_json: string | null;
-      links_json: string | null;
-      rating: number | null;
-      year: number | null;
-    } | undefined;
+      .get(mangaId) as
+      | {
+          authors_json: string | null;
+          artists_json: string | null;
+          genres_json: string | null;
+          links_json: string | null;
+          rating: number | null;
+          year: number | null;
+        }
+      | undefined;
 
     const chapterRows = this.db
-      .prepare("SELECT * FROM chapters WHERE manga_id = ? ORDER BY chapter_number ASC")
+      .prepare(
+        "SELECT * FROM chapters WHERE manga_id = ? ORDER BY chapter_number ASC",
+      )
       .all(mangaId) as Array<{
       id: string;
       title: string | null;
@@ -296,19 +335,31 @@ export class MangaRepository {
       details = {
         id: mangaRow.id,
         title: mangaRow.title,
-        altTitles: mangaRow.alt_titles_json ? JSON.parse(mangaRow.alt_titles_json) : undefined,
+        altTitles: mangaRow.alt_titles_json
+          ? JSON.parse(mangaRow.alt_titles_json)
+          : undefined,
         description: mangaRow.description ?? undefined,
         coverUrl: mangaRow.cover_url ?? undefined,
-        coverUrls: mangaRow.cover_urls_json ? JSON.parse(mangaRow.cover_urls_json) : undefined,
+        coverUrls: mangaRow.cover_urls_json
+          ? JSON.parse(mangaRow.cover_urls_json)
+          : undefined,
         status: status ?? undefined,
         tags: mangaRow.tags_json ? JSON.parse(mangaRow.tags_json) : undefined,
         demographic: mangaRow.demographic ?? undefined,
         languageCode: mangaRow.language_code ?? undefined,
         updatedAt: mangaRow.updated_at ?? undefined,
-        authors: detailsRow.authors_json ? JSON.parse(detailsRow.authors_json) : undefined,
-        artists: detailsRow.artists_json ? JSON.parse(detailsRow.artists_json) : undefined,
-        genres: detailsRow.genres_json ? JSON.parse(detailsRow.genres_json) : undefined,
-        links: detailsRow.links_json ? JSON.parse(detailsRow.links_json) : undefined,
+        authors: detailsRow.authors_json
+          ? JSON.parse(detailsRow.authors_json)
+          : undefined,
+        artists: detailsRow.artists_json
+          ? JSON.parse(detailsRow.artists_json)
+          : undefined,
+        genres: detailsRow.genres_json
+          ? JSON.parse(detailsRow.genres_json)
+          : undefined,
+        links: detailsRow.links_json
+          ? JSON.parse(detailsRow.links_json)
+          : undefined,
         rating: detailsRow.rating ?? undefined,
         year: detailsRow.year ?? undefined,
       } as MangaDetails;

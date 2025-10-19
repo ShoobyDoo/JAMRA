@@ -176,8 +176,14 @@ export class CatalogService {
   ): Promise<ChapterPagesSyncResult> {
     const mangaId = await this.resolveMangaId(extensionId, mangaIdOrSlug);
 
-    if (mangaId === mangaIdOrSlug && looksLikeSlug(mangaIdOrSlug) && this.repository) {
-      throw new Error(`Manga slug "${mangaIdOrSlug}" could not be resolved to an ID.`);
+    if (
+      mangaId === mangaIdOrSlug &&
+      looksLikeSlug(mangaIdOrSlug) &&
+      this.repository
+    ) {
+      throw new Error(
+        `Manga slug "${mangaIdOrSlug}" could not be resolved to an ID.`,
+      );
     }
 
     const pages = await this.host.invokeChapterPages(extensionId, {
@@ -199,8 +205,14 @@ export class CatalogService {
   ): Promise<ChapterPagesChunkResult> {
     const mangaId = await this.resolveMangaId(extensionId, mangaIdOrSlug);
 
-    if (mangaId === mangaIdOrSlug && looksLikeSlug(mangaIdOrSlug) && this.repository) {
-      throw new Error(`Manga slug "${mangaIdOrSlug}" could not be resolved to an ID.`);
+    if (
+      mangaId === mangaIdOrSlug &&
+      looksLikeSlug(mangaIdOrSlug) &&
+      this.repository
+    ) {
+      throw new Error(
+        `Manga slug "${mangaIdOrSlug}" could not be resolved to an ID.`,
+      );
     }
 
     const chunkData = await this.host.invokeChapterPagesChunk(extensionId, {
@@ -231,9 +243,7 @@ export class CatalogService {
     let chaptersFetched = 0;
     let chapters: ChapterSummary[] | undefined = details.chapters;
     const shouldRefreshChapters =
-      options.forceChapterRefresh ||
-      !chapters ||
-      chapters.length === 0;
+      options.forceChapterRefresh || !chapters || chapters.length === 0;
 
     if (shouldRefreshChapters) {
       chapters = await this.host.invokeChapterList(extensionId, { mangaId });
@@ -266,7 +276,10 @@ export class CatalogService {
 
     const slugCandidate = trimmed.toLowerCase();
 
-    const repoMatch = this.repository?.getMangaBySlug(extensionId, slugCandidate);
+    const repoMatch = this.repository?.getMangaBySlug(
+      extensionId,
+      slugCandidate,
+    );
     if (repoMatch?.id) {
       return repoMatch.id;
     }

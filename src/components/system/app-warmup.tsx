@@ -66,7 +66,8 @@ export function AppWarmup(): null {
           if (failedCount === totalTargets) {
             notifications.show({
               title: "API Connection Issue",
-              message: "Could not connect to the API server. Some features may not work properly.",
+              message:
+                "Could not connect to the API server. Some features may not work properly.",
               color: "yellow",
               autoClose: 5000,
             });

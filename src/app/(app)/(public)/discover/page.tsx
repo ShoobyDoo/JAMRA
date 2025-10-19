@@ -11,7 +11,7 @@ export default async function DiscoverPage() {
     // Fetch from hot-updates to show recently updated manga
     catalogue = await fetchCataloguePage({
       page: 1,
-      filters: { useHotUpdates: true }
+      filters: { useHotUpdates: true },
     });
   } catch (error) {
     if (error instanceof ApiError && error.status === 404) {
@@ -33,8 +33,8 @@ export default async function DiscoverPage() {
       <div className="space-y-4 p-6">
         <h1 className="text-2xl font-semibold">Discover</h1>
         <p className="text-destructive">
-          Failed to load catalogue data. Ensure the catalog server is running
-          on<code className="ml-1">{API_CONFIG.DEFAULT_URL}</code>.
+          Failed to load catalogue data. Ensure the catalog server is running on
+          <code className="ml-1">{API_CONFIG.DEFAULT_URL}</code>.
         </p>
       </div>
     );

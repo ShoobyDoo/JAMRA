@@ -39,21 +39,14 @@ export class CoverUrlService {
   /**
    * Get stored cover URL order from repository
    */
-  getStoredOrder(
-    extensionId: string,
-    mangaId: string,
-  ): string[] | undefined {
+  getStoredOrder(extensionId: string, mangaId: string): string[] | undefined {
     return this.repository?.getMangaCoverUrls(extensionId, mangaId);
   }
 
   /**
    * Update cover URL order in repository
    */
-  updateOrder(
-    extensionId: string,
-    mangaId: string,
-    urls: string[],
-  ): void {
+  updateOrder(extensionId: string, mangaId: string, urls: string[]): void {
     if (this.repository && urls.length > 0) {
       this.repository.updateMangaCoverUrls(extensionId, mangaId, urls);
     }

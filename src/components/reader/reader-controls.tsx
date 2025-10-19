@@ -19,7 +19,12 @@ import { useMediaQuery } from "@mantine/hooks";
 interface ReaderControlsProps {
   mangaSlug: string;
   mangaTitle: string;
-  chapters: Array<{ id: string; slug: string; title?: string; number?: string }>;
+  chapters: Array<{
+    id: string;
+    slug: string;
+    title?: string;
+    number?: string;
+  }>;
   currentChapterSlug: string;
   onChapterSelect: (chapterSlug: string) => void;
   currentPage: number;
@@ -76,8 +81,12 @@ export function ReaderControls({
 
   // Progress shows fill BEHIND the current page marker (e.g., at page 1 of 5, progress is 0%)
   const hasTotalPages = totalPages > 0;
-  const progress = hasTotalPages && totalPages > 1 ? (currentPage / (totalPages - 1)) * 100 : 0;
-  const nextDisabled = !hasTotalPages || isChunkPending || currentPage >= totalPages - 1;
+  const progress =
+    hasTotalPages && totalPages > 1
+      ? (currentPage / (totalPages - 1)) * 100
+      : 0;
+  const nextDisabled =
+    !hasTotalPages || isChunkPending || currentPage >= totalPages - 1;
   const prevDisabled = !hasTotalPages || isChunkPending || currentPage === 0;
   const showRetry = Boolean(chunkErrorMessage && onRetryChunk);
 
@@ -95,7 +104,9 @@ export function ReaderControls({
       {/* Top bar */}
       <div
         className={`fixed inset-x-0 top-4 z-50 flex justify-center px-4 transition-all duration-300 ease-out ${
-          isVisible ? "pointer-events-auto translate-y-0 opacity-100" : "pointer-events-none -translate-y-6 opacity-0"
+          isVisible
+            ? "pointer-events-auto translate-y-0 opacity-100"
+            : "pointer-events-none -translate-y-6 opacity-0"
         }`}
       >
         <div className="flex w-full max-w-5xl items-center gap-3 rounded-2xl border border-border/60 bg-background/95 px-4 py-2 shadow-lg backdrop-blur">
@@ -168,7 +179,9 @@ export function ReaderControls({
               <Settings className="h-4 w-4" />
             </button>
             <button
-              onClick={() => router.push(`/manga/${encodeURIComponent(mangaSlug)}`)}
+              onClick={() =>
+                router.push(`/manga/${encodeURIComponent(mangaSlug)}`)
+              }
               className="rounded-md p-2 transition hover:bg-accent hover:text-destructive"
               aria-label="Exit reader"
               title="Exit to manga details"
@@ -182,7 +195,9 @@ export function ReaderControls({
       {/* Bottom bar */}
       <div
         className={`fixed inset-x-0 bottom-4 z-50 flex justify-center px-4 transition-all duration-300 ease-out ${
-          isVisible ? "pointer-events-auto translate-y-0 opacity-100" : "pointer-events-none translate-y-6 opacity-0"
+          isVisible
+            ? "pointer-events-auto translate-y-0 opacity-100"
+            : "pointer-events-none translate-y-6 opacity-0"
         }`}
       >
         <div className="w-full max-w-5xl rounded-2xl border border-border/60 bg-background/95 px-4 py-3 shadow-lg backdrop-blur">

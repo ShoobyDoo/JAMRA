@@ -20,13 +20,14 @@ interface AddToLibraryButtonProps {
   size?: "default" | "sm" | "lg" | "icon";
 }
 
-const STATUS_OPTIONS: { value: LibraryStatus; label: string; icon?: string }[] = [
-  { value: "reading", label: "Reading", icon: "📖" },
-  { value: "plan_to_read", label: "Plan to Read", icon: "📚" },
-  { value: "completed", label: "Completed", icon: "✅" },
-  { value: "on_hold", label: "On Hold", icon: "⏸️" },
-  { value: "dropped", label: "Dropped", icon: "❌" },
-];
+const STATUS_OPTIONS: { value: LibraryStatus; label: string; icon?: string }[] =
+  [
+    { value: "reading", label: "Reading", icon: "📖" },
+    { value: "plan_to_read", label: "Plan to Read", icon: "📚" },
+    { value: "completed", label: "Completed", icon: "✅" },
+    { value: "on_hold", label: "On Hold", icon: "⏸️" },
+    { value: "dropped", label: "Dropped", icon: "❌" },
+  ];
 
 export function AddToLibraryButton({
   mangaId,
@@ -34,7 +35,13 @@ export function AddToLibraryButton({
   variant = "default",
   size = "default",
 }: AddToLibraryButtonProps) {
-  const { addToLibrary, updateEntry, removeEntry, getEntryByMangaId, loadLibrary } = useLibrary();
+  const {
+    addToLibrary,
+    updateEntry,
+    removeEntry,
+    getEntryByMangaId,
+    loadLibrary,
+  } = useLibrary();
   const [isLoading, setIsLoading] = useState(false);
   const [libraryEntry, setLibraryEntry] = useState(getEntryByMangaId(mangaId));
 
@@ -96,7 +103,9 @@ export function AddToLibraryButton({
     }
   };
 
-  const currentStatus = STATUS_OPTIONS.find((s) => s.value === libraryEntry?.status);
+  const currentStatus = STATUS_OPTIONS.find(
+    (s) => s.value === libraryEntry?.status,
+  );
 
   return (
     <div className="flex gap-2">
@@ -123,7 +132,9 @@ export function AddToLibraryButton({
             <DropdownMenuItem
               key={option.value}
               onClick={() => handleAddToLibrary(option.value)}
-              className={libraryEntry?.status === option.value ? "bg-accent" : ""}
+              className={
+                libraryEntry?.status === option.value ? "bg-accent" : ""
+              }
             >
               <span className="mr-2">{option.icon}</span>
               {option.label}
@@ -136,7 +147,10 @@ export function AddToLibraryButton({
           {libraryEntry && (
             <>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleRemoveFromLibrary} className="text-destructive">
+              <DropdownMenuItem
+                onClick={handleRemoveFromLibrary}
+                className="text-destructive"
+              >
                 Remove from Library
               </DropdownMenuItem>
             </>
@@ -150,9 +164,13 @@ export function AddToLibraryButton({
           size="icon"
           onClick={handleToggleFavorite}
           disabled={isLoading}
-          title={libraryEntry.favorite ? "Remove from favorites" : "Add to favorites"}
+          title={
+            libraryEntry.favorite ? "Remove from favorites" : "Add to favorites"
+          }
         >
-          <Heart className={`h-4 w-4 ${libraryEntry.favorite ? "fill-current" : ""}`} />
+          <Heart
+            className={`h-4 w-4 ${libraryEntry.favorite ? "fill-current" : ""}`}
+          />
         </Button>
       )}
     </div>

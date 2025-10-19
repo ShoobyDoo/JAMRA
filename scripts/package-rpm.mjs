@@ -26,7 +26,7 @@ async function pathExists(filePath) {
 async function run(command, args, options = {}) {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, { stdio: "inherit", ...options });
-    child.on("close", code => {
+    child.on("close", (code) => {
       if (code === 0) {
         resolve();
       } else {
@@ -72,16 +72,29 @@ async function collectPaths(rootDir) {
 
   return {
     directories: sortedDirs,
-    files: sortedFiles
+    files: sortedFiles,
   };
 }
 
 async function ensureIcon(size, buildRoot) {
-  const sourcePath = path.join(repoRoot, "build", "icons", `${size}x${size}.png`);
+  const sourcePath = path.join(
+    repoRoot,
+    "build",
+    "icons",
+    `${size}x${size}.png`,
+  );
   if (!(await pathExists(sourcePath))) {
     throw new Error(`Icon missing: ${path.relative(repoRoot, sourcePath)}`);
   }
-  const destinationDir = path.join(buildRoot, "usr", "share", "icons", "hicolor", `${size}x${size}`, "apps");
+  const destinationDir = path.join(
+    buildRoot,
+    "usr",
+    "share",
+    "icons",
+    "hicolor",
+    `${size}x${size}`,
+    "apps",
+  );
   await fs.mkdir(destinationDir, { recursive: true });
   await fs.copyFile(sourcePath, path.join(destinationDir, "jamra.png"));
 }
@@ -99,7 +112,7 @@ async function createDesktopFile(buildRoot) {
     "Icon=jamra",
     "Terminal=false",
     "Categories=Entertainment;",
-    ""
+    "",
   ].join("\n");
   await fs.writeFile(desktopPath, desktopContent, "utf8");
 }
@@ -123,7 +136,7 @@ async function directoryHasContent(directoryPath) {
 async function normalizeDuplicateArtifacts(rootDir) {
   async function processDirectory(currentDir) {
     const entries = await fs.readdir(currentDir, { withFileTypes: true });
-    const entryMap = new Map(entries.map(entry => [entry.name, entry]));
+    const entryMap = new Map(entries.map((entry) => [entry.name, entry]));
 
     for (const entry of entries) {
       const match = entry.name.match(/^(.*) (\d+)$/);
@@ -155,7 +168,9 @@ async function normalizeDuplicateArtifacts(rootDir) {
       }
     }
 
-    const refreshedEntries = await fs.readdir(currentDir, { withFileTypes: true });
+    const refreshedEntries = await fs.readdir(currentDir, {
+      withFileTypes: true,
+    });
     for (const refreshedEntry of refreshedEntries) {
       if (refreshedEntry.isDirectory()) {
         await processDirectory(path.join(currentDir, refreshedEntry.name));
@@ -170,27 +185,47 @@ async function packageRpmForArch(config, version) {
   const hostArch = process.arch;
   const isSupported =
     (config.rpmArch === "x86_64" && hostArch === "x64") ||
-    (config.rpmArch === "aarch64" && (hostArch === "arm64" || hostArch === "aarch64")) ||
+    (config.rpmArch === "aarch64" &&
+      (hostArch === "arm64" || hostArch === "aarch64")) ||
     (config.rpmArch !== "x86_64" && config.rpmArch !== "aarch64");
 
   if (!isSupported) {
     console.warn(
-      `[packagerpm] Skipping ${config.rpmArch}: run this script on a ${config.rpmArch} host or under an emulator to build the RPM`
+      `[packagerpm] Skipping ${config.rpmArch}: run this script on a ${config.rpmArch} host or under an emulator to build the RPM`,
     );
     return;
   }
 
   if (!(await pathExists(config.sourceDir))) {
-    console.warn(`[packagerpm] Skipping ${config.rpmArch}: missing ${path.relative(repoRoot, config.sourceDir)}`);
+    console.warn(
+      `[packagerpm] Skipping ${config.rpmArch}: missing ${path.relative(repoRoot, config.sourceDir)}`,
+    );
     return;
   }
 
   console.log(`[packagerpm] Building RPM for ${config.rpmArch}`);
-  const workspace = path.join(repoRoot, "dist-electron", `rpm-build-${config.rpmArch}`);
+  const workspace = path.join(
+    repoRoot,
+    "dist-electron",
+    `rpm-build-${config.rpmArch}`,
+  );
   await fs.rm(workspace, { recursive: true, force: true });
 
-  const subdirs = ["BUILD", "RPMS", "SOURCES", "SPECS", "SRPMS", "BUILDROOT", "TMP", "payload"];
-  await Promise.all(subdirs.map(dir => fs.mkdir(path.join(workspace, dir), { recursive: true })));
+  const subdirs = [
+    "BUILD",
+    "RPMS",
+    "SOURCES",
+    "SPECS",
+    "SRPMS",
+    "BUILDROOT",
+    "TMP",
+    "payload",
+  ];
+  await Promise.all(
+    subdirs.map((dir) =>
+      fs.mkdir(path.join(workspace, dir), { recursive: true }),
+    ),
+  );
 
   const rpmBaseName = `jamra-${version}-1.${config.rpmArch}`;
   const payloadRoot = path.join(workspace, "payload", rpmBaseName);
@@ -200,7 +235,7 @@ async function packageRpmForArch(config, version) {
   await normalizeDuplicateArtifacts(payloadRoot);
 
   const iconSizes = [16, 24, 32, 48, 64, 128, 256, 512];
-  await Promise.all(iconSizes.map(size => ensureIcon(size, payloadRoot)));
+  await Promise.all(iconSizes.map((size) => ensureIcon(size, payloadRoot)));
 
   await createDesktopFile(payloadRoot);
 
@@ -208,7 +243,7 @@ async function packageRpmForArch(config, version) {
   await run("tar", ["-czf", tarballPath, "-C", payloadRoot, "."]);
 
   const { directories, files } = await collectPaths(payloadRoot);
-  const directoryEntries = directories.map(dir => `%dir ${dir}`);
+  const directoryEntries = directories.map((dir) => `%dir ${dir}`);
   const fileEntries = files;
   const fileSection = [...directoryEntries, ...fileEntries].join("\n");
 
@@ -257,10 +292,14 @@ async function packageRpmForArch(config, version) {
     "exit 0",
     "",
     "%changelog",
-    ""
+    "",
   ].join("\n");
 
-  const specPath = path.join(workspace, "SPECS", `jamra-${config.rpmArch}.spec`);
+  const specPath = path.join(
+    workspace,
+    "SPECS",
+    `jamra-${config.rpmArch}.spec`,
+  );
   await fs.writeFile(specPath, specContent, "utf8");
 
   const rpmbuildArgs = [
@@ -287,17 +326,26 @@ async function packageRpmForArch(config, version) {
     `_target_os linux`,
     "--define",
     `_arch ${config.rpmArch}`,
-    specPath
+    specPath,
   ];
 
   await run("rpmbuild", rpmbuildArgs);
 
-  const producedRpm = path.join(workspace, "RPMS", config.rpmArch, `${rpmBaseName}.rpm`);
+  const producedRpm = path.join(
+    workspace,
+    "RPMS",
+    config.rpmArch,
+    `${rpmBaseName}.rpm`,
+  );
   if (!(await pathExists(producedRpm))) {
     throw new Error(`Expected RPM not found at ${producedRpm}`);
   }
 
-  const targetRpm = path.join(repoRoot, "dist-electron", `jamra-${version}.${config.rpmArch}.rpm`);
+  const targetRpm = path.join(
+    repoRoot,
+    "dist-electron",
+    `jamra-${version}.${config.rpmArch}.rpm`,
+  );
   await fs.copyFile(producedRpm, targetRpm);
   console.log(`[packagerpm] Wrote ${path.relative(repoRoot, targetRpm)}`);
 }
@@ -312,12 +360,12 @@ async function main() {
   const archMatrix = [
     {
       rpmArch: "x86_64",
-      sourceDir: path.join(repoRoot, "dist-electron", "linux-unpacked")
+      sourceDir: path.join(repoRoot, "dist-electron", "linux-unpacked"),
     },
     {
       rpmArch: "aarch64",
-      sourceDir: path.join(repoRoot, "dist-electron", "linux-arm64-unpacked")
-    }
+      sourceDir: path.join(repoRoot, "dist-electron", "linux-arm64-unpacked"),
+    },
   ];
 
   for (const config of archMatrix) {
@@ -325,7 +373,7 @@ async function main() {
   }
 }
 
-main().catch(error => {
+main().catch((error) => {
   console.error("[packagerpm] Failed:", error);
   process.exit(1);
 });

@@ -7,7 +7,9 @@ import {
 } from "@/lib/chapter-meta";
 import type { ChapterWithSlug } from "@/lib/chapter-slug";
 
-function buildChapter(overrides: Partial<ChapterWithSlug> = {}): ChapterWithSlug {
+function buildChapter(
+  overrides: Partial<ChapterWithSlug> = {},
+): ChapterWithSlug {
   return {
     id: overrides.id ?? randomUUID(),
     slug: overrides.slug ?? "1",
@@ -49,7 +51,10 @@ export function runChapterMetaTests(): void {
     number: undefined,
     title: undefined,
   });
-  assert.equal(getChapterSortValue(datedChapter), Date.parse(datedChapter.publishedAt!));
+  assert.equal(
+    getChapterSortValue(datedChapter),
+    Date.parse(datedChapter.publishedAt!),
+  );
 
   const sortSource: ChapterWithSlug[] = [
     buildChapter({ id: "a", slug: "1", number: "1" }),
