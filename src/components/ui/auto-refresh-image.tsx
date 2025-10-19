@@ -458,6 +458,11 @@ export function AutoRefreshImage({
     workingUrlTtlMs,
   ]);
 
+  const memoizedSrc = useMemo(
+    () => currentSrc ? resolveImageSource(currentSrc) : "",
+    [currentSrc]
+  );
+
   if (showNoCover) {
     return (
       <div
@@ -479,11 +484,6 @@ export function AutoRefreshImage({
   if (!currentSrc) {
     return null;
   }
-
-  const memoizedSrc = useMemo(
-    () => resolveImageSource(currentSrc),
-    [currentSrc]
-  );
 
   return (
     <>

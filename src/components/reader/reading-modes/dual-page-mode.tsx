@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { useReaderSettings } from "@/store/reader-settings";
 import { ChevronRight, ChevronLeft, Loader2 } from "lucide-react";
+import type { useReaderControls } from "@/hooks/use-reader-controls";
 
 interface DualPageModeProps {
   pages: Array<{
@@ -20,6 +21,9 @@ interface DualPageModeProps {
   prevChapter?: { id: string; slug: string; title?: string; number?: string } | null;
   mangaId?: string;
   mangaSlug?: string;
+  readerControls: ReturnType<typeof useReaderControls>;
+  onPrevPage: () => void;
+  onNextPage: () => void;
 }
 
 export function DualPageMode({
@@ -31,6 +35,9 @@ export function DualPageMode({
   prevChapter,
   mangaId,
   mangaSlug,
+  readerControls,
+  onPrevPage,
+  onNextPage,
 }: DualPageModeProps) {
   const router = useRouter();
   const { pageFit, backgroundColor, dualPageGap, readingMode, customWidth } = useReaderSettings();
@@ -62,34 +69,44 @@ export function DualPageMode({
   const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!containerRef.current || isDragging.current) return;
 
-    const rect = containerRef.current.getBoundingClientRect();
-    const clickX = e.clientX - rect.left;
-    const clickPercentage = clickX / rect.width;
+    const zone = readerControls.getHotZone(e.clientX, e.clientY, containerRef.current);
 
-    // Advance by 2 pages (or 1 if at end)
-    const step = displayPages.right ? 2 : 1;
-
-    if (isRTL) {
-      if (clickPercentage > 0.5 && currentPage > 0) {
-        onPageChange(Math.max(0, currentPage - step));
-      } else if (clickPercentage <= 0.5) {
-        if (currentPage < totalPages - 1) {
-          onPageChange(Math.min(totalPages - 1, currentPage + step));
-        } else if (nextChapter && routeSlug) {
-          router.push(`/read/${encodeURIComponent(routeSlug)}/chapter/${encodeURIComponent(nextChapter.slug)}`);
-        }
+    if (zone === 'center') {
+      // Toggle controls visibility
+      readerControls.toggleControls();
+    } else if (zone === 'left') {
+      // Navigate based on reading direction
+      readerControls.hideControls();
+      if (isRTL) {
+        // RTL: left side goes forward
+        onNextPage();
+      } else {
+        // LTR: left side goes backward
+        onPrevPage();
       }
-    } else {
-      if (clickPercentage < 0.5 && currentPage > 0) {
-        onPageChange(Math.max(0, currentPage - step));
-      } else if (clickPercentage >= 0.5) {
-        if (currentPage < totalPages - 1) {
-          onPageChange(Math.min(totalPages - 1, currentPage + step));
-        } else if (nextChapter && routeSlug) {
-          router.push(`/read/${encodeURIComponent(routeSlug)}/chapter/${encodeURIComponent(nextChapter.slug)}`);
-        }
+    } else if (zone === 'right') {
+      // Navigate based on reading direction
+      readerControls.hideControls();
+      if (isRTL) {
+        // RTL: right side goes backward
+        onPrevPage();
+      } else {
+        // LTR: right side goes forward
+        onNextPage();
       }
     }
+  };
+
+  // Handle mouse move to detect hot zones
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (containerRef.current) {
+      readerControls.updateHotZone(e.clientX, e.clientY, containerRef.current);
+    }
+  };
+
+  // Handle mouse leave to clear hot zone
+  const handleMouseLeave = () => {
+    readerControls.clearHotZone();
   };
 
   // Drag to navigate
@@ -118,6 +135,8 @@ export function DualPageMode({
       const delta = e.clientX - startX.current;
       if (Math.abs(delta) > 5) {
         isDragging.current = true;
+        // Hide controls when dragging
+        readerControls.hideControls();
       }
       // Update visual offset in real-time
       setDragOffset(delta);
@@ -174,7 +193,7 @@ export function DualPageMode({
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseup", handleMouseUp);
     };
-  }, [currentPage, totalPages, onPageChange, displayPages.right, nextChapter, routeSlug, router, isRTL]);
+  }, [currentPage, totalPages, onPageChange, displayPages.right, nextChapter, routeSlug, router, isRTL, readerControls]);
 
   const getImageStyles = (page: typeof displayPages.left) => {
     if (!page) return {};
@@ -257,6 +276,8 @@ export function DualPageMode({
     <div
       ref={containerRef}
       onClick={handleClick}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
       className={`relative flex h-full w-full cursor-pointer items-center justify-center ${backgroundColors[backgroundColor]}`}
     >
       {/* Hot-edge navigation with chevron arrows */}

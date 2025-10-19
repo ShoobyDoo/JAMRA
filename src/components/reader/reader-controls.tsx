@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
@@ -32,6 +32,7 @@ interface ReaderControlsProps {
   onToggleSettings: () => void;
   onToggleZenMode: () => void;
   onPageSelect: (page: number) => void;
+  showControls?: boolean;
 }
 
 export function ReaderControls({
@@ -50,12 +51,10 @@ export function ReaderControls({
   onToggleSettings,
   onToggleZenMode,
   onPageSelect,
+  showControls: externalShowControls,
 }: ReaderControlsProps) {
   const router = useRouter();
-  const { zenMode, autoHideControls, autoHideDelay, readingMode } =
-    useReaderSettings();
-  const [isVisible, setIsVisible] = useState(!autoHideControls);
-  const hideTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const { zenMode, readingMode } = useReaderSettings();
   const isSmallScreen = useMediaQuery("(max-width: 480px)");
   const isMediumScreen = useMediaQuery("(max-width: 768px)");
 
@@ -72,40 +71,8 @@ export function ReaderControls({
     return `${mangaTitle.slice(0, sliceEnd).trimEnd()}…`;
   }, [mangaTitle, titleLimit]);
 
-  const showControls = useCallback(() => {
-    setIsVisible(true);
-
-    if (!autoHideControls || zenMode) {
-      return;
-    }
-
-    if (hideTimeoutRef.current) {
-      clearTimeout(hideTimeoutRef.current);
-    }
-
-    hideTimeoutRef.current = setTimeout(() => {
-      setIsVisible(false);
-    }, autoHideDelay);
-  }, [autoHideControls, autoHideDelay, zenMode]);
-
-  useEffect(() => {
-    if (!autoHideControls || zenMode) {
-      setIsVisible(!zenMode);
-      return;
-    }
-
-    showControls();
-
-    const handleKeyDown = () => showControls();
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-      if (hideTimeoutRef.current) {
-        clearTimeout(hideTimeoutRef.current);
-      }
-    };
-  }, [autoHideControls, zenMode, showControls]);
+  // Use external control state if provided, otherwise default to visible
+  const isVisible = externalShowControls ?? true;
 
   // Progress shows fill BEHIND the current page marker (e.g., at page 1 of 5, progress is 0%)
   const hasTotalPages = totalPages > 0;
@@ -125,25 +92,13 @@ export function ReaderControls({
 
   return (
     <>
-      <div
-        className={`fixed left-0 right-0 top-0 z-40 h-10 md:h-14 ${
-          isVisible ? "pointer-events-none" : "pointer-events-auto"
-        }`}
-        onMouseEnter={showControls}
-        onMouseMove={showControls}
-        onTouchStart={showControls}
-      />
-
       {/* Top bar */}
       <div
         className={`fixed inset-x-0 top-4 z-50 flex justify-center px-4 transition-all duration-300 ease-out ${
           isVisible ? "pointer-events-auto translate-y-0 opacity-100" : "pointer-events-none -translate-y-6 opacity-0"
         }`}
-        onMouseEnter={showControls}
-        onMouseMove={showControls}
-        onTouchStart={showControls}
       >
-        <div className="pointer-events-auto flex w-full max-w-5xl items-center gap-3 rounded-2xl border border-border/60 bg-background/95 px-4 py-2 shadow-lg backdrop-blur">
+        <div className="flex w-full max-w-5xl items-center gap-3 rounded-2xl border border-border/60 bg-background/95 px-4 py-2 shadow-lg backdrop-blur">
           {/* Left: Back button + chapter selector */}
           <div className="flex flex-shrink-0 items-center gap-3">
             <button
@@ -229,11 +184,8 @@ export function ReaderControls({
         className={`fixed inset-x-0 bottom-4 z-50 flex justify-center px-4 transition-all duration-300 ease-out ${
           isVisible ? "pointer-events-auto translate-y-0 opacity-100" : "pointer-events-none translate-y-6 opacity-0"
         }`}
-        onMouseEnter={showControls}
-        onMouseMove={showControls}
-        onTouchStart={showControls}
       >
-        <div className="pointer-events-auto w-full max-w-5xl rounded-2xl border border-border/60 bg-background/95 px-4 py-3 shadow-lg backdrop-blur">
+        <div className="w-full max-w-5xl rounded-2xl border border-border/60 bg-background/95 px-4 py-3 shadow-lg backdrop-blur">
           {/* Progress bar */}
           <div className="flex items-center gap-3">
             <button
@@ -301,15 +253,6 @@ export function ReaderControls({
           </div>
         </div>
       </div>
-
-      <div
-        className={`fixed left-0 right-0 bottom-0 z-40 h-12 md:h-16 ${
-          isVisible ? "pointer-events-none" : "pointer-events-auto"
-        }`}
-        onMouseEnter={showControls}
-        onMouseMove={showControls}
-        onTouchStart={showControls}
-      />
     </>
   );
 }

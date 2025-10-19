@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useReaderSettings } from "@/store/reader-settings";
-import { ChevronDown, CheckCircle, Loader2 } from "lucide-react";
+import { CheckCircle, Loader2 } from "lucide-react";
+import type { useReaderControls } from "@/hooks/use-reader-controls";
 
 interface VerticalModeProps {
   pages: Array<{
@@ -30,6 +31,9 @@ interface VerticalModeProps {
   } | null;
   mangaId?: string;
   mangaSlug?: string;
+  readerControls: ReturnType<typeof useReaderControls>;
+  onPrevPage: () => void;
+  onNextPage: () => void;
 }
 
 const DEFAULT_PLACEHOLDER_HEIGHT = 900;
@@ -40,15 +44,15 @@ export function VerticalMode({
   totalPages,
   onPageChange,
   nextChapter,
-  prevChapter,
   mangaId,
   mangaSlug,
+  readerControls,
+  onPrevPage,
+  onNextPage,
 }: VerticalModeProps) {
   const router = useRouter();
   const routeSlug = mangaSlug ?? mangaId;
-  const { backgroundColor, gapSize, pageFit, customWidth, autoAdvanceChapter } =
-    useReaderSettings();
-  const [isAutoAdvancing, setIsAutoAdvancing] = useState(false);
+  const { backgroundColor, gapSize, pageFit, customWidth } = useReaderSettings();
 
   // Check if we have loaded pages
   const hasLoadedPages = pages.some((page) => page !== null);
@@ -59,48 +63,10 @@ export function VerticalMode({
   const skipScrollRef = useRef(false);
   const programmaticScrollRef = useRef(false);
   const observerRef = useRef<IntersectionObserver | null>(null);
-  const autoAdvanceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     currentPageRef.current = currentPage;
   }, [currentPage]);
-
-  // Auto-advance to next chapter when reaching the end
-  useEffect(() => {
-    if (!autoAdvanceChapter || !nextChapter || !routeSlug) {
-      return;
-    }
-
-    // Check if we're at the last page and all pages are loaded
-    const isAtEnd = currentPage === totalPages - 1;
-    const allPagesLoaded = pages.every((page) => page !== null);
-
-    if (isAtEnd && allPagesLoaded && !isAutoAdvancing) {
-      // Set a timer to auto-advance after a short delay (2 seconds)
-      autoAdvanceTimerRef.current = setTimeout(() => {
-        setIsAutoAdvancing(true);
-        router.push(
-          `/read/${encodeURIComponent(routeSlug)}/chapter/${encodeURIComponent(nextChapter.slug)}`
-        );
-      }, 2000);
-    }
-
-    return () => {
-      if (autoAdvanceTimerRef.current) {
-        clearTimeout(autoAdvanceTimerRef.current);
-        autoAdvanceTimerRef.current = null;
-      }
-    };
-  }, [
-    autoAdvanceChapter,
-    currentPage,
-    totalPages,
-    nextChapter,
-    routeSlug,
-    pages,
-    router,
-    isAutoAdvancing,
-  ]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -195,44 +161,57 @@ export function VerticalMode({
 
   const imageWidthValue = getImageWidth();
 
-  const handleCancelAutoAdvance = () => {
-    if (autoAdvanceTimerRef.current) {
-      clearTimeout(autoAdvanceTimerRef.current);
+  // Handle mouse move to detect hot zones
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (containerRef.current) {
+      readerControls.updateHotZone(e.clientX, e.clientY, containerRef.current);
     }
-    setIsAutoAdvancing(false);
+  };
+
+  // Handle mouse leave to clear hot zone
+  const handleMouseLeave = () => {
+    readerControls.clearHotZone();
+  };
+
+  // Handle click events based on hot zone
+  const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!containerRef.current) return;
+
+    const zone = readerControls.getHotZone(e.clientX, e.clientY, containerRef.current);
+
+    if (zone === 'center') {
+      // Toggle controls visibility
+      readerControls.toggleControls();
+    } else if (zone === 'top') {
+      // Navigate to previous page (scroll up)
+      readerControls.hideControls();
+      onPrevPage();
+    } else if (zone === 'bottom') {
+      // Navigate to next page (scroll down)
+      readerControls.hideControls();
+      onNextPage();
+    }
+  };
+
+  // Handle scroll to hide controls
+  const handleScroll = () => {
+    readerControls.hideControls();
   };
 
   return (
     <div
       ref={containerRef}
-      className={`h-full w-full overflow-y-auto ${backgroundColors[backgroundColor]}`}
+      className={`h-full w-full overflow-y-auto ${backgroundColors[backgroundColor]} relative`}
       style={{
         scrollBehavior: "auto",
         overscrollBehavior: "auto",
       }}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
+      onClick={handleClick}
+      onScroll={handleScroll}
     >
       <div className="flex flex-col items-center">
-        {/* Only show prev chapter button after pages start loading */}
-        {hasLoadedPages && prevChapter && routeSlug && (
-          <div className="flex flex-col items-center justify-center gap-4 py-12">
-            <button
-              onClick={() =>
-                router.push(
-                  `/read/${encodeURIComponent(routeSlug)}/chapter/${encodeURIComponent(prevChapter.slug)}?page=last`
-                )
-              }
-              className="flex flex-col items-center gap-2 rounded-lg bg-primary px-6 py-4 text-primary-foreground transition hover:bg-primary/90"
-            >
-              <ChevronDown className="h-6 w-6 rotate-180" />
-              <span className="text-sm font-medium">Previous Chapter</span>
-              <span className="text-xs opacity-80">
-                {prevChapter.title ||
-                  `Chapter ${prevChapter.number || prevChapter.slug}`}
-              </span>
-            </button>
-          </div>
-        )}
-
         {pages.map((page, arrayIndex) => {
           const pageIndex = page?.index ?? arrayIndex;
           const eagerLoad = pageIndex <= currentPage + 2;
@@ -290,80 +269,28 @@ export function VerticalMode({
         {/* End of chapter section - only show after pages are loaded */}
         {hasLoadedPages && (
           <div className="flex flex-col items-center justify-center gap-4 py-12 min-h-[400px]">
-            {nextChapter && routeSlug ? (
-              <div className="flex flex-col items-center gap-4">
-                <div className="flex items-center gap-2 text-green-500">
-                  <CheckCircle className="h-6 w-6" />
-                  <span className="text-lg font-medium">Chapter Complete</span>
-                </div>
+            <div className="flex flex-col items-center gap-4">
+              <div className="flex flex-col items-center gap-2 rounded-lg bg-muted px-8 py-6 text-center">
+                <CheckCircle className="h-8 w-8 text-muted-foreground" />
+                <span className="text-lg font-medium">
+                  Chapter Complete
+                </span>
+                <span className="text-sm text-muted-foreground">
+                  {nextChapter ? 'Use hot zones to navigate to next chapter' : 'No more chapters available'}
+                </span>
+              </div>
 
-                {autoAdvanceChapter && !isAutoAdvancing && (
-                  <div className="text-center text-sm text-muted-foreground">
-                    Auto-advancing to next chapter in 2 seconds...
-                    <button
-                      onClick={handleCancelAutoAdvance}
-                      className="ml-2 text-primary underline hover:text-primary/80"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                )}
-
-                {isAutoAdvancing && (
-                  <div className="text-center text-sm text-muted-foreground">
-                    Loading next chapter...
-                  </div>
-                )}
-
-                <button
-                  onClick={() =>
-                    router.push(
-                      `/read/${encodeURIComponent(routeSlug)}/chapter/${encodeURIComponent(nextChapter.slug)}`
-                    )
-                  }
-                  className="flex flex-col items-center gap-2 rounded-lg bg-primary px-8 py-5 text-primary-foreground transition hover:bg-primary/90"
-                >
-                  <ChevronDown className="h-6 w-6" />
-                  <span className="text-base font-medium">Next Chapter</span>
-                  <span className="text-xs opacity-80">
-                    {nextChapter.title ||
-                      `Chapter ${nextChapter.number || nextChapter.slug}`}
-                  </span>
-                </button>
-
+              {routeSlug && (
                 <button
                   onClick={() =>
                     router.push(`/manga/${encodeURIComponent(routeSlug)}`)
                   }
-                  className="mt-2 text-sm text-muted-foreground hover:text-foreground transition"
+                  className="mt-2 rounded-lg bg-primary px-6 py-3 text-sm font-medium text-primary-foreground transition hover:bg-primary/90"
                 >
-                  Exit Reader
+                  Return to Manga Details
                 </button>
-              </div>
-            ) : (
-              <div className="flex flex-col items-center gap-4">
-                <div className="flex flex-col items-center gap-2 rounded-lg bg-muted px-8 py-6 text-center">
-                  <CheckCircle className="h-8 w-8 text-muted-foreground" />
-                  <span className="text-lg font-medium">
-                    You&apos;ve reached the end
-                  </span>
-                  <span className="text-sm text-muted-foreground">
-                    No more chapters available
-                  </span>
-                </div>
-
-                {routeSlug && (
-                  <button
-                    onClick={() =>
-                      router.push(`/manga/${encodeURIComponent(routeSlug)}`)
-                    }
-                    className="mt-2 rounded-lg bg-primary px-6 py-3 text-sm font-medium text-primary-foreground transition hover:bg-primary/90"
-                  >
-                    Return to Manga Details
-                  </button>
-                )}
-              </div>
-            )}
+              )}
+            </div>
           </div>
         )}
       </div>

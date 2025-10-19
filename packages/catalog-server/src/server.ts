@@ -1623,6 +1623,315 @@ export async function startCatalogServer(
     }
   });
 
+  // ==================== Library Management Endpoints ====================
+
+  app.post("/api/library", async (req, res) => {
+    try {
+      if (!repository) {
+        res.status(503).json({ error: "Database not available" });
+        return;
+      }
+
+      const { mangaId, extensionId, status, personalRating, favorite, notes, startedAt, completedAt } = req.body;
+
+      if (!mangaId || !extensionId || !status) {
+        res.status(400).json({ error: "Missing required fields: mangaId, extensionId, status" });
+        return;
+      }
+
+      const validStatuses = ["reading", "plan_to_read", "completed", "on_hold", "dropped"];
+      if (!validStatuses.includes(status)) {
+        res.status(400).json({ error: "Invalid status. Must be one of: " + validStatuses.join(", ") });
+        return;
+      }
+
+      const entry = repository.addToLibrary(mangaId, extensionId, status, {
+        personalRating,
+        favorite,
+        notes,
+        startedAt,
+        completedAt,
+      });
+
+      res.status(201).json(entry);
+    } catch (error) {
+      handleError(res, error, "Failed to add to library");
+    }
+  });
+
+  app.put("/api/library/:mangaId", async (req, res) => {
+    try {
+      if (!repository) {
+        res.status(503).json({ error: "Database not available" });
+        return;
+      }
+
+      const { mangaId } = req.params;
+      if (!mangaId) {
+        res.status(400).json({ error: "Missing manga ID" });
+        return;
+      }
+
+      const { status, personalRating, favorite, notes, startedAt, completedAt } = req.body;
+
+      if (status) {
+        const validStatuses = ["reading", "plan_to_read", "completed", "on_hold", "dropped"];
+        if (!validStatuses.includes(status)) {
+          res.status(400).json({ error: "Invalid status. Must be one of: " + validStatuses.join(", ") });
+          return;
+        }
+      }
+
+      repository.updateLibraryEntry(decodeURIComponent(mangaId), {
+        status,
+        personalRating,
+        favorite,
+        notes,
+        startedAt,
+        completedAt,
+      });
+
+      const updated = repository.getLibraryEntry(decodeURIComponent(mangaId));
+      if (!updated) {
+        res.status(404).json({ error: "Library entry not found" });
+        return;
+      }
+
+      res.json(updated);
+    } catch (error) {
+      handleError(res, error, "Failed to update library entry");
+    }
+  });
+
+  app.delete("/api/library/:mangaId", async (req, res) => {
+    try {
+      if (!repository) {
+        res.status(503).json({ error: "Database not available" });
+        return;
+      }
+
+      const { mangaId } = req.params;
+      if (!mangaId) {
+        res.status(400).json({ error: "Missing manga ID" });
+        return;
+      }
+
+      repository.removeFromLibrary(decodeURIComponent(mangaId));
+      res.status(200).json({ success: true });
+    } catch (error) {
+      handleError(res, error, "Failed to remove from library");
+    }
+  });
+
+  app.get("/api/library/:mangaId", async (req, res) => {
+    try {
+      if (!repository) {
+        res.status(503).json({ error: "Database not available" });
+        return;
+      }
+
+      const { mangaId } = req.params;
+      if (!mangaId) {
+        res.status(400).json({ error: "Missing manga ID" });
+        return;
+      }
+
+      const entry = repository.getLibraryEntry(decodeURIComponent(mangaId));
+      if (!entry) {
+        res.status(404).json({ error: "Library entry not found" });
+        return;
+      }
+
+      res.json(entry);
+    } catch (error) {
+      handleError(res, error, "Failed to get library entry");
+    }
+  });
+
+  app.get("/api/library", async (req, res) => {
+    try {
+      if (!repository) {
+        res.status(503).json({ error: "Database not available" });
+        return;
+      }
+
+      const status = getQueryParam(req, "status");
+      const favoriteParam = getQueryParam(req, "favorite");
+      const favorite = favoriteParam === "true" ? true : favoriteParam === "false" ? false : undefined;
+
+      const entries = repository.getLibraryEntries({ status, favorite });
+      res.json(entries);
+    } catch (error) {
+      handleError(res, error, "Failed to get library entries");
+    }
+  });
+
+  app.get("/api/library-enriched", async (req, res) => {
+    try {
+      if (!repository) {
+        res.status(503).json({ error: "Database not available" });
+        return;
+      }
+
+      const status = getQueryParam(req, "status");
+      const favoriteParam = getQueryParam(req, "favorite");
+      const favorite = favoriteParam === "true" ? true : favoriteParam === "false" ? false : undefined;
+
+      const entries = repository.getEnrichedLibraryEntries({ status, favorite });
+      res.json(entries);
+    } catch (error) {
+      handleError(res, error, "Failed to get enriched library entries");
+    }
+  });
+
+  app.get("/api/library-stats", async (_req, res) => {
+    try {
+      if (!repository) {
+        res.status(503).json({ error: "Database not available" });
+        return;
+      }
+
+      const stats = repository.getLibraryStats();
+      res.json(stats);
+    } catch (error) {
+      handleError(res, error, "Failed to get library stats");
+    }
+  });
+
+  // ==================== Library Tags Endpoints ====================
+
+  app.post("/api/library/tags", async (req, res) => {
+    try {
+      if (!repository) {
+        res.status(503).json({ error: "Database not available" });
+        return;
+      }
+
+      const { name, color } = req.body;
+      if (!name) {
+        res.status(400).json({ error: "Missing required field: name" });
+        return;
+      }
+
+      const tag = repository.createLibraryTag(name, color);
+      res.status(201).json(tag);
+    } catch (error) {
+      handleError(res, error, "Failed to create library tag");
+    }
+  });
+
+  app.delete("/api/library/tags/:tagId", async (req, res) => {
+    try {
+      if (!repository) {
+        res.status(503).json({ error: "Database not available" });
+        return;
+      }
+
+      const { tagId } = req.params;
+      if (!tagId) {
+        res.status(400).json({ error: "Missing tag ID" });
+        return;
+      }
+
+      const parsedTagId = Number.parseInt(tagId, 10);
+      if (Number.isNaN(parsedTagId)) {
+        res.status(400).json({ error: "Invalid tag ID" });
+        return;
+      }
+
+      repository.deleteLibraryTag(parsedTagId);
+      res.status(200).json({ success: true });
+    } catch (error) {
+      handleError(res, error, "Failed to delete library tag");
+    }
+  });
+
+  app.get("/api/library/tags", async (_req, res) => {
+    try {
+      if (!repository) {
+        res.status(503).json({ error: "Database not available" });
+        return;
+      }
+
+      const tags = repository.getLibraryTags();
+      res.json(tags);
+    } catch (error) {
+      handleError(res, error, "Failed to get library tags");
+    }
+  });
+
+  app.post("/api/library/:mangaId/tags/:tagId", async (req, res) => {
+    try {
+      if (!repository) {
+        res.status(503).json({ error: "Database not available" });
+        return;
+      }
+
+      const { mangaId, tagId } = req.params;
+      if (!mangaId || !tagId) {
+        res.status(400).json({ error: "Missing manga ID or tag ID" });
+        return;
+      }
+
+      const parsedTagId = Number.parseInt(tagId, 10);
+      if (Number.isNaN(parsedTagId)) {
+        res.status(400).json({ error: "Invalid tag ID" });
+        return;
+      }
+
+      repository.addTagToLibraryEntry(decodeURIComponent(mangaId), parsedTagId);
+      res.status(200).json({ success: true });
+    } catch (error) {
+      handleError(res, error, "Failed to add tag to library entry");
+    }
+  });
+
+  app.delete("/api/library/:mangaId/tags/:tagId", async (req, res) => {
+    try {
+      if (!repository) {
+        res.status(503).json({ error: "Database not available" });
+        return;
+      }
+
+      const { mangaId, tagId } = req.params;
+      if (!mangaId || !tagId) {
+        res.status(400).json({ error: "Missing manga ID or tag ID" });
+        return;
+      }
+
+      const parsedTagId = Number.parseInt(tagId, 10);
+      if (Number.isNaN(parsedTagId)) {
+        res.status(400).json({ error: "Invalid tag ID" });
+        return;
+      }
+
+      repository.removeTagFromLibraryEntry(decodeURIComponent(mangaId), parsedTagId);
+      res.status(200).json({ success: true });
+    } catch (error) {
+      handleError(res, error, "Failed to remove tag from library entry");
+    }
+  });
+
+  app.get("/api/library/:mangaId/tags", async (req, res) => {
+    try {
+      if (!repository) {
+        res.status(503).json({ error: "Database not available" });
+        return;
+      }
+
+      const { mangaId } = req.params;
+      if (!mangaId) {
+        res.status(400).json({ error: "Missing manga ID" });
+        return;
+      }
+
+      const tags = repository.getTagsForLibraryEntry(decodeURIComponent(mangaId));
+      res.json(tags);
+    } catch (error) {
+      handleError(res, error, "Failed to get tags for library entry");
+    }
+  });
+
   // DANGER ZONE: Nuclear option to clear all user data
   app.post("/api/danger/nuke-user-data", async (_req, res) => {
     try {

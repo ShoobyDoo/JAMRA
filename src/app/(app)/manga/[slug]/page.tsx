@@ -7,6 +7,7 @@ import { ContinueReadingButton } from "@/components/manga/continue-reading-butto
 import { ClearChaptersButton } from "@/components/manga/clear-chapters-button";
 import { OfflineMangaProvider } from "@/components/manga/offline-manga-context";
 import { OfflineDownloadControls } from "@/components/manga/offline-download-controls";
+import { AddToLibraryButton } from "@/components/library/add-to-library-button";
 import { withChapterSlugs } from "@/lib/chapter-slug";
 import { decodeRouteParam, type MangaRouteParams } from "@/lib/routes";
 import { logger } from "@/lib/logger";
@@ -166,11 +167,18 @@ export default async function MangaPage({ params }: MangaPageProps) {
             <ClearChaptersButton mangaId={mangaId} />
           </div>
 
-          <ContinueReadingButton
-            chapters={chapters}
-            mangaId={mangaId}
-            mangaSlug={canonicalSlug}
-          />
+          <div className="flex flex-col sm:flex-row gap-3">
+            <ContinueReadingButton
+              chapters={chapters}
+              mangaId={mangaId}
+              mangaSlug={canonicalSlug}
+            />
+            <AddToLibraryButton
+              mangaId={mangaId}
+              extensionId={data.extensionId}
+              variant="outline"
+            />
+          </div>
           <OfflineDownloadControls />
           <ChapterList
             chapters={chapters}

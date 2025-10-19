@@ -7,11 +7,13 @@ import { useReaderProgress } from "./hooks/use-reader-progress";
 import { useReaderNavigation } from "./hooks/use-reader-navigation";
 import { useTouchGestures } from "./hooks/use-touch-gestures";
 import { useSequentialPageLoader } from "./hooks/use-sequential-page-loader";
+import { useReaderControls } from "@/hooks/use-reader-controls";
 import { PagedMode } from "./reading-modes/paged-mode";
 import { DualPageMode } from "./reading-modes/dual-page-mode";
 import { VerticalMode } from "./reading-modes/vertical-mode";
 import { ReaderControls } from "./reader-controls";
 import { ReaderSettingsPanel } from "./reader-settings-panel";
+import { HotZoneIndicator } from "./hot-zone-indicator";
 
 interface MangaReaderProps {
   mangaId: string;
@@ -51,6 +53,9 @@ export function MangaReader({
   } = useReaderSettings();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const router = useRouter();
+
+  // Smart control bar visibility management
+  const readerControls = useReaderControls({ mode: readingMode });
 
   // Load pages sequentially
   const {
@@ -277,6 +282,11 @@ export function MangaReader({
       prevChapter,
       mangaId,
       mangaSlug,
+      readerControls,
+      onPrevPage: prevPage,
+      onNextPage: () => {
+        void nextPage();
+      },
     };
 
     switch (readingMode) {
@@ -322,6 +332,9 @@ export function MangaReader({
         )}
       </div>
 
+      {/* Hot zone indicator - shown across all reading modes */}
+      <HotZoneIndicator zone={readerControls.currentHotZone} />
+
       <ReaderControls
         mangaSlug={mangaSlug}
         mangaTitle={mangaTitle}
@@ -342,6 +355,7 @@ export function MangaReader({
         onPageSelect={(pageIndex) => {
           void goToPage(pageIndex);
         }}
+        showControls={readerControls.showControls}
       />
 
       <ReaderSettingsPanel

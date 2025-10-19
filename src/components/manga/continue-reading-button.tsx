@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
-import { Button } from "@mantine/core";
+import { Button, type ButtonProps } from "@mantine/core";
 import { BookOpen } from "lucide-react";
 import { getAllReadingProgress } from "@/lib/api";
 import type { ReadingProgressData } from "@/lib/api";
@@ -18,6 +18,11 @@ interface ContinueReadingButtonProps {
   mangaId: string;
   mangaSlug: string;
 }
+
+const buttonClassNames: ButtonProps["classNames"] = {
+  label:
+    "flex w-full flex-col items-start gap-1 text-left whitespace-normal overflow-visible leading-snug",
+};
 
 export function ContinueReadingButton({
   chapters,
@@ -111,13 +116,13 @@ export function ContinueReadingButton({
           size="lg"
           leftSection={<BookOpen size={20} />}
           variant="filled"
+          h="auto"
+          px="lg"
           py="lg"
-          className="h-auto"
+          classNames={buttonClassNames}
         >
-          <div className="flex flex-col items-start gap-1 text-left">
-            <span className="font-semibold">Start Reading</span>
-            <span className="text-xs opacity-90">{startLabel}</span>
-          </div>
+          <span className="font-semibold">Start Reading</span>
+          <span className="text-xs opacity-90">{startLabel}</span>
         </Button>
       </Link>
     );
@@ -143,21 +148,21 @@ export function ContinueReadingButton({
         size="lg"
         leftSection={<BookOpen size={20} />}
         variant="filled"
+        h="auto"
+        px="lg"
         py="lg"
-        className="h-auto"
+        classNames={buttonClassNames}
       >
-        <div className="flex flex-col items-start gap-1 text-left">
-          <span className="font-semibold">
-            {isComplete ? "Read Again" : "Continue Reading"}
-          </span>
-          <span className="text-xs opacity-90">
-            {formatChapterTitle(chapter)}
-            {" · "}
-            Page {progress.currentPage + 1} of {progress.totalPages}
-            {" · "}
-            {progressPercent}% complete
-          </span>
-        </div>
+        <span className="font-semibold">
+          {isComplete ? "Read Again" : "Continue Reading"}
+        </span>
+        <span className="text-xs opacity-90">
+          {formatChapterTitle(chapter)}
+          {" · "}
+          Page {progress.currentPage + 1} of {progress.totalPages}
+          {" · "}
+          {progressPercent}% complete
+        </span>
       </Button>
     </Link>
   );

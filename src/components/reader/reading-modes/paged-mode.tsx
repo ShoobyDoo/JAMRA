@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { useReaderSettings } from "@/store/reader-settings";
 import { ChevronRight, ChevronLeft, Loader2 } from "lucide-react";
+import type { useReaderControls } from "@/hooks/use-reader-controls";
 
 interface PagedModeProps {
   pages: Array<{
@@ -20,6 +21,9 @@ interface PagedModeProps {
   prevChapter?: { id: string; slug: string; title?: string; number?: string } | null;
   mangaId?: string;
   mangaSlug?: string;
+  readerControls: ReturnType<typeof useReaderControls>;
+  onPrevPage: () => void;
+  onNextPage: () => void;
 }
 
 export function PagedMode({
@@ -31,6 +35,9 @@ export function PagedMode({
   prevChapter,
   mangaId,
   mangaSlug,
+  readerControls,
+  onPrevPage,
+  onNextPage,
 }: PagedModeProps) {
   const router = useRouter();
   const { pageFit, backgroundColor, readingMode, customWidth } = useReaderSettings();
@@ -68,40 +75,44 @@ export function PagedMode({
   const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!containerRef.current || isDragging.current) return;
 
-    const rect = containerRef.current.getBoundingClientRect();
-    const clickX = e.clientX - rect.left;
-    const clickPercentage = clickX / rect.width;
+    const zone = readerControls.getHotZone(e.clientX, e.clientY, containerRef.current);
 
-    // Click on left/right side to navigate
-    if (isRTL) {
-      if (clickPercentage > 0.5) {
-        if (currentPage > 0) {
-          onPageChange(currentPage - 1);
-        }
-        // At first page, clicking back side does nothing (prevChapter indicator shows instead)
+    if (zone === 'center') {
+      // Toggle controls visibility
+      readerControls.toggleControls();
+    } else if (zone === 'left') {
+      // Navigate based on reading direction
+      readerControls.hideControls();
+      if (isRTL) {
+        // RTL: left side goes forward
+        onNextPage();
       } else {
-        if (currentPage < totalPages - 1) {
-          onPageChange(currentPage + 1);
-        } else if (nextChapter && routeSlug) {
-          // Auto-advance to next chapter
-          router.push(`/read/${encodeURIComponent(routeSlug)}/chapter/${encodeURIComponent(nextChapter.slug)}`);
-        }
+        // LTR: left side goes backward
+        onPrevPage();
       }
-    } else {
-      if (clickPercentage < 0.5) {
-        if (currentPage > 0) {
-          onPageChange(currentPage - 1);
-        }
-        // At first page, clicking back side does nothing (prevChapter indicator shows instead)
+    } else if (zone === 'right') {
+      // Navigate based on reading direction
+      readerControls.hideControls();
+      if (isRTL) {
+        // RTL: right side goes backward
+        onPrevPage();
       } else {
-        if (currentPage < totalPages - 1) {
-          onPageChange(currentPage + 1);
-        } else if (nextChapter && routeSlug) {
-          // Auto-advance to next chapter
-          router.push(`/read/${encodeURIComponent(routeSlug)}/chapter/${encodeURIComponent(nextChapter.slug)}`);
-        }
+        // LTR: right side goes forward
+        onNextPage();
       }
     }
+  };
+
+  // Handle mouse move to detect hot zones
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (containerRef.current) {
+      readerControls.updateHotZone(e.clientX, e.clientY, containerRef.current);
+    }
+  };
+
+  // Handle mouse leave to clear hot zone
+  const handleMouseLeave = () => {
+    readerControls.clearHotZone();
   };
 
   // Drag to scroll/navigate
@@ -138,6 +149,8 @@ export function PagedMode({
       // Mark as dragging if moved more than 5px
       if (Math.abs(delta) > 5) {
         isDragging.current = true;
+        // Hide controls when dragging
+        readerControls.hideControls();
       }
 
       // Update visual offset in real-time (positive delta = drag right, negative = drag left)
@@ -198,7 +211,7 @@ export function PagedMode({
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseup", handleMouseUp);
     };
-  }, [currentPage, totalPages, onPageChange, nextChapter, routeSlug, router, isRTL]);
+  }, [currentPage, totalPages, onPageChange, nextChapter, routeSlug, router, isRTL, readerControls]);
 
   const getImageStyles = (): React.CSSProperties => {
     if (!currentPageData) return {};
@@ -303,6 +316,8 @@ export function PagedMode({
     <div
       ref={containerRef}
       onClick={handleClick}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
       className={`relative flex h-full w-full cursor-pointer items-center justify-center ${backgroundColors[backgroundColor]}`}
     >
       {/* Hot-edge navigation with chevron arrows */}
@@ -325,46 +340,13 @@ export function PagedMode({
         </div>
       </div>
 
-      {/* Previous chapter indicator (left side for LTR, right side for RTL) */}
-      {isFirstPage && prevChapter && routeSlug && (
-        <div
-          className={`absolute ${isRTL ? "right-0" : "left-0"} top-0 bottom-0 flex items-center px-6 z-20`}
-        >
-          <button
-            onClick={() => router.push(`/read/${encodeURIComponent(routeSlug)}/chapter/${encodeURIComponent(prevChapter.slug)}?page=last`)}
-            className="flex flex-col items-center gap-2 rounded-lg bg-black/80 px-4 py-3 text-white transition hover:bg-black/90"
-          >
-            {isRTL ? <ChevronRight className="h-6 w-6" /> : <ChevronLeft className="h-6 w-6" />}
-            <span className="text-xs text-center">
-              {prevChapter.title || `Chapter ${prevChapter.number || prevChapter.slug}`}
-            </span>
-            <span className="text-xs text-white/60">Previous Chapter</span>
-          </button>
-        </div>
-      )}
-
-      {/* Next chapter or end indicator (right side for LTR, left side for RTL) */}
-      {isLastPage && (
-        <div
-          className={`absolute ${isRTL ? "left-0" : "right-0"} top-0 bottom-0 flex items-center px-6 z-20`}
-        >
-          {nextChapter && routeSlug ? (
-            <button
-              onClick={() => router.push(`/read/${encodeURIComponent(routeSlug)}/chapter/${encodeURIComponent(nextChapter.slug)}`)}
-              className="flex flex-col items-center gap-2 rounded-lg bg-black/80 px-4 py-3 text-white transition hover:bg-black/90"
-            >
-              {isRTL ? <ChevronLeft className="h-6 w-6" /> : <ChevronRight className="h-6 w-6" />}
-              <span className="text-xs text-center">
-                {nextChapter.title || `Chapter ${nextChapter.number || nextChapter.slug}`}
-              </span>
-              <span className="text-xs text-white/60">Click to continue</span>
-            </button>
-          ) : (
-            <div className="flex flex-col items-center gap-2 rounded-lg bg-black/80 px-4 py-3 text-white pointer-events-none">
-              <span className="text-sm font-medium">End of Manga</span>
-              <span className="text-xs text-white/60">No more chapters</span>
-            </div>
-          )}
+      {/* End of chapter/manga indicator */}
+      {isLastPage && !nextChapter && (
+        <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none">
+          <div className="flex flex-col items-center gap-2 rounded-lg bg-black/80 px-6 py-4 text-white">
+            <span className="text-sm font-medium">End of Manga</span>
+            <span className="text-xs text-white/60">No more chapters</span>
+          </div>
         </div>
       )}
 

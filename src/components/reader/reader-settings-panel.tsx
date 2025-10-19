@@ -35,8 +35,6 @@ export function ReaderSettingsPanel({ isOpen, onClose }: ReaderSettingsPanelProp
     resetToDefaults,
   } = useReaderSettings();
 
-  if (!isOpen) return null;
-
   const readingModes: { value: ReadingMode; label: string; description: string }[] = [
     { value: "paged-ltr", label: "Paged (LTR)", description: "Left to right navigation" },
     { value: "paged-rtl", label: "Paged (RTL)", description: "Right to left navigation" },
@@ -63,13 +61,17 @@ export function ReaderSettingsPanel({ isOpen, onClose }: ReaderSettingsPanelProp
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm transition-opacity duration-200 animate-in fade-in"
+        className={`fixed inset-0 z-50 bg-black/50 backdrop-blur-sm transition-opacity duration-200 ${
+          isOpen ? "opacity-100" : "opacity-0 pointer-events-none"
+        }`}
         onClick={onClose}
         aria-hidden="true"
       />
 
       {/* Panel */}
-      <div className="fixed right-0 top-0 z-50 h-full w-full max-w-md overflow-y-auto border-l border-border bg-background shadow-xl transition-transform duration-300 animate-in slide-in-from-right">
+      <div className={`fixed right-0 top-0 z-50 h-full w-full max-w-md overflow-y-auto border-l border-border bg-background shadow-xl transition-transform duration-200 ease-out ${
+        isOpen ? "translate-x-0" : "translate-x-full"
+      }`}>
         {/* Header */}
         <div className="sticky top-0 flex items-center justify-between border-b border-border bg-background px-6 py-4">
           <h2 className="text-lg font-semibold">Reader Settings</h2>
