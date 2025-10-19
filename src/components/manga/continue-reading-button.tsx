@@ -12,6 +12,7 @@ import {
   getChapterSortValue,
   sortChaptersDesc,
 } from "@/lib/chapter-meta";
+import { logger } from "@/lib/logger";
 
 interface ContinueReadingButtonProps {
   chapters: ChapterWithSlug[];
@@ -85,7 +86,12 @@ export function ContinueReadingButton({
           setLastReadChapter({ chapter, progress: mostRecent });
         }
       } catch (error) {
-        console.error("Failed to fetch reading progress:", error);
+        logger.error("Failed to load continue reading progress", {
+          component: "ContinueReadingButton",
+          action: "load-progress",
+          mangaId,
+          error: error instanceof Error ? error : new Error(String(error)),
+        });
       } finally {
         setLoading(false);
       }

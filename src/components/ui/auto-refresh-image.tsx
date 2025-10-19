@@ -6,6 +6,8 @@ import { refreshMangaCache, reportMangaCoverResult } from "@/lib/api";
 import { resolveImageSource } from "@/lib/image-proxy";
 import { cn } from "@/lib/utils";
 import { useSettingsStore } from "@/store/settings";
+import { logger } from "@/lib/logger";
+import { COVER_REPORT_LIMITS } from "@/lib/constants";
 
 const WORKING_URL_CACHE_KEY = "jamra_cover_urls_v2";
 
@@ -101,8 +103,7 @@ function mergeRefreshedUrls(existing: string[], refreshed: string[]): string[] {
   const merged = dedupeUrls([...refreshed, ...existing]);
 
   // Dynamically limit URLs based on estimated payload size
-  // Keep under 80KB (80% of Express 100KB default limit for safety margin)
-  const maxPayloadBytes = 80 * 1024;
+  const maxPayloadBytes = COVER_REPORT_LIMITS.MERGED_MAX_BYTES;
 
   // Estimate JSON payload size: URLs + JSON overhead
   let estimatedSize = 0;
@@ -110,7 +111,8 @@ function mergeRefreshedUrls(existing: string[], refreshed: string[]): string[] {
 
   for (const url of merged) {
     // Estimate JSON size: URL string + quotes + comma + some overhead
-    const urlSize = url.length * 2 + 10; // 2 bytes per char (UTF-16) + JSON overhead
+    const urlSize =
+      url.length * 2 + COVER_REPORT_LIMITS.MAX_URL_OVERHEAD; // 2 bytes per char (UTF-16) + JSON overhead
 
     if (estimatedSize + urlSize > maxPayloadBytes) {
       break;
@@ -121,7 +123,9 @@ function mergeRefreshedUrls(existing: string[], refreshed: string[]): string[] {
   }
 
   // Always keep at least 10 URLs for functionality, even if it might exceed limit
-  return limitedUrls.length >= 10 ? limitedUrls : merged.slice(0, 10);
+  return limitedUrls.length >= COVER_REPORT_LIMITS.MIN_URLS
+    ? limitedUrls
+    : merged.slice(0, COVER_REPORT_LIMITS.MIN_URLS);
 }
 
 function isDataLikeUrl(value: string): boolean {
@@ -132,19 +136,22 @@ function limitUrlsForPayload(urls: string[]): string[] {
   const sanitized = urls.filter((url) => !isDataLikeUrl(url));
   if (sanitized.length === 0) {
     if (process.env.NODE_ENV !== "production" && urls.length > 0) {
-      console.log("[AutoRefreshImage] Dropping data/blob URLs from payload.", {
+      logger.debug("Dropping data/blob URLs from auto-refresh payload", {
+        component: "AutoRefreshImage",
+        action: "sanitize-urls",
         dropped: urls.length,
       });
     }
     return [];
   }
 
-  const maxPayloadBytes = 40 * 1024; // 40KB very conservative limit
-  let estimatedSize = 200; // Base JSON structure overhead
+  const maxPayloadBytes = COVER_REPORT_LIMITS.MAX_PAYLOAD_BYTES;
+  let estimatedSize = COVER_REPORT_LIMITS.BASE_JSON_OVERHEAD;
 
   const limitedUrls: string[] = [];
   for (const url of sanitized) {
-    const urlSize = url.length * 2 + 10; // UTF-16 + JSON overhead
+    const urlSize =
+      url.length * 2 + COVER_REPORT_LIMITS.MAX_URL_OVERHEAD; // UTF-16 + JSON overhead
     if (estimatedSize + urlSize > maxPayloadBytes) break;
 
     limitedUrls.push(url);
@@ -153,13 +160,18 @@ function limitUrlsForPayload(urls: string[]): string[] {
 
   // If we couldn't fit even 5 URLs, take them one by one until we hit a reasonable limit
   let result = limitedUrls;
-  if (limitedUrls.length < 5) {
+  if (limitedUrls.length < COVER_REPORT_LIMITS.FALLBACK_MIN_URLS) {
     result = [];
-    let size = 200; // Base overhead
-    for (let i = 0; i < Math.min(5, sanitized.length); i++) {
+    let size = COVER_REPORT_LIMITS.BASE_JSON_OVERHEAD;
+    for (
+      let i = 0;
+      i < Math.min(COVER_REPORT_LIMITS.FALLBACK_MIN_URLS, sanitized.length);
+      i++
+    ) {
       const url = sanitized[i];
-      const urlSize = url.length * 2 + 10;
-      if (size + urlSize > 30 * 1024) break; // Even stricter 30KB limit for fallback
+      const urlSize =
+        url.length * 2 + COVER_REPORT_LIMITS.MAX_URL_OVERHEAD;
+      if (size + urlSize > COVER_REPORT_LIMITS.FALLBACK_MAX_BYTES) break;
       result.push(url);
       size += urlSize;
     }
@@ -186,7 +198,14 @@ async function reportCoverResult(payload: ReportPayload) {
     await reportMangaCoverResult(payload);
   } catch (error) {
     if (process.env.NODE_ENV !== "production") {
-      console.warn("[AutoRefreshImage] Failed to report cover result", error);
+      logger.warn("Failed to report cover result", {
+        component: "AutoRefreshImage",
+        action: "report-cover-result",
+        mangaId: payload.mangaId,
+        extensionId: payload.extensionId,
+        status: payload.status,
+        error: error instanceof Error ? error : new Error(String(error)),
+      });
     }
   }
 }
@@ -272,7 +291,11 @@ export function AutoRefreshImage({
       parsed = JSON.parse(serializedFallbacks) as string[];
     } catch (error) {
       if (process.env.NODE_ENV !== "production") {
-        console.warn("Failed to parse fallback URLs signature", error);
+        logger.warn("Failed to parse fallback URL signature", {
+          component: "AutoRefreshImage",
+          action: "parse-fallbacks",
+          error: error instanceof Error ? error : new Error(String(error)),
+        });
       }
     }
 
@@ -440,7 +463,14 @@ export function AutoRefreshImage({
           return;
         }
       } catch (error) {
-        console.error("[AutoRefreshImage] Cache refresh failed", error);
+        logger.error("Cover cache refresh failed", {
+          component: "AutoRefreshImage",
+          action: "refresh-cache",
+          mangaId,
+          extensionId,
+          retryCount: retryCountRef.current,
+          error: error instanceof Error ? error : new Error(String(error)),
+        });
       } finally {
         isRefreshingRef.current = false;
       }

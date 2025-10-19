@@ -10,6 +10,7 @@ import { useDebouncedValue } from "@mantine/hooks";
 import { fetchCataloguePage } from "@/lib/api";
 import { slugify } from "@/lib/slug";
 import type { MangaSummary } from "@/lib/api";
+import { logger } from "@/lib/logger";
 
 function normalizeText(value: string): string {
   return value
@@ -102,7 +103,12 @@ export function SearchBar() {
           color: "red",
           autoClose: 4000,
         });
-        console.error("Search failed:", error);
+        logger.error("Search request failed", {
+          component: "SearchBar",
+          action: "search",
+          query: debouncedQuery,
+          error: error instanceof Error ? error : new Error(String(error)),
+        });
       })
       .finally(() => setLoading(false));
   }, [debouncedQuery]);

@@ -9,6 +9,7 @@ import {
   deleteHistoryEntry as deleteHistoryEntryAPI,
   clearHistory as clearHistoryAPI,
 } from "@/lib/api";
+import { logger } from "@/lib/logger";
 
 export interface HistoryFilters {
   mangaId?: string;
@@ -99,7 +100,13 @@ export const useHistory = create<HistoryState>((set, get) => ({
         metadata: options?.metadata,
       });
     } catch (error) {
-      console.error("Failed to log history entry:", error);
+      logger.error("Failed to log history entry", {
+        component: "useHistory",
+        action: "log-entry",
+        mangaId,
+        actionType,
+        error: error instanceof Error ? error : new Error(String(error)),
+      });
       // Don't throw - history logging should be fire-and-forget
     }
   },
@@ -199,7 +206,12 @@ export const useHistory = create<HistoryState>((set, get) => ({
       const stats = await getHistoryStatsAPI(dateRange);
       set({ stats });
     } catch (error) {
-      console.error("Failed to load history stats:", error);
+      logger.error("Failed to load history stats", {
+        component: "useHistory",
+        action: "load-stats",
+        dateRange,
+        error: error instanceof Error ? error : new Error(String(error)),
+      });
     }
   },
 

@@ -19,6 +19,7 @@ import {
   getTagsForLibraryEntry as getTagsForLibraryEntryAPI,
   logHistoryEntry,
 } from "@/lib/api";
+import { logger } from "@/lib/logger";
 
 export interface LibraryFilters {
   status?: LibraryStatus;
@@ -137,7 +138,14 @@ export const useLibrary = create<LibraryState>((set, get) => ({
           favorite: options?.favorite,
         },
       }).catch((error) => {
-        console.error("Failed to log history entry:", error);
+        logger.error("Failed to log library add history entry", {
+          component: "useLibrary",
+          action: "log-library-add",
+          mangaId,
+          extensionId,
+          status,
+          error: error instanceof Error ? error : new Error(String(error)),
+        });
       });
 
       // Reload library to get enriched data
@@ -164,7 +172,13 @@ export const useLibrary = create<LibraryState>((set, get) => ({
           actionType: updates.favorite ? "favorite" : "unfavorite",
           metadata: updates,
         }).catch((error) => {
-          console.error("Failed to log history entry:", error);
+          logger.error("Failed to log library favorite history entry", {
+            component: "useLibrary",
+            action: "log-favorite",
+            mangaId,
+            favorite: updates.favorite,
+            error: error instanceof Error ? error : new Error(String(error)),
+          });
         });
       }
 
@@ -201,7 +215,12 @@ export const useLibrary = create<LibraryState>((set, get) => ({
         mangaId,
         actionType: "library_remove",
       }).catch((error) => {
-        console.error("Failed to log history entry:", error);
+        logger.error("Failed to log library removal history entry", {
+          component: "useLibrary",
+          action: "log-library-remove",
+          mangaId,
+          error: error instanceof Error ? error : new Error(String(error)),
+        });
       });
 
       // Remove from local state
@@ -222,7 +241,12 @@ export const useLibrary = create<LibraryState>((set, get) => ({
     try {
       return await getLibraryEntryAPI(mangaId);
     } catch (error) {
-      console.error("Failed to check library status:", error);
+      logger.error("Failed to check library status", {
+        component: "useLibrary",
+        action: "check-status",
+        mangaId,
+        error: error instanceof Error ? error : new Error(String(error)),
+      });
       return null;
     }
   },
@@ -248,7 +272,11 @@ export const useLibrary = create<LibraryState>((set, get) => ({
       const stats = await getLibraryStatsAPI();
       set({ stats });
     } catch (error) {
-      console.error("Failed to load stats:", error);
+      logger.error("Failed to load library stats", {
+        component: "useLibrary",
+        action: "load-stats",
+        error: error instanceof Error ? error : new Error(String(error)),
+      });
     }
   },
 
@@ -257,7 +285,11 @@ export const useLibrary = create<LibraryState>((set, get) => ({
       const tags = await getLibraryTagsAPI();
       set({ tags });
     } catch (error) {
-      console.error("Failed to load tags:", error);
+      logger.error("Failed to load library tags", {
+        component: "useLibrary",
+        action: "load-tags",
+        error: error instanceof Error ? error : new Error(String(error)),
+      });
     }
   },
 
@@ -306,7 +338,13 @@ export const useLibrary = create<LibraryState>((set, get) => ({
       get().clearSelection();
       await get().loadLibrary(get().filters);
     } catch (error) {
-      console.error("Bulk update failed:", error);
+      logger.error("Bulk library status update failed", {
+        component: "useLibrary",
+        action: "bulk-update-status",
+        status,
+        count: selected.length,
+        error: error instanceof Error ? error : new Error(String(error)),
+      });
       throw error;
     }
   },
@@ -317,7 +355,12 @@ export const useLibrary = create<LibraryState>((set, get) => ({
       await Promise.all(selected.map((mangaId) => get().removeEntry(mangaId)));
       get().clearSelection();
     } catch (error) {
-      console.error("Bulk delete failed:", error);
+      logger.error("Bulk library delete failed", {
+        component: "useLibrary",
+        action: "bulk-delete",
+        count: selected.length,
+        error: error instanceof Error ? error : new Error(String(error)),
+      });
       throw error;
     }
   },
@@ -329,7 +372,13 @@ export const useLibrary = create<LibraryState>((set, get) => ({
       set({ tags: [...get().tags, tag] });
       return tag;
     } catch (error) {
-      console.error("Failed to create tag:", error);
+      logger.error("Failed to create library tag", {
+        component: "useLibrary",
+        action: "create-tag",
+        name,
+        color,
+        error: error instanceof Error ? error : new Error(String(error)),
+      });
       throw error;
     }
   },
@@ -339,7 +388,12 @@ export const useLibrary = create<LibraryState>((set, get) => ({
       await deleteLibraryTagAPI(tagId);
       set({ tags: get().tags.filter((tag) => tag.id !== tagId) });
     } catch (error) {
-      console.error("Failed to delete tag:", error);
+      logger.error("Failed to delete library tag", {
+        component: "useLibrary",
+        action: "delete-tag",
+        tagId,
+        error: error instanceof Error ? error : new Error(String(error)),
+      });
       throw error;
     }
   },
@@ -350,9 +404,21 @@ export const useLibrary = create<LibraryState>((set, get) => ({
       // Reload entry tags
       const tags = await getTagsForLibraryEntryAPI(mangaId);
       // Update entry in local state if needed
-      console.log("Tags for entry:", tags);
+      logger.debug("Loaded tags for library entry", {
+        component: "useLibrary",
+        action: "add-tag",
+        mangaId,
+        tagId,
+        tagCount: tags.length,
+      });
     } catch (error) {
-      console.error("Failed to add tag to entry:", error);
+      logger.error("Failed to add tag to library entry", {
+        component: "useLibrary",
+        action: "add-tag",
+        mangaId,
+        tagId,
+        error: error instanceof Error ? error : new Error(String(error)),
+      });
       throw error;
     }
   },
@@ -361,7 +427,13 @@ export const useLibrary = create<LibraryState>((set, get) => ({
     try {
       await removeTagFromLibraryEntryAPI(mangaId, tagId);
     } catch (error) {
-      console.error("Failed to remove tag from entry:", error);
+      logger.error("Failed to remove tag from library entry", {
+        component: "useLibrary",
+        action: "remove-tag",
+        mangaId,
+        tagId,
+        error: error instanceof Error ? error : new Error(String(error)),
+      });
       throw error;
     }
   },

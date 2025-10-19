@@ -1,6 +1,7 @@
 import { useEffect, useRef, useCallback } from "react";
 import { useReaderSettings } from "@/store/reader-settings";
 import { useReadingProgress } from "@/store/reading-progress";
+import { logger } from "@/lib/logger";
 
 export interface PageImage {
   index: number;
@@ -66,7 +67,12 @@ export function useChapterPagePreloader(
           if (page?.url) {
             jobs.push(
               preloadImage(page.url).catch((error) => {
-                console.warn(`Failed to preload page ${pageIndex}:`, error);
+                logger.warn("Failed to preload reader page image", {
+                  component: "useChapterPagePreloader",
+                  action: "preload-image",
+                  pageIndex,
+                  error: error instanceof Error ? error : new Error(String(error)),
+                });
               }),
             );
           }

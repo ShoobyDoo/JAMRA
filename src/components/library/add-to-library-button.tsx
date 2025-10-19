@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useLibrary } from "@/store/library";
 import type { LibraryStatus } from "@/lib/api";
+import { logger } from "@/lib/logger";
 
 interface AddToLibraryButtonProps {
   mangaId: string;
@@ -70,7 +71,13 @@ export function AddToLibraryButton({
       const updatedEntry = getEntryByMangaId(mangaId);
       setLibraryEntry(updatedEntry);
     } catch (error) {
-      console.error("Failed to add/update library entry:", error);
+      logger.error("Failed to add or update library entry", {
+        component: "AddToLibraryButton",
+        action: "save-entry",
+        mangaId,
+        status,
+        error: error instanceof Error ? error : new Error(String(error)),
+      });
     } finally {
       setIsLoading(false);
     }
@@ -82,7 +89,12 @@ export function AddToLibraryButton({
       await removeEntry(mangaId);
       setLibraryEntry(undefined);
     } catch (error) {
-      console.error("Failed to remove from library:", error);
+      logger.error("Failed to remove library entry", {
+        component: "AddToLibraryButton",
+        action: "remove-entry",
+        mangaId,
+        error: error instanceof Error ? error : new Error(String(error)),
+      });
     } finally {
       setIsLoading(false);
     }
@@ -97,7 +109,12 @@ export function AddToLibraryButton({
       const updatedEntry = getEntryByMangaId(mangaId);
       setLibraryEntry(updatedEntry);
     } catch (error) {
-      console.error("Failed to toggle favorite:", error);
+      logger.error("Failed to toggle favorite state", {
+        component: "AddToLibraryButton",
+        action: "toggle-favorite",
+        mangaId,
+        error: error instanceof Error ? error : new Error(String(error)),
+      });
     } finally {
       setIsLoading(false);
     }

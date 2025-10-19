@@ -1,6 +1,7 @@
 import { runChapterMetaTests } from "./chapter-meta.test";
 import { runChapterSlugTests } from "./chapter-slug.test";
 import { runReadingHistoryTests } from "./reading-history.test";
+import { runDownloadUtilsTests } from "./download-utils.test";
 
 interface TestCase {
   name: string;
@@ -12,6 +13,7 @@ async function main() {
     { name: "chapter meta helpers", run: runChapterMetaTests },
     { name: "chapter slug generation", run: runChapterSlugTests },
     { name: "reading history hydration", run: runReadingHistoryTests },
+    { name: "download utilities", run: runDownloadUtilsTests },
   ];
 
   const results: Array<{ name: string; success: boolean; error?: Error }> = [];

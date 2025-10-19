@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { logger } from "@/lib/logger";
 
 export interface OfflineDownloadEvent {
   type:
@@ -68,8 +69,12 @@ export function useOfflineEvents(options: UseOfflineEventsOptions = {}) {
         } catch {
           if (cancelled) return;
           // Network error - will retry
-          console.warn(
-            "[Offline Events] Failed to check offline storage availability, will retry",
+          logger.warn(
+            "Failed to check offline storage availability; will retry",
+            {
+              component: "useOfflineEvents",
+              action: "check-availability",
+            },
           );
         }
 
@@ -79,7 +84,10 @@ export function useOfflineEvents(options: UseOfflineEventsOptions = {}) {
         eventSourceRef.current = eventSource;
 
         eventSource.addEventListener("connected", () => {
-          console.log("[Offline Events] Connected to SSE stream");
+          logger.info("Connected to offline SSE stream", {
+            component: "useOfflineEvents",
+            action: "connected",
+          });
           setConnected(true);
           reconnectAttemptsRef.current = 0;
         });
@@ -135,8 +143,13 @@ export function useOfflineEvents(options: UseOfflineEventsOptions = {}) {
 
           // Only retry a few times before giving up
           if (reconnectAttemptsRef.current >= 3) {
-            console.warn(
-              "[Offline Events] Failed to connect after 3 attempts, offline features may not be available",
+            logger.warn(
+              "Offline events connection failed after maximum retries",
+              {
+                component: "useOfflineEvents",
+                action: "max-retries",
+                attempts: reconnectAttemptsRef.current,
+              },
             );
             offlineStorageDisabledRef.current = true;
             return;
@@ -154,8 +167,12 @@ export function useOfflineEvents(options: UseOfflineEventsOptions = {}) {
           }, delay);
         };
       } catch {
-        console.warn(
-          "[Offline Events] Failed to connect to SSE stream, offline features may not be available",
+        logger.warn(
+          "Failed to establish offline events SSE connection",
+          {
+            component: "useOfflineEvents",
+            action: "connect-failure",
+          },
         );
         setConnected(false);
       }

@@ -27,6 +27,7 @@ import {
   useOfflineEvents,
   type OfflineDownloadEvent,
 } from "@/hooks/use-offline-events";
+import { logger } from "@/lib/logger";
 
 export interface OfflineMangaContextValue {
   extensionId?: string;
@@ -209,7 +210,13 @@ export function OfflineMangaProvider({
         await Promise.all([refreshOfflineChapters(), refreshQueue()]);
       } catch (error) {
         if (!(error instanceof ApiError && error.status === 503)) {
-          console.error("Failed to load offline data", error);
+          logger.error("Failed to load offline data", {
+            component: "OfflineMangaContext",
+            action: "initial-load",
+            mangaId,
+            extensionId,
+            error: error instanceof Error ? error : new Error(String(error)),
+          });
         }
       } finally {
         if (!cancelled) {
@@ -219,13 +226,19 @@ export function OfflineMangaProvider({
     }
 
     loadInitialData().catch((error) => {
-      console.error("Unhandled error loading offline data", error);
+      logger.error("Unhandled error during offline data load", {
+        component: "OfflineMangaContext",
+        action: "initial-load",
+        mangaId,
+        extensionId,
+        error: error instanceof Error ? error : new Error(String(error)),
+      });
     });
 
     return () => {
       cancelled = true;
     };
-  }, [extensionId, refreshOfflineChapters, refreshQueue]);
+  }, [extensionId, mangaId, refreshOfflineChapters, refreshQueue]);
 
   // Use SSE for real-time updates instead of polling
   useOfflineEvents({
@@ -245,7 +258,16 @@ export function OfflineMangaProvider({
                 const existing = prev.find((item) => item.id === event.queueId);
                 if (!existing) {
                   // Refresh queue to get the new item
-                  refreshQueue().catch(console.error);
+                  refreshQueue().catch((error) => {
+                    logger.error("Failed to refresh offline queue after download start", {
+                      component: "OfflineMangaContext",
+                      action: "refresh-queue",
+                      mangaId,
+                      extensionId,
+                      queueId: event.queueId,
+                      error: error instanceof Error ? error : new Error(String(error)),
+                    });
+                  });
                   return prev;
                 }
 
@@ -275,9 +297,18 @@ export function OfflineMangaProvider({
               // Refresh offline chapters to show newly downloaded content
               refreshOfflineChapters().catch((error) => {
                 if (!(error instanceof ApiError && error.status === 503)) {
-                  console.error(
+                  logger.error(
                     "Failed to refresh offline chapters after download completed",
-                    error,
+                    {
+                      component: "OfflineMangaContext",
+                      action: "refresh-after-complete",
+                      mangaId,
+                      extensionId,
+                      queueId: event.queueId,
+                      error: error instanceof Error
+                        ? error
+                        : new Error(String(error)),
+                    },
                   );
                 }
               });
@@ -305,9 +336,18 @@ export function OfflineMangaProvider({
             if (event.chapterId) {
               refreshOfflineChapters().catch((error) => {
                 if (!(error instanceof ApiError && error.status === 503)) {
-                  console.error(
-                    "Failed to refresh offline chapters after chapter deleted",
-                    error,
+                  logger.error(
+                    "Failed to refresh offline chapters after chapter deletion",
+                    {
+                      component: "OfflineMangaContext",
+                      action: "refresh-after-chapter-delete",
+                      mangaId,
+                      extensionId,
+                      chapterId: event.chapterId,
+                      error: error instanceof Error
+                        ? error
+                        : new Error(String(error)),
+                    },
                   );
                 }
               });
@@ -317,16 +357,19 @@ export function OfflineMangaProvider({
           case "manga-deleted":
             refreshOfflineChapters().catch((error) => {
               if (!(error instanceof ApiError && error.status === 503)) {
-                console.error(
-                  "Failed to refresh offline chapters after manga deleted",
-                  error,
-                );
+                logger.error("Failed to refresh offline chapters after manga deletion", {
+                  component: "OfflineMangaContext",
+                  action: "refresh-after-manga-delete",
+                  mangaId,
+                  extensionId,
+                  error: error instanceof Error ? error : new Error(String(error)),
+                });
               }
             });
             break;
         }
       },
-      [mangaId, refreshQueue, refreshOfflineChapters],
+      [extensionId, mangaId, refreshQueue, refreshOfflineChapters],
     ),
   });
 

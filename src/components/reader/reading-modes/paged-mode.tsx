@@ -36,19 +36,19 @@ interface PagedModeProps {
   onNextPage: () => void;
 }
 
-export function PagedMode({
-  pages,
-  currentPage,
-  totalPages,
-  onPageChange,
-  nextChapter,
-  prevChapter,
-  mangaId,
-  mangaSlug,
-  readerControls,
-  onPrevPage,
-  onNextPage,
-}: PagedModeProps) {
+export function PagedMode(props: PagedModeProps) {
+  const {
+    pages,
+    currentPage,
+    totalPages,
+    onPageChange,
+    nextChapter,
+    mangaId,
+    mangaSlug,
+    readerControls,
+    onPrevPage,
+    onNextPage,
+  } = props;
   const router = useRouter();
   const { pageFit, backgroundColor, readingMode, customWidth } =
     useReaderSettings();

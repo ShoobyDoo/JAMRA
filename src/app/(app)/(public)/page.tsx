@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getAllReadingProgress, getEnrichedReadingProgress } from "@/lib/api";
 import { ContinueReadingCard } from "@/components/manga/continue-reading-card";
 import { hydrateProgressWithDetails } from "@/lib/reading-history";
+import { logger } from "@/lib/logger";
 
 export const dynamic = "force-dynamic";
 
@@ -10,7 +11,11 @@ export default async function HomePage() {
     try {
       return await getEnrichedReadingProgress(12);
     } catch (error) {
-      console.error("Failed to fetch enriched reading progress", error);
+      logger.error("Failed to fetch enriched reading progress", {
+        component: "HomePage",
+        action: "load-enriched-progress",
+        error: error instanceof Error ? error : new Error(String(error)),
+      });
       const readingHistory = await getAllReadingProgress().catch(() => []);
       return hydrateProgressWithDetails(readingHistory);
     }

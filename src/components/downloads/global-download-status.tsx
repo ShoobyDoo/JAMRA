@@ -27,6 +27,7 @@ import {
   type OfflineDownloadEvent,
 } from "@/hooks/use-offline-events";
 import { MIN_SIDEBAR_WIDTH } from "@/store/ui";
+import { logger } from "@/lib/logger";
 
 interface DownloadsByManga {
   [mangaId: string]: {
@@ -47,7 +48,7 @@ const DOWNLOAD_CLASSES = {
 };
 
 export function GlobalDownloadStatus() {
-  const { collapsed: sidebarCollapsed } = useUIStore();
+  const sidebarCollapsed = useUIStore((state) => state.collapsed);
   const sidebarWidth = useUIStore((state) => state.sidebarWidth);
   const router = useRouter();
   const [expanded, setExpanded] = useState(false);
@@ -66,7 +67,11 @@ export function GlobalDownloadStatus() {
         setDownloads(queue);
       })
       .catch((error) => {
-        console.error("Failed to load download queue:", error);
+        logger.error("Failed to load offline download queue", {
+          component: "GlobalDownloadStatus",
+          action: "load-queue",
+          error: error instanceof Error ? error : new Error(String(error)),
+        });
       });
   }, []);
 
@@ -152,7 +157,12 @@ export function GlobalDownloadStatus() {
       await cancelOfflineDownload(queueId);
       setDownloads((prev) => prev.filter((item) => item.id !== queueId));
     } catch (error) {
-      console.error("Failed to cancel download:", error);
+      logger.error("Failed to cancel offline download", {
+        component: "GlobalDownloadStatus",
+        action: "cancel-download",
+        queueId,
+        error: error instanceof Error ? error : new Error(String(error)),
+      });
     }
   };
 

@@ -5,6 +5,7 @@ import {
   getReadingProgress as getProgressAPI,
   logHistoryEntry,
 } from "@/lib/api";
+import { logger } from "@/lib/logger";
 
 export interface ReadingProgress {
   mangaId: string;
@@ -81,7 +82,13 @@ export const useReadingProgress = create<ReadingProgressState>()(
 
         // Save to API (fire and forget - don't block UI)
         saveProgressAPI(mangaId, chapterId, page, total).catch((error) => {
-          console.error("Failed to save progress to API:", error);
+          logger.error("Failed to save reading progress", {
+            component: "useReadingProgress",
+            action: "save-progress",
+            mangaId,
+            chapterId,
+            error: error instanceof Error ? error : new Error(String(error)),
+          });
         });
       },
 
@@ -99,7 +106,13 @@ export const useReadingProgress = create<ReadingProgressState>()(
           }
           return progress;
         } catch (error) {
-          console.error("Failed to load progress from API:", error);
+          logger.error("Failed to load reading progress", {
+            component: "useReadingProgress",
+            action: "load-progress",
+            mangaId,
+            chapterId,
+            error: error instanceof Error ? error : new Error(String(error)),
+          });
           return null;
         }
       },
@@ -152,7 +165,14 @@ export const useReadingProgress = create<ReadingProgressState>()(
             totalPages,
           },
         }).catch((error) => {
-          console.error("Failed to log history entry:", error);
+          logger.error("Failed to log reading history entry", {
+            component: "useReadingProgress",
+            action: "log-history",
+            mangaId,
+            chapterId,
+            error:
+              error instanceof Error ? error : new Error(String(error)),
+          });
         });
       },
 
@@ -161,9 +181,12 @@ export const useReadingProgress = create<ReadingProgressState>()(
 
         // Validate page is within bounds
         if (page < 0 || page >= totalPages) {
-          console.warn(
-            `Invalid page ${page} for totalPages ${totalPages}, clamping to valid range`,
-          );
+          logger.warn("Clamping out-of-bounds page selection", {
+            component: "useReadingProgress",
+            action: "clamp-page",
+            page,
+            totalPages,
+          });
           page = Math.max(0, Math.min(page, totalPages - 1));
         }
 
@@ -193,7 +216,16 @@ export const useReadingProgress = create<ReadingProgressState>()(
             page,
             totalPages,
           ).catch((error) => {
-            console.error("Failed to save progress to API:", error);
+            logger.error("Failed to save progress while updating current page", {
+              component: "useReadingProgress",
+              action: "save-progress",
+              mangaId: currentMangaId,
+              chapterId: currentChapterId,
+              page,
+              totalPages,
+              error:
+                error instanceof Error ? error : new Error(String(error)),
+            });
           });
         } else {
           set({ currentPage: page });

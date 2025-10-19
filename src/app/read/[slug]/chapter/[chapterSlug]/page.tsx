@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { fetchMangaDetails } from "@/lib/api";
 import { MangaReader } from "@/components/reader/manga-reader";
+import { ReaderErrorBoundary } from "@/components/system/error-boundary";
 import { findChapterBySlug, withChapterSlugs } from "@/lib/chapter-slug";
 import {
   decodeRouteParam,
@@ -85,15 +86,17 @@ export default async function ReaderPage({
   const mangaTitle = mangaDetails.title;
 
   return (
-    <MangaReader
-      mangaId={mangaId}
-      mangaSlug={canonicalSlug}
-      mangaTitle={mangaTitle}
-      chapterId={chapterId}
-      chapterSlug={targetChapter.slug}
-      extensionId={mangaData.extensionId}
-      chapters={chapters}
-      initialPage={initialPage}
-    />
+    <ReaderErrorBoundary>
+      <MangaReader
+        mangaId={mangaId}
+        mangaSlug={canonicalSlug}
+        mangaTitle={mangaTitle}
+        chapterId={chapterId}
+        chapterSlug={targetChapter.slug}
+        extensionId={mangaData.extensionId}
+        chapters={chapters}
+        initialPage={initialPage}
+      />
+    </ReaderErrorBoundary>
   );
 }

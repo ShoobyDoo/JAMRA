@@ -9,6 +9,7 @@ import { withChapterSlugs } from "@/lib/chapter-slug";
 import { formatChapterTitle, sortChaptersAsc } from "@/lib/chapter-meta";
 import { AutoRefreshImage } from "@/components/ui/auto-refresh-image";
 import { resolveCoverSources } from "@/lib/cover-sources";
+import { formatTimeAgo } from "@/lib/time";
 
 interface ContinueReadingCardProps {
   manga: MangaDetails | null;
@@ -34,25 +35,7 @@ export function ContinueReadingCard({
   priority = false,
 }: ContinueReadingCardProps) {
   // Format last read time
-  const lastReadDate = new Date(lastReadAt);
-  const now = new Date();
-  const diffMs = now.getTime() - lastReadDate.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMs / 3600000);
-  const diffDays = Math.floor(diffMs / 86400000);
-
-  let timeAgo: string;
-  if (diffMins < 1) {
-    timeAgo = "Just now";
-  } else if (diffMins < 60) {
-    timeAgo = `${diffMins} minute${diffMins !== 1 ? "s" : ""} ago`;
-  } else if (diffHours < 24) {
-    timeAgo = `${diffHours} hour${diffHours !== 1 ? "s" : ""} ago`;
-  } else if (diffDays < 7) {
-    timeAgo = `${diffDays} day${diffDays !== 1 ? "s" : ""} ago`;
-  } else {
-    timeAgo = lastReadDate.toLocaleDateString();
-  }
+  const timeAgo = formatTimeAgo(lastReadAt);
 
   const chaptersWithSlugs = useMemo(
     () => withChapterSlugs(manga?.chapters ?? []),

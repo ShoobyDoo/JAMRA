@@ -5,7 +5,7 @@ import Link from "next/link";
 import { routes } from "@/lib/routes";
 import { useUIStore } from "@/store/ui";
 import { cn } from "@/lib/utils";
-import { User, Settings, LogOut, LogIn } from "lucide-react";
+import { User, Settings, LogOut, LogIn, type LucideIcon } from "lucide-react";
 import {
   Box,
   Button,
@@ -19,9 +19,10 @@ import { usePathname } from "next/navigation";
 import { GlobalDownloadStatus } from "@/components/downloads/global-download-status";
 import { HEADER_HEIGHT_CLASS } from "@/lib/constants";
 import { Logo } from "@/components/ui/logo";
+import { DataErrorBoundary } from "@/components/system/error-boundary";
 
 export function Sidebar() {
-  const { collapsed } = useUIStore();
+  const collapsed = useUIStore((state) => state.collapsed);
   const pathname = usePathname();
 
   const sidebarRoutes = useMemo(
@@ -56,7 +57,21 @@ export function Sidebar() {
     }
   };
 
-  const accountMenuItems = [
+  type AccountMenuItem =
+    | {
+        type: "link";
+        href: string;
+        label: string;
+        icon: LucideIcon;
+      }
+    | {
+        type: "action";
+        label: string;
+        icon: LucideIcon;
+        onClick: () => void;
+      };
+
+  const accountMenuItems: AccountMenuItem[] = [
     { type: "link" as const, href: "/profile", label: "Profile", icon: User },
     {
       type: "link" as const,
@@ -174,7 +189,12 @@ export function Sidebar() {
         </Box>
       </Box>
 
-      <GlobalDownloadStatus />
+      <DataErrorBoundary
+        title="Downloads unavailable"
+        description="We couldn't load your downloads. Please try again shortly."
+      >
+        <GlobalDownloadStatus />
+      </DataErrorBoundary>
 
       <Divider className="flex-shrink-0" />
 

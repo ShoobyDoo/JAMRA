@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useReaderSettings } from "@/store/reader-settings";
 import { useReaderProgress } from "./hooks/use-reader-progress";
@@ -8,12 +8,98 @@ import { useReaderNavigation } from "./hooks/use-reader-navigation";
 import { useTouchGestures } from "./hooks/use-touch-gestures";
 import { useSequentialPageLoader } from "./hooks/use-sequential-page-loader";
 import { useReaderControls } from "@/hooks/use-reader-controls";
-import { PagedMode } from "./reading-modes/paged-mode";
-import { DualPageMode } from "./reading-modes/dual-page-mode";
-import { VerticalMode } from "./reading-modes/vertical-mode";
 import { ReaderControls } from "./reader-controls";
 import { ReaderSettingsPanel } from "./reader-settings-panel";
 import { HotZoneIndicator } from "./hot-zone-indicator";
+import { ReaderViewport } from "./reader-viewport";
+import { logger } from "@/lib/logger";
+import { usePerformanceMonitor } from "@/hooks/use-performance-monitor";
+
+type FullscreenCapableDocument = Document & {
+  webkitExitFullscreen?: () => void | Promise<void>;
+  mozCancelFullScreen?: () => void | Promise<void>;
+  msExitFullscreen?: () => void | Promise<void>;
+  webkitFullscreenElement?: Element | null;
+  mozFullScreenElement?: Element | null;
+  msFullscreenElement?: Element | null;
+};
+
+type FullscreenCapableElement = HTMLElement & {
+  webkitRequestFullscreen?: () => void | Promise<void>;
+  mozRequestFullScreen?: () => void | Promise<void>;
+  msRequestFullscreen?: () => void | Promise<void>;
+};
+
+const getFullscreenDocument = (): FullscreenCapableDocument | null => {
+  if (typeof document === "undefined") {
+    return null;
+  }
+  return document as FullscreenCapableDocument;
+};
+
+const getActiveFullscreenElement = (
+  doc: FullscreenCapableDocument,
+): Element | null => {
+  return (
+    doc.fullscreenElement ??
+    doc.webkitFullscreenElement ??
+    doc.mozFullScreenElement ??
+    doc.msFullscreenElement ??
+    null
+  );
+};
+
+const normalizePromise = (value: void | Promise<void> | undefined): Promise<void> => {
+  if (
+    value &&
+    typeof value === "object" &&
+    "then" in value &&
+    typeof (value as Promise<void>).then === "function"
+  ) {
+    return value as Promise<void>;
+  }
+  return Promise.resolve();
+};
+
+const requestFullscreen = (element: FullscreenCapableElement): Promise<void> => {
+  const request =
+    element.requestFullscreen ??
+    element.webkitRequestFullscreen ??
+    element.mozRequestFullScreen ??
+    element.msRequestFullscreen;
+
+  if (!request) {
+    return Promise.reject(new Error("Fullscreen API is not supported in this browser."));
+  }
+
+  try {
+    return normalizePromise(request.call(element));
+  } catch (error) {
+    return Promise.reject(
+      error instanceof Error ? error : new Error(String(error)),
+    );
+  }
+};
+
+const exitFullscreen = (doc: FullscreenCapableDocument): Promise<void> => {
+  const exit =
+    doc.exitFullscreen ??
+    doc.webkitExitFullscreen ??
+    doc.mozCancelFullScreen ??
+    doc.msExitFullscreen;
+
+  if (!exit) {
+    return Promise.resolve();
+  }
+
+  try {
+    return normalizePromise(exit.call(doc));
+  } catch (error) {
+    return Promise.reject(
+      error instanceof Error ? error : new Error(String(error)),
+    );
+  }
+};
 
 interface MangaReaderProps {
   mangaId: string;
@@ -56,6 +142,9 @@ export function MangaReader({
 
   // Smart control bar visibility management
   const readerControls = useReaderControls({ mode: readingMode });
+  usePerformanceMonitor("MangaReader", {
+    detail: { mangaId, chapterId, readingMode },
+  });
 
   // Load pages sequentially
   const {
@@ -102,14 +191,10 @@ export function MangaReader({
     const target = currentPage + 1;
     if (target >= totalPages) {
       // At end of chapter - check for next chapter
-      if (autoAdvanceChapter && chapters.length > 0) {
-        const currentIndex = chapters.findIndex((ch) => ch.id === chapterId);
-        if (currentIndex >= 0 && currentIndex < chapters.length - 1) {
-          const nextChapter = chapters[currentIndex + 1];
-          router.push(
-            `/read/${encodeURIComponent(mangaSlug)}/chapter/${encodeURIComponent(nextChapter.slug)}`,
-          );
-        }
+      if (autoAdvanceChapter && nextChapter) {
+        router.push(
+          `/read/${encodeURIComponent(mangaSlug)}/chapter/${encodeURIComponent(nextChapter.slug)}`,
+        );
       }
       return;
     }
@@ -118,8 +203,7 @@ export function MangaReader({
     currentPage,
     totalPages,
     autoAdvanceChapter,
-    chapters,
-    chapterId,
+    nextChapter,
     router,
     mangaSlug,
     goToPage,
@@ -157,12 +241,42 @@ export function MangaReader({
 
   // UI controls
   const handleToggleZenMode = useCallback(() => {
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen().catch(() => {});
-    } else {
-      document.exitFullscreen();
+    const fullscreenDoc = getFullscreenDocument();
+    if (!fullscreenDoc || !fullscreenDoc.documentElement) {
+      setZenMode(!zenMode);
+      return;
     }
-    setZenMode(!zenMode);
+
+    const activeFullscreenElement = getActiveFullscreenElement(fullscreenDoc);
+
+    if (activeFullscreenElement) {
+      void exitFullscreen(fullscreenDoc)
+        .catch((error) => {
+          logger.error("Failed to exit fullscreen", {
+            component: "MangaReader",
+            error: error instanceof Error ? error : new Error(String(error)),
+          });
+        })
+        .finally(() => {
+          setZenMode(false);
+        });
+      return;
+    }
+
+    void requestFullscreen(
+      fullscreenDoc.documentElement as FullscreenCapableElement,
+    )
+      .then(() => {
+        setZenMode(true);
+      })
+      .catch((error) => {
+        logger.error("Failed to enter fullscreen", {
+          component: "MangaReader",
+          error: error instanceof Error ? error : new Error(String(error)),
+        });
+        // Fall back to zen mode without fullscreen
+        setZenMode(!zenMode);
+      });
   }, [zenMode, setZenMode]);
 
   const handleToggleSettings = useCallback(() => {
@@ -170,8 +284,14 @@ export function MangaReader({
   }, []);
 
   const handleExitReader = useCallback(() => {
-    if (document.fullscreenElement) {
-      document.exitFullscreen();
+    const fullscreenDoc = getFullscreenDocument();
+    if (fullscreenDoc) {
+      void exitFullscreen(fullscreenDoc).catch((error) => {
+        logger.error("Failed to exit fullscreen while leaving reader", {
+          component: "MangaReader",
+          error: error instanceof Error ? error : new Error(String(error)),
+        });
+      });
     }
     setZenMode(false);
   }, [setZenMode]);
@@ -259,84 +379,59 @@ export function MangaReader({
   ]);
 
   // Find next and previous chapters
-  const currentChapterIndex = chapters.findIndex(
-    (chapter) => chapter.id === chapterId,
-  );
-  const nextChapter =
-    currentChapterIndex >= 0 && currentChapterIndex < chapters.length - 1
-      ? chapters[currentChapterIndex + 1]
-      : null;
-  const prevChapter =
-    currentChapterIndex > 0 ? chapters[currentChapterIndex - 1] : null;
+  const { nextChapter, prevChapter } = useMemo(() => {
+    const index = chapters.findIndex((chapter) => chapter.id === chapterId);
+    return {
+      nextChapter:
+        index >= 0 && index < chapters.length - 1
+          ? chapters[index + 1]
+          : null,
+      prevChapter: index > 0 ? chapters[index - 1] : null,
+    };
+  }, [chapters, chapterId]);
 
   // Determine if we're loading the current page
-  const currentPageData = pages[currentPage];
-  const isCurrentPagePending = isPagesLoading && !currentPageData;
+  const currentPageData = useMemo(
+    () => pages[currentPage] ?? null,
+    [pages, currentPage],
+  );
+  const isCurrentPagePending = useMemo(
+    () => isPagesLoading && !currentPageData,
+    [isPagesLoading, currentPageData],
+  );
 
-  // Render appropriate reading mode
-  const renderReadingMode = () => {
-    const onPageChange = (pageIndex: number) => {
+  const handlePageSelect = useCallback(
+    (pageIndex: number) => {
       void goToPage(pageIndex);
-    };
+    },
+    [goToPage],
+  );
 
-    const props = {
-      pages,
-      currentPage,
-      totalPages,
-      onPageChange,
-      nextChapter,
-      prevChapter,
-      mangaId,
-      mangaSlug,
-      readerControls,
-      onPrevPage: prevPage,
-      onNextPage: () => {
-        void nextPage();
-      },
-    };
-
-    switch (readingMode) {
-      case "paged-ltr":
-      case "paged-rtl":
-        return <PagedMode {...props} />;
-      case "dual-page":
-        return <DualPageMode {...props} />;
-      case "vertical":
-        return <VerticalMode {...props} />;
-      default:
-        return <PagedMode {...props} />;
-    }
-  };
+  const handleNextPage = useCallback(() => {
+    void nextPage();
+  }, [nextPage]);
 
   return (
     <div className="fixed inset-0 flex flex-col bg-background">
-      <div ref={viewportRef} className="relative flex-1 overflow-hidden">
-        {/* Always render reading mode - let it handle its own loading states */}
-        {renderReadingMode()}
-
-        {/* Loading progress indicator (shown while loading in background) */}
-        {isPagesLoading && loadingProgress < 100 && (
-          <div className="absolute top-4 right-4 rounded-md bg-black/75 px-3 py-2 text-sm text-white">
-            Loading pages: {loadingProgress}%
-          </div>
-        )}
-
-        {/* Error display */}
-        {loadingError && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-background/90">
-            <p className="text-sm text-muted-foreground text-center px-4">
-              {loadingError.message || "Failed to load chapter pages."}
-            </p>
-            <button
-              type="button"
-              onClick={retryLoading}
-              className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:bg-primary/90"
-            >
-              Retry
-            </button>
-          </div>
-        )}
-      </div>
+      <ReaderViewport
+        ref={viewportRef}
+        pages={pages}
+        currentPage={currentPage}
+        totalPages={totalPages}
+        readingMode={readingMode}
+        mangaId={mangaId}
+        mangaSlug={mangaSlug}
+        readerControls={readerControls}
+        nextChapter={nextChapter}
+        prevChapter={prevChapter}
+        onPageChange={handlePageSelect}
+        onPrevPage={prevPage}
+        onNextPage={handleNextPage}
+        isPagesLoading={isPagesLoading}
+        loadingProgress={loadingProgress}
+        loadingError={loadingError}
+        onRetry={retryLoading}
+      />
 
       {/* Hot zone indicator - shown across all reading modes */}
       <HotZoneIndicator zone={readerControls.currentHotZone} />
@@ -353,14 +448,10 @@ export function MangaReader({
         chunkErrorMessage={loadingError?.message}
         onRetryChunk={retryLoading}
         onPrevPage={prevPage}
-        onNextPage={() => {
-          void nextPage();
-        }}
+        onNextPage={handleNextPage}
         onToggleSettings={handleToggleSettings}
         onToggleZenMode={handleToggleZenMode}
-        onPageSelect={(pageIndex) => {
-          void goToPage(pageIndex);
-        }}
+        onPageSelect={handlePageSelect}
         showControls={readerControls.showControls}
       />
 

@@ -1,4 +1,5 @@
 import type { OfflineQueuedDownload } from "@/lib/api";
+import { DOWNLOAD_THRESHOLDS } from "@/lib/constants";
 
 // Detect if a download is frozen (no progress for 30+ seconds while downloading)
 export function isFrozen(download: OfflineQueuedDownload): boolean {
@@ -10,17 +11,23 @@ export function isFrozen(download: OfflineQueuedDownload): boolean {
   const timeSinceStart = now - startedAt;
 
   // If downloading for more than 30 seconds with 0 progress, it's frozen
-  if (timeSinceStart > 30000 && download.progressCurrent === 0) {
+  if (
+    timeSinceStart > DOWNLOAD_THRESHOLDS.FROZEN_INITIAL_MS &&
+    download.progressCurrent === 0
+  ) {
     return true;
   }
 
   // If we had progress but haven't updated in 30+ seconds, it's frozen
   // Note: This would require a "lastProgressUpdate" timestamp from the backend
   // For now, we'll use a heuristic: if downloading for 2+ minutes with < 10% progress
-  if (timeSinceStart > 120000 && download.progressTotal > 0) {
+  if (
+    timeSinceStart > DOWNLOAD_THRESHOLDS.FROZEN_SLOW_MS &&
+    download.progressTotal > 0
+  ) {
     const percentComplete =
       (download.progressCurrent / download.progressTotal) * 100;
-    if (percentComplete < 10) {
+    if (percentComplete < DOWNLOAD_THRESHOLDS.FROZEN_MIN_PROGRESS_PERCENT) {
       return true;
     }
   }

@@ -48,3 +48,32 @@ export const STYLES = {
     return `${this.CARD_CONTAINER} ${this.CARD_HOVER}`;
   },
 } as const;
+
+export const TIMEOUTS = {
+  HYDRATION: 2000,
+  IMAGE_REFRESH: 3000,
+} as const;
+
+export const DOWNLOAD_HISTORY_LIMIT = 100;
+
+export const DOWNLOAD_THRESHOLDS = {
+  FROZEN_INITIAL_MS: 30_000,
+  FROZEN_SLOW_MS: 120_000,
+  FROZEN_MIN_PROGRESS_PERCENT: 10,
+} as const;
+
+export const CACHE_DEFAULTS = {
+  ENABLED: true,
+  TTL_DAYS: 7,
+  MAX_ENTRIES: 32,
+} as const;
+
+export const COVER_REPORT_LIMITS = {
+  MAX_PAYLOAD_BYTES: 40 * 1024,
+  FALLBACK_MAX_BYTES: 30 * 1024,
+  BASE_JSON_OVERHEAD: 200,
+  MAX_URL_OVERHEAD: 10,
+  MIN_URLS: 10,
+  FALLBACK_MIN_URLS: 5,
+  MERGED_MAX_BYTES: 80 * 1024,
+} as const;

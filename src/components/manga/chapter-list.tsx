@@ -10,6 +10,7 @@ import type { ReadingProgressData } from "@/lib/api";
 import type { ChapterWithSlug } from "@/lib/chapter-slug";
 import { formatChapterTitle, sortChaptersDesc } from "@/lib/chapter-meta";
 import { useOfflineMangaContext } from "./offline-manga-context";
+import { logger } from "@/lib/logger";
 
 interface ChapterListProps {
   chapters: ChapterWithSlug[];
@@ -40,7 +41,12 @@ export function ChapterList({
         });
         setProgressMap(map);
       } catch (error) {
-        console.error("Failed to fetch reading progress:", error);
+        logger.error("Failed to fetch reading progress", {
+          component: "ChapterList",
+          action: "load-progress",
+          mangaId,
+          error: error instanceof Error ? error : new Error(String(error)),
+        });
         notifications.show({
           title: "Failed to load progress",
           message: "Could not load your reading progress for this manga",
@@ -197,7 +203,13 @@ function ChapterOfflineControls({
         autoClose: 3000,
       });
     } catch (error) {
-      console.error("Failed to queue chapter download:", error);
+      logger.error("Failed to queue chapter download", {
+        component: "ChapterList",
+        action: "queue-chapter",
+        mangaId,
+        chapterId: chapter.id,
+        error: error instanceof Error ? error : new Error(String(error)),
+      });
       const message =
         error instanceof ApiError
           ? error.message
@@ -225,7 +237,14 @@ function ChapterOfflineControls({
         autoClose: 3000,
       });
     } catch (error) {
-      console.error("Failed to cancel download:", error);
+      logger.error("Failed to cancel chapter download", {
+        component: "ChapterList",
+        action: "cancel-download",
+        mangaId,
+        chapterId: chapter.id,
+        queueId: queueItem.id,
+        error: error instanceof Error ? error : new Error(String(error)),
+      });
       const message =
         error instanceof ApiError
           ? error.message

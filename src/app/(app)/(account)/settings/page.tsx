@@ -24,16 +24,12 @@ import {
 } from "@/lib/api";
 import { useUIStore, MIN_SIDEBAR_WIDTH, MAX_SIDEBAR_WIDTH } from "@/store/ui";
 import { useSettingsStore } from "@/store/settings";
+import { CACHE_DEFAULTS } from "@/lib/constants";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-const DEFAULT_CACHE_FORM = {
-  enabled: true,
-  ttlDays: 7,
-  maxEntries: 32,
-};
-
 export default function SettingsPage() {
-  const { sidebarWidth, setSidebarWidth } = useUIStore();
+  const sidebarWidth = useUIStore((state) => state.sidebarWidth);
+  const setSidebarWidth = useUIStore((state) => state.setSidebarWidth);
   const imageCache = useSettingsStore((state) => state.imageCache);
   const setImageCache = useSettingsStore((state) => state.setImageCache);
   const applyServerImageCacheSettings = useSettingsStore(
@@ -112,8 +108,16 @@ export default function SettingsPage() {
   };
 
   const handleResetCacheSettings = () => {
-    setCacheForm(DEFAULT_CACHE_FORM);
-    setImageCache(DEFAULT_CACHE_FORM);
+    setCacheForm({
+      enabled: CACHE_DEFAULTS.ENABLED,
+      ttlDays: CACHE_DEFAULTS.TTL_DAYS,
+      maxEntries: CACHE_DEFAULTS.MAX_ENTRIES,
+    });
+    setImageCache({
+      enabled: CACHE_DEFAULTS.ENABLED,
+      ttlDays: CACHE_DEFAULTS.TTL_DAYS,
+      maxEntries: CACHE_DEFAULTS.MAX_ENTRIES,
+    });
   };
 
   const handleRefreshCacheSettings = async () => {

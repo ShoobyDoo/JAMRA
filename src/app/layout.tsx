@@ -3,6 +3,10 @@ import "@mantine/core/styles.css";
 import "@mantine/core/styles.layer.css";
 import "@/app/globals.css";
 import { AppWarmup } from "@/components/system/app-warmup";
+import {
+  DataErrorBoundary,
+  ErrorBoundary,
+} from "@/components/system/error-boundary";
 import { ColorSchemeScript, MantineProvider } from "@mantine/core";
 import { ModalsProvider } from "@mantine/modals";
 import { Notifications } from "@mantine/notifications";
@@ -38,13 +42,20 @@ export default function RootLayout({
         className="bg-background text-foreground antialiased"
         style={{ fontFamily: "var(--font-geist-mono)" }}
       >
-        <MantineProvider defaultColorScheme="light">
-          <ModalsProvider>
-            <Notifications position="top-right" zIndex={10000} />
-            <AppWarmup />
-            {children}
-          </ModalsProvider>
-        </MantineProvider>
+        <ErrorBoundary>
+          <MantineProvider defaultColorScheme="light">
+            <ModalsProvider>
+              <Notifications position="top-right" zIndex={10000} />
+              <DataErrorBoundary
+                title="Unable to initialise application"
+                description="App warmup failed. Please retry in a moment."
+              >
+                <AppWarmup />
+              </DataErrorBoundary>
+              {children}
+            </ModalsProvider>
+          </MantineProvider>
+        </ErrorBoundary>
       </body>
     </html>
   );
