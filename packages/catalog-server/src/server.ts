@@ -40,11 +40,15 @@ import { SERVER_CONFIG, OFFLINE_CONFIG, CACHE_CONFIG, HISTORY_CONFIG } from "./c
 import {
   DatabaseUnavailableError,
   ValidationError,
+  InvalidRequestError,
 } from "./errors/AppError.js";
 import { handleError as handleAppError } from "./middleware/errorHandler.js";
 import {
   ReadingProgressSchema,
   HistoryEntrySchema,
+  AddToLibrarySchema,
+  UpdateLibraryEntrySchema,
+  CoverReportSchema,
 } from "./validation/schemas.js";
 
 export interface CatalogServerOptions {
@@ -110,22 +114,6 @@ function validateRequestBody<T>(schema: { parse: (data: unknown) => T }, data: u
     }
     throw new ValidationError("Invalid request body");
   }
-}
-
-
-function resolveExtensionErrorStatus(error: unknown): number {
-  if (!(error instanceof Error)) return 500;
-  const message = error.message.toLowerCase();
-  if (message.includes("persistent extension storage")) return 503;
-  if (message.includes("not installed")) return 404;
-  if (
-    message.includes("not found") ||
-    message.includes("missing") ||
-    message.includes("invalid")
-  ) {
-    return 400;
-  }
-  return 500;
 }
 
 function parseRegistryEnv(value: string): RegistrySourceConfig[] {
@@ -749,8 +737,7 @@ export async function startCatalogServer(
         handleError(
           res,
           error,
-          "Failed to install extension",
-          resolveExtensionErrorStatus(error)
+          "Failed to install extension"
         );
       } finally {
         await asset.cleanup();
@@ -787,8 +774,7 @@ export async function startCatalogServer(
       handleError(
         res,
         error,
-        "Failed to install extension",
-        resolveExtensionErrorStatus(error)
+        "Failed to install extension"
       );
     }
   });
@@ -820,8 +806,7 @@ export async function startCatalogServer(
       handleError(
         res,
         error,
-        `Failed to enable ${extName} extension`,
-        resolveExtensionErrorStatus(error)
+        `Failed to enable ${extName} extension`
       );
     }
   });
@@ -839,8 +824,7 @@ export async function startCatalogServer(
       handleError(
         res,
         error,
-        "Failed to disable extension",
-        resolveExtensionErrorStatus(error)
+        "Failed to disable extension"
       );
     }
   });
@@ -972,8 +956,7 @@ export async function startCatalogServer(
       handleError(
         res,
         error,
-        "Failed to update extension settings",
-        resolveExtensionErrorStatus(error)
+        "Failed to update extension settings"
       );
     }
   });
@@ -991,8 +974,7 @@ export async function startCatalogServer(
       handleError(
         res,
         error,
-        "Failed to uninstall extension",
-        resolveExtensionErrorStatus(error)
+        "Failed to uninstall extension"
       );
     }
   });
@@ -1294,29 +1276,17 @@ export async function startCatalogServer(
     const extensionId = ensureExtensionLoaded(req, res);
     if (!extensionId) return;
 
-    const payload = req.body ?? {};
-    const rawUrl = typeof payload.url === "string" ? payload.url.trim() : "";
-    const status = payload.status;
-    const attempted = Array.isArray(payload.attemptedUrls)
-      ? coverUrlService.sanitize(payload.attemptedUrls as string[])
-      : [];
-
-    if (!rawUrl) {
-      res.status(400).json({ error: "url is required" });
-      return;
-    }
-
-    if (status !== "success" && status !== "failure") {
-      res.status(400).json({ error: "status must be 'success' or 'failure'" });
-      return;
-    }
-
     const mangaId = req.params.id;
 
     try {
       if (!repository) {
         throw new DatabaseUnavailableError();
       }
+
+      const validated = validateRequestBody(CoverReportSchema, req.body);
+      const rawUrl = validated.url;
+      const status = validated.status;
+      const attempted = validated.attemptedUrls ?? [];
       if (status === "success") {
         coverUrlService.reportSuccess(extensionId, mangaId, rawUrl, attempted);
 
@@ -1406,8 +1376,7 @@ export async function startCatalogServer(
   app.delete("/api/manga/:id/chapters", async (req, res) => {
     try {
       if (!repository) {
-        res.status(503).json({ error: "Database not available" });
-        return;
+        throw new DatabaseUnavailableError();
       }
 
       const { id: mangaId } = req.params;
@@ -1458,8 +1427,7 @@ export async function startCatalogServer(
   app.get("/api/reading-progress/:mangaId/:chapterId", async (req, res) => {
     try {
       if (!repository) {
-        res.status(503).json({ error: "Database not available" });
-        return;
+        throw new DatabaseUnavailableError();
       }
 
       const { mangaId, chapterId } = req.params;
@@ -1488,8 +1456,7 @@ export async function startCatalogServer(
   app.get("/api/reading-progress", async (_req, res) => {
     try {
       if (!repository) {
-        res.status(503).json({ error: "Database not available" });
-        return;
+        throw new DatabaseUnavailableError();
       }
 
       const allProgress = repository.getAllReadingProgress();
@@ -1502,8 +1469,7 @@ export async function startCatalogServer(
   app.get("/api/reading-progress/enriched", async (req, res) => {
     try {
       if (!repository) {
-        res.status(503).json({ error: "Database not available" });
-        return;
+        throw new DatabaseUnavailableError();
       }
 
       const limitParam = getQueryParam(req, "limit");
@@ -1636,8 +1602,7 @@ export async function startCatalogServer(
   app.get("/api/history", async (req, res) => {
     try {
       if (!repository) {
-        res.status(503).json({ error: "Database not available" });
-        return;
+        throw new DatabaseUnavailableError();
       }
 
       const limitParam = getQueryParam(req, "limit");
@@ -1675,8 +1640,7 @@ export async function startCatalogServer(
   app.get("/api/history/stats", async (req, res) => {
     try {
       if (!repository) {
-        res.status(503).json({ error: "Database not available" });
-        return;
+        throw new DatabaseUnavailableError();
       }
 
       const startDateParam = getQueryParam(req, "startDate");
@@ -1699,8 +1663,7 @@ export async function startCatalogServer(
   app.delete("/api/history/:id", async (req, res) => {
     try {
       if (!repository) {
-        res.status(503).json({ error: "Database not available" });
-        return;
+        throw new DatabaseUnavailableError();
       }
 
       const { id } = req.params;
@@ -1721,8 +1684,7 @@ export async function startCatalogServer(
   app.delete("/api/history", async (req, res) => {
     try {
       if (!repository) {
-        res.status(503).json({ error: "Database not available" });
-        return;
+        throw new DatabaseUnavailableError();
       }
 
       const beforeTimestampParam = getQueryParam(req, "beforeTimestamp");
@@ -1745,30 +1707,23 @@ export async function startCatalogServer(
   app.post("/api/library", async (req, res) => {
     try {
       if (!repository) {
-        res.status(503).json({ error: "Database not available" });
-        return;
+        throw new DatabaseUnavailableError();
       }
 
-      const { mangaId, extensionId, status, personalRating, favorite, notes, startedAt, completedAt } = req.body;
+      const validated = validateRequestBody(AddToLibrarySchema, req.body);
 
-      if (!mangaId || !extensionId || !status) {
-        res.status(400).json({ error: "Missing required fields: mangaId, extensionId, status" });
-        return;
-      }
-
-      const validStatuses = ["reading", "plan_to_read", "completed", "on_hold", "dropped"];
-      if (!validStatuses.includes(status)) {
-        res.status(400).json({ error: "Invalid status. Must be one of: " + validStatuses.join(", ") });
-        return;
-      }
-
-      const entry = repository.addToLibrary(mangaId, extensionId, status, {
-        personalRating,
-        favorite,
-        notes,
-        startedAt,
-        completedAt,
-      });
+      const entry = repository.addToLibrary(
+        validated.mangaId,
+        validated.extensionId,
+        validated.status,
+        {
+          personalRating: validated.personalRating,
+          favorite: validated.favorite,
+          notes: validated.notes,
+          startedAt: validated.startedAt,
+          completedAt: validated.completedAt,
+        }
+      );
 
       res.status(201).json(entry);
     } catch (error) {
@@ -1779,33 +1734,23 @@ export async function startCatalogServer(
   app.put("/api/library/:mangaId", async (req, res) => {
     try {
       if (!repository) {
-        res.status(503).json({ error: "Database not available" });
-        return;
+        throw new DatabaseUnavailableError();
       }
 
       const { mangaId } = req.params;
       if (!mangaId) {
-        res.status(400).json({ error: "Missing manga ID" });
-        return;
+        throw new InvalidRequestError("Missing manga ID");
       }
 
-      const { status, personalRating, favorite, notes, startedAt, completedAt } = req.body;
-
-      if (status) {
-        const validStatuses = ["reading", "plan_to_read", "completed", "on_hold", "dropped"];
-        if (!validStatuses.includes(status)) {
-          res.status(400).json({ error: "Invalid status. Must be one of: " + validStatuses.join(", ") });
-          return;
-        }
-      }
+      const validated = validateRequestBody(UpdateLibraryEntrySchema, req.body);
 
       repository.updateLibraryEntry(decodeURIComponent(mangaId), {
-        status,
-        personalRating,
-        favorite,
-        notes,
-        startedAt,
-        completedAt,
+        status: validated.status,
+        personalRating: validated.personalRating,
+        favorite: validated.favorite,
+        notes: validated.notes,
+        startedAt: validated.startedAt,
+        completedAt: validated.completedAt,
       });
 
       const updated = repository.getLibraryEntry(decodeURIComponent(mangaId));
@@ -1823,8 +1768,7 @@ export async function startCatalogServer(
   app.delete("/api/library/:mangaId", async (req, res) => {
     try {
       if (!repository) {
-        res.status(503).json({ error: "Database not available" });
-        return;
+        throw new DatabaseUnavailableError();
       }
 
       const { mangaId } = req.params;
@@ -1843,8 +1787,7 @@ export async function startCatalogServer(
   app.get("/api/library/:mangaId", async (req, res) => {
     try {
       if (!repository) {
-        res.status(503).json({ error: "Database not available" });
-        return;
+        throw new DatabaseUnavailableError();
       }
 
       const { mangaId } = req.params;
@@ -1868,8 +1811,7 @@ export async function startCatalogServer(
   app.get("/api/library", async (req, res) => {
     try {
       if (!repository) {
-        res.status(503).json({ error: "Database not available" });
-        return;
+        throw new DatabaseUnavailableError();
       }
 
       const status = getQueryParam(req, "status");
@@ -1886,8 +1828,7 @@ export async function startCatalogServer(
   app.get("/api/library-enriched", async (req, res) => {
     try {
       if (!repository) {
-        res.status(503).json({ error: "Database not available" });
-        return;
+        throw new DatabaseUnavailableError();
       }
 
       const status = getQueryParam(req, "status");
@@ -1904,8 +1845,7 @@ export async function startCatalogServer(
   app.get("/api/library-stats", async (_req, res) => {
     try {
       if (!repository) {
-        res.status(503).json({ error: "Database not available" });
-        return;
+        throw new DatabaseUnavailableError();
       }
 
       const stats = repository.getLibraryStats();
@@ -1920,8 +1860,7 @@ export async function startCatalogServer(
   app.post("/api/library/tags", async (req, res) => {
     try {
       if (!repository) {
-        res.status(503).json({ error: "Database not available" });
-        return;
+        throw new DatabaseUnavailableError();
       }
 
       const { name, color } = req.body;
@@ -1940,8 +1879,7 @@ export async function startCatalogServer(
   app.delete("/api/library/tags/:tagId", async (req, res) => {
     try {
       if (!repository) {
-        res.status(503).json({ error: "Database not available" });
-        return;
+        throw new DatabaseUnavailableError();
       }
 
       const { tagId } = req.params;
@@ -1966,8 +1904,7 @@ export async function startCatalogServer(
   app.get("/api/library/tags", async (_req, res) => {
     try {
       if (!repository) {
-        res.status(503).json({ error: "Database not available" });
-        return;
+        throw new DatabaseUnavailableError();
       }
 
       const tags = repository.getLibraryTags();
@@ -1980,8 +1917,7 @@ export async function startCatalogServer(
   app.post("/api/library/:mangaId/tags/:tagId", async (req, res) => {
     try {
       if (!repository) {
-        res.status(503).json({ error: "Database not available" });
-        return;
+        throw new DatabaseUnavailableError();
       }
 
       const { mangaId, tagId } = req.params;
@@ -2006,8 +1942,7 @@ export async function startCatalogServer(
   app.delete("/api/library/:mangaId/tags/:tagId", async (req, res) => {
     try {
       if (!repository) {
-        res.status(503).json({ error: "Database not available" });
-        return;
+        throw new DatabaseUnavailableError();
       }
 
       const { mangaId, tagId } = req.params;
@@ -2032,8 +1967,7 @@ export async function startCatalogServer(
   app.get("/api/library/:mangaId/tags", async (req, res) => {
     try {
       if (!repository) {
-        res.status(503).json({ error: "Database not available" });
-        return;
+        throw new DatabaseUnavailableError();
       }
 
       const { mangaId } = req.params;
@@ -2053,8 +1987,7 @@ export async function startCatalogServer(
   app.post("/api/danger/nuke-user-data", async (_req, res) => {
     try {
       if (!repository) {
-        res.status(503).json({ error: "Database not available" });
-        return;
+        throw new DatabaseUnavailableError();
       }
 
       // Check if we're in development mode
