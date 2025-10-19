@@ -91,41 +91,12 @@ interface EnrichedReadingProgress extends ReadingProgressData {
 - Wrapped initialization in async function to await API load
 - Maintains backward compatibility with `initialPage` prop
 
-### 6. Previous Chapter Navigation Fix
+### 6. Chapter Navigation Affordances
 
-#### Problem
-
-When navigating to previous chapter, it loaded saved progress instead of last page
-
-#### Solution
-
-- Added `?page=last` URL parameter when navigating to previous chapter
-- Reader page parses parameter and sets `initialPage` prop
-- After initial load, removes query parameter using `router.replace()`
-- Prevents refresh from re-triggering last page load
-
-#### Files Modified
-
-- `src/components/reader/reading-modes/paged-mode.tsx`
-- `src/components/reader/reading-modes/dual-page-mode.tsx`
-- `src/components/reader/reading-modes/vertical-mode.tsx`
-- `src/app/read/[slug]/chapter/[number]/page.tsx`
-- `src/components/reader/manga-reader.tsx`
-
-### 7. Chapter Navigation Enhancements
-
-#### Previous Chapter Navigation
-
-- All modes now show clickable "Previous Chapter" indicator on first page
-- Paged/Dual: Left side button with chapter info
-- Vertical: Top button with upward chevron
-
-#### Next Chapter Navigation
-
-- All modes show next chapter or "End of Manga" on last page
-- Paged/Dual: Right side button or end message
-- Vertical: Bottom button or end message
-- Clicking advances to next chapter or shows completion
+- `MangaReader` derives `nextChapter` / `prevChapter` from the chapter list and passes them to each mode.
+- Dual-page mode exposes explicit “Previous Chapter” / “Next Chapter” buttons; when navigating backwards it appends `?page=last` so the destination opens on the final page of the previous chapter.
+- Paged modes rely on the standard next/previous page controls; pressing “next” on the final page routes forward when `autoAdvanceChapter` is enabled.
+- Vertical mode shows a “Chapter Complete” card with a link back to manga details but does not yet expose direct previous/next chapter buttons.
 
 ## Testing
 
@@ -139,10 +110,10 @@ When navigating to previous chapter, it loaded saved progress instead of last pa
 ### To Test Previous Chapter Navigation
 
 1. Go to Chapter 3
-2. Click "Previous Chapter" button
-3. Should load Chapter 2 at last page (3/3)
-4. Scroll to page 1
-5. Refresh browser → should stay at page 1 (not jump back to page 3)
+2. Switch to Dual Page mode
+3. Click "Previous Chapter"
+4. Chapter 2 should open on its last page
+5. Scroll to page 1 and refresh → progression remains on page 1
 
 ### To Test Cross-Session Sync
 
@@ -187,9 +158,8 @@ Use `getAllReadingProgress()` to show:
 
 ### Offline Support
 
-- Currently requires API for initial load
-- Could enhance with Service Worker + IndexedDB
-- Sync queue for offline saves
+- Currently requires API connectivity for initial load
+- Potential enhancements include Service Worker + IndexedDB queueing and tighter integration with `packages/offline-storage`
 
 ## Files Changed
 
@@ -198,6 +168,13 @@ Use `getAllReadingProgress()` to show:
 - `packages/catalog-db/src/migrations.ts`
 - `packages/catalog-db/src/catalogRepository.ts`
 - `packages/catalog-server/src/server.ts`
+
+### Frontend
+
+- `src/store/reading-progress.ts`
+- `src/components/reader/hooks/use-reader-progress.ts`
+- `src/components/reader/manga-reader.tsx`
+- `src/components/reader/reading-modes/dual-page-mode.tsx`
 
 ### Frontend
 

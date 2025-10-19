@@ -1,79 +1,64 @@
 # JAMRA Manga Reader
 
-Monorepo powering the JAMRA manga reader with extension-driven content, a shared SQLite cache, HTTP APIs, and a desktop shell built with Electron.
+Extensible manga reader powered by a Next.js App Router frontend, a SQLite-backed catalog service, and an Electron desktop shell that bundles everything into a single experience.
 
-## Stack Overview
+## Highlights
 
-- **Next.js App Router** for the UI (`src/app`).
-- **Mantine** as the component library.
-- **Zustand** for UI state (sidebar collapse, etc.).
-- **Extension SDK/Host** (`packages/extension-sdk`, `packages/extension-host`) defining how data sources plug into the app.
-- **SQLite catalog** (`packages/catalog-db`) storing manifests, catalogue items, chapters, and cached pages.
-- **Catalog service & server** (`packages/catalog-service`, `packages/catalog-server`) exposing HTTP endpoints consumed by the UI and Electron shell.
-- **Electron shell** (`electron/main.ts`) that self-hosts both the API and the Next.js app.
+- **Extension-first architecture** — `packages/extension-sdk` and `packages/extension-host` let external sources plug into the catalog.
+- **Shared persistence** — `packages/catalog-db` stores manifests, chapters, and cached images via `better-sqlite3`.
+- **Full-stack mono repo** — `packages/catalog-service` + `packages/catalog-server` expose the API that both the web app and Electron shell consume.
+- **Rich UI** — Mantine UI, Zustand stores, and a featureful reader component under `src/components/reader`.
 
-## Requirements
-
-- Node.js 24.x (the Electron shell and native rebuild scripts target this runtime).
-- pnpm 8.x or newer.
-- For alternative Node releases, install a native build toolchain and follow [`docs/sqlite-setup.md`](docs/sqlite-setup.md) to rebuild SQLite bindings.
-
-## Workspace Commands
+## Quick Start
 
 ```bash
-pnpm install                 # bootstrap the monorepo
-pnpm dev                     # start Next.js on http://localhost:3000 (requires API server running separately)
-pnpm catalog-server:dev      # run the catalog API on http://localhost:4545
-pnpm backend:build           # build all backend packages plus the example extension
-pnpm desktop:dev             # launch the Electron shell (starts API + Next internally)
-pnpm extension:demo          # run the CLI smoke test against the example extension
+# prerequisites: Node 24.x, pnpm 10+
+pnpm install       # bootstrap workspace and rebuild native deps
+pnpm dev           # runs catalog server + Next.js at http://localhost:3000
+pnpm test          # execute unit tests (see test/)
+pnpm lint          # lint + typecheck the repo
 ```
 
-> **Tip:** For web development run `pnpm catalog-server:dev` in one terminal and `pnpm dev` in another so the UI can talk to the API.
+All compound workflows live behind `scripts/run.ts`; `pnpm dev` already spins up the API and web app together, so no extra terminals are required for standard development.
+
+### Handy Commands
+
+| Use case              | Command |
+| --------------------- | ------- |
+| Build backend only    | `pnpm backend:build` |
+| Full production build | `pnpm build` |
+| Serve production app  | `pnpm start` |
+| Launch Electron shell | `pnpm desktop:dev` |
+| Extension smoke test  | `pnpm extension:demo` |
+| Bundle analysis       | `pnpm analyze` |
+
+## Documentation
+
+- **Day-to-day reference:** [`docs/development.md`](docs/development.md)
+- Extension pipeline: [`docs/extension-pipeline.md`](docs/extension-pipeline.md)
+- Architecture notes: `docs/architecture/`
+- Reader specifics: [`docs/manga-reader.md`](docs/manga-reader.md)
+- Library/History details: [`docs/features/library-and-history.md`](docs/features/library-and-history.md)
+
+## Repository Layout
+
+- `src/` — Next.js App Router UI, Zustand stores, shared hooks.
+- `packages/` — catalog database/service/server, offline-storage manager, extension tooling.
+- `electron/` — Electron main process entry (`main.cts`) and build config.
+- `scripts/` — orchestration utilities used by the `pnpm run` wrapper.
+- `docs/` — architecture and operational guides.
 
 ## Environment Variables
 
-| Variable                    | Purpose                                                                      |
-| --------------------------- | ---------------------------------------------------------------------------- |
-| `JAMRA_API_PORT`            | Override the HTTP port for the catalog server (default `4545`).              |
-| `JAMRA_NEXT_PORT`           | Override the Next.js server port when launched by Electron (default `3000`). |
-| `JAMRA_EXTENSION_PATH`      | Path to an extension bundle to load instead of the example extension.        |
-| `JAMRA_EXTENSION_ID`        | Enforce an expected extension id during startup.                             |
-| `JAMRA_DISABLE_SQLITE`      | Set to `1` to disable SQLite and use the in-memory cache.                    |
-| `JAMRA_DATA_DIR`            | Directory for the SQLite database (defaults to `.jamra-data`).               |
-| `NEXT_PUBLIC_JAMRA_API_URL` | Override the API base URL used by the Next.js frontend.                      |
+| Variable | Purpose |
+| -------- | ------- |
+| `JAMRA_API_PORT` | Override catalog server port (default `4545`). |
+| `JAMRA_NEXT_PORT` | Override Next.js port when launched by Electron (default `3000`). |
+| `JAMRA_EXTENSION_PATH` | Load a custom extension bundle path. |
+| `JAMRA_EXTENSION_ID` | Force a specific extension manifest id on boot. |
+| `JAMRA_DISABLE_SQLITE` | Set to `1` to fall back to in-memory catalog storage. |
+| `JAMRA_DATA_DIR` | Change the persistence directory (defaults to `.jamra-data`). |
+| `NEXT_PUBLIC_JAMRA_API_URL` | Custom API base URL for the web client. |
+| `NEXT_BUNDLE_ANALYZE` | Enable Next.js bundle analyzer (`pnpm analyze`). |
 
-SQLite build/setup instructions live in [`docs/sqlite-setup.md`](docs/sqlite-setup.md).
-
-## Desktop Shell
-
-`pnpm desktop:dev` starts the catalog server, spins up a Next.js instance inside Electron, and opens a BrowserWindow pointed at `http://localhost:3000`. The same API remains available on the configured port so you can still open the app in a regular browser if desired.
-
-## HTTP API
-
-The catalog server exposes:
-
-- `GET /api/catalog?page=1&query=` — Fetch catalogue items (persists them to SQLite when available).
-- `GET /api/manga/:id` — Fetch manga details and chapters.
-- `GET /api/manga/:id/chapters/:chapterId/pages` — Fetch chapter page metadata.
-- `GET /api/filters` — Retrieve extension-defined filters.
-- `GET /api/health` — Health probe with the active extension id.
-
-These endpoints back both the web UI (via `src/lib/api.ts`) and the Electron shell.
-
-## Example Extension
-
-The sample extension (`packages/example-extension`) returns static data for validation. Build it with:
-
-```bash
-pnpm --filter @jamra/example-extension build
-```
-
-The CLI smoke test (`pnpm extension:demo`) exercises the host/catalog service pipeline end-to-end.
-
----
-
-For more details about the extension pipeline and SQLite setup, check:
-
-- [`docs/extension-pipeline.md`](docs/extension-pipeline.md)
-- [`docs/sqlite-setup.md`](docs/sqlite-setup.md)
+See the development guide for detailed setup instructions, SQLite rebuild tips, and coding standards.

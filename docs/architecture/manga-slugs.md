@@ -159,4 +159,4 @@ All service methods (`syncMangaBySlug`, `syncChapterPages`, `fetchChapterPagesCh
 ## References
 
 - Related: `docs/architecture/lazy-page-loading.md` - Uses slug resolution in chunk endpoints
-- Related: `docs/manga-reader-features.md` - Reader navigation with slugs
+- Related: `docs/manga-reader.md` - Reader navigation with slugs
