@@ -21,7 +21,10 @@
       "description": "Reference implementation of the JAMRA extension SDK that ships with the repository.",
       "homepage": "https://github.com/jamra-app/jamra/tree/main/packages/example-extension",
       "repository": "https://github.com/jamra-app/jamra/tree/main/packages/example-extension",
-      "tags": ["official", "demo"],
+      "tags": [
+        "official",
+        "demo"
+      ],
       "author": {
         "name": "JAMRA Core Team",
         "url": "https://github.com/jamra-app"
@@ -46,7 +49,11 @@
       "description": "Access to WeebCentral's extensive manga collection including official and fan scanlations. Features advanced search, filtering by genre/status/type, and high-quality image delivery.",
       "homepage": "https://weebcentral.com",
       "repository": "https://github.com/jamra-app/jamra/tree/main/packages/weebcentral-extension",
-      "tags": ["official", "manga", "english"],
+      "tags": [
+        "official",
+        "manga",
+        "english"
+      ],
       "author": {
         "name": "JAMRA Team",
         "url": "https://github.com/jamra-app"
@@ -57,7 +64,7 @@
           "downloadUrl": "./packages/weebcentral-extension/dist/bundle.cjs",
           "checksum": {
             "algorithm": "sha256",
-            "value": "db4f4963737d5111a66f36b06f9f718a174d0485c47f81b1260b9a1b98ac56da"
+            "value": "3d849cd079bfac4dc663acedf89099c918d56b33eabce40a479ced769c28bb10"
           },
           "releaseNotes": "Initial release with search, catalogue, manga details, chapter pages, and filter support. Bundled with cheerio dependencies.",
           "publishedAt": "2025-01-06T00:00:00.000Z"

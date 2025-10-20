@@ -1,17 +1,9 @@
 "use client";
 
 import { Search, Heart, SortAsc, SortDesc } from "lucide-react";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import type { LibraryStatus, LibrarySortOption } from "@/store/library";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { TextInput, Button, Badge, Select, ActionIcon, Group } from "@mantine/core";
+import type { LibraryStatus } from "@/lib/api";
+import type { LibrarySortOption } from "@/store/library";
 
 interface LibraryFilterBarProps {
   selectedStatus?: LibraryStatus;
@@ -61,14 +53,14 @@ export function LibraryFilterBar({
   return (
     <div className="space-y-4">
       {/* Status Tabs */}
-      <div className="flex flex-wrap gap-2">
+      <Group gap="xs" wrap="wrap">
         <Button
-          variant={selectedStatus === undefined ? "default" : "outline"}
+          variant={selectedStatus === undefined ? "filled" : "outline"}
           size="sm"
           onClick={() => onStatusChange(undefined)}
         >
           All
-          <Badge variant="secondary" className="ml-2">
+          <Badge variant="light" className="ml-2">
             {totalCount}
           </Badge>
         </Button>
@@ -76,67 +68,57 @@ export function LibraryFilterBar({
         {STATUS_OPTIONS.map((option) => (
           <Button
             key={option.value}
-            variant={selectedStatus === option.value ? "default" : "outline"}
+            variant={selectedStatus === option.value ? "filled" : "outline"}
             size="sm"
             onClick={() => onStatusChange(option.value)}
           >
             {option.label}
           </Button>
         ))}
-      </div>
+      </Group>
 
       {/* Search, Sort, and Filters */}
       <div className="flex flex-col sm:flex-row gap-3">
         {/* Search */}
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search your library..."
-            value={searchQuery}
-            onChange={(e) => onSearchChange(e.target.value)}
-            className="pl-9"
-          />
-        </div>
+        <TextInput
+          placeholder="Search your library..."
+          value={searchQuery}
+          onChange={(e) => onSearchChange(e.target.value)}
+          leftSection={<Search className="h-4 w-4" />}
+          className="flex-1"
+        />
 
         {/* Sort */}
-        <div className="flex gap-2">
+        <Group gap="xs">
           <Select
             value={sortBy}
-            onValueChange={(value) =>
+            onChange={(value) =>
               onSortChange(value as LibrarySortOption, sortOrder)
             }
-          >
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Sort by" />
-            </SelectTrigger>
-            <SelectContent>
-              {SORT_OPTIONS.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            placeholder="Sort by"
+            data={SORT_OPTIONS}
+            className="w-[180px]"
+          />
 
-          <Button variant="outline" size="icon" onClick={toggleSortOrder}>
+          <ActionIcon variant="outline" size="lg" onClick={toggleSortOrder}>
             {sortOrder === "asc" ? (
               <SortAsc className="h-4 w-4" />
             ) : (
               <SortDesc className="h-4 w-4" />
             )}
-          </Button>
+          </ActionIcon>
 
-          <Button
-            variant={favoriteOnly ? "default" : "outline"}
-            size="icon"
+          <ActionIcon
+            variant={favoriteOnly ? "filled" : "outline"}
+            size="lg"
             onClick={onFavoriteToggle}
             title="Show favorites only"
           >
             <Heart
               className={`h-4 w-4 ${favoriteOnly ? "fill-current" : ""}`}
             />
-          </Button>
-        </div>
+          </ActionIcon>
+        </Group>
       </div>
     </div>
   );

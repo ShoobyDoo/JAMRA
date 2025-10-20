@@ -206,7 +206,7 @@ function ChapterOfflineControls({
       logger.error("Failed to queue chapter download", {
         component: "ChapterList",
         action: "queue-chapter",
-        mangaId,
+        mangaId: offline.mangaId ?? "unknown",
         chapterId: chapter.id,
         error: error instanceof Error ? error : new Error(String(error)),
       });
@@ -240,7 +240,7 @@ function ChapterOfflineControls({
       logger.error("Failed to cancel chapter download", {
         component: "ChapterList",
         action: "cancel-download",
-        mangaId,
+        mangaId: offline.mangaId ?? "unknown",
         chapterId: chapter.id,
         queueId: queueItem.id,
         error: error instanceof Error ? error : new Error(String(error)),

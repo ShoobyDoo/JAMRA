@@ -22,7 +22,6 @@ export function ReaderSettingsPanel({
     pageFit,
     backgroundColor,
     customWidth,
-    scrollSpeed,
     gapSize,
     dualPageGap,
     preloadCount,
@@ -33,7 +32,6 @@ export function ReaderSettingsPanel({
     setPageFit,
     setBackgroundColor,
     setCustomWidth,
-    setScrollSpeed,
     setGapSize,
     setDualPageGap,
     setPreloadCount,
@@ -209,38 +207,21 @@ export function ReaderSettingsPanel({
 
           {/* Vertical Mode Settings */}
           {readingMode === "vertical" && (
-            <>
-              <div className="space-y-3">
-                <label className="text-sm font-medium">
-                  Scroll Speed:{" "}
-                  <span className="text-muted-foreground">{scrollSpeed}</span>
-                </label>
-                <input
-                  type="range"
-                  min="1"
-                  max="50"
-                  value={scrollSpeed}
-                  onChange={(e) => setScrollSpeed(Number(e.target.value))}
-                  className="h-2 w-full cursor-pointer appearance-none rounded-full bg-secondary accent-primary"
-                />
-              </div>
-
-              <div className="space-y-3">
-                <label className="text-sm font-medium">
-                  Gap Between Pages:{" "}
-                  <span className="text-muted-foreground">{gapSize}px</span>
-                </label>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  step="4"
-                  value={gapSize}
-                  onChange={(e) => setGapSize(Number(e.target.value))}
-                  className="h-2 w-full cursor-pointer appearance-none rounded-full bg-secondary accent-primary"
-                />
-              </div>
-            </>
+            <div className="space-y-3">
+              <label className="text-sm font-medium">
+                Gap Between Pages:{" "}
+                <span className="text-muted-foreground">{gapSize}px</span>
+              </label>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                step="4"
+                value={gapSize}
+                onChange={(e) => setGapSize(Number(e.target.value))}
+                className="h-2 w-full cursor-pointer appearance-none rounded-full bg-secondary accent-primary"
+              />
+            </div>
           )}
 
           {/* Dual Page Settings */}
