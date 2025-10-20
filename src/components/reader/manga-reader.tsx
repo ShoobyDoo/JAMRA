@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { useReaderSettings } from "@/store/reader-settings";
 import { useReaderProgress } from "./hooks/use-reader-progress";
 import { useReaderNavigation } from "./hooks/use-reader-navigation";
-import { useTouchGestures } from "./hooks/use-touch-gestures";
 import { useSequentialPageLoader } from "./hooks/use-sequential-page-loader";
 import { useReaderControls } from "@/hooks/use-reader-controls";
 import { ReaderControls } from "./reader-controls";
@@ -131,8 +130,6 @@ export function MangaReader({
     readingMode,
     zenMode,
     setZenMode,
-    pageFit,
-    setPageFit,
     autoAdvanceChapter,
     initialPageCount,
     pageChunkSize,
@@ -169,6 +166,18 @@ export function MangaReader({
   } = useReaderProgress(mangaId, chapterId, totalPages, initialPage);
 
   const viewportRef = useRef<HTMLDivElement>(null);
+
+  // Find next and previous chapters
+  const { nextChapter, prevChapter } = useMemo(() => {
+    const index = chapters.findIndex((chapter) => chapter.id === chapterId);
+    return {
+      nextChapter:
+        index >= 0 && index < chapters.length - 1
+          ? chapters[index + 1]
+          : null,
+      prevChapter: index > 0 ? chapters[index - 1] : null,
+    };
+  }, [chapters, chapterId]);
 
   // Enhanced page navigation with loading support
   const goToPage = useCallback(
@@ -312,30 +321,6 @@ export function MangaReader({
     onExitReader: handleExitReader,
   });
 
-  // Touch gestures
-  useTouchGestures(viewportRef, {
-    onSwipeLeft:
-      readingMode === "paged-rtl"
-        ? prevPage
-        : () => {
-            void nextPage();
-          },
-    onSwipeRight:
-      readingMode === "paged-rtl"
-        ? () => {
-            void nextPage();
-          }
-        : prevPage,
-    onDoubleTap: () => {
-      if (pageFit === "width") {
-        setPageFit("height");
-      } else {
-        setPageFit("width");
-      }
-    },
-    onLongPress: handleToggleSettings,
-  });
-
   // Fullscreen change handler
   useEffect(() => {
     const handleFullscreenChange = () => {
@@ -355,40 +340,22 @@ export function MangaReader({
     if (
       !autoAdvanceChapter ||
       !chapters.length ||
-      currentPage !== readerTotalPages - 1
+      currentPage !== readerTotalPages - 1 ||
+      !nextChapter
     ) {
       return;
     }
-    const currentIndex = chapters.findIndex(
-      (chapter) => chapter.id === chapterId,
-    );
-    if (currentIndex === -1 || currentIndex >= chapters.length - 1) {
-      return;
-    }
-    const nextChapter = chapters[currentIndex + 1];
     const prefetchUrl = `/read/${encodeURIComponent(mangaSlug)}/chapter/${encodeURIComponent(nextChapter.slug)}`;
     router.prefetch(prefetchUrl);
   }, [
     autoAdvanceChapter,
     chapters,
-    chapterId,
     currentPage,
     mangaSlug,
+    nextChapter,
     readerTotalPages,
     router,
   ]);
-
-  // Find next and previous chapters
-  const { nextChapter, prevChapter } = useMemo(() => {
-    const index = chapters.findIndex((chapter) => chapter.id === chapterId);
-    return {
-      nextChapter:
-        index >= 0 && index < chapters.length - 1
-          ? chapters[index + 1]
-          : null,
-      prevChapter: index > 0 ? chapters[index - 1] : null,
-    };
-  }, [chapters, chapterId]);
 
   // Determine if we're loading the current page
   const currentPageData = useMemo(

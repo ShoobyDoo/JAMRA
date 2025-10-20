@@ -90,19 +90,19 @@ export default async function MangaPage({ params }: MangaPageProps) {
           <dl className="grid grid-cols-2 gap-4 text-sm sm:grid-cols-3 lg:grid-cols-4">
             {details.authors && details.authors.length > 0 ? (
               <div>
-                <dt className="text-muted-foreground">Author(s)</dt>
+                <dt className="text-sm font-semibold text-foreground mb-1">Author(s)</dt>
                 <dd>{details.authors.join(", ")}</dd>
               </div>
             ) : null}
             {/* {details.artists && details.artists.length > 0 ? (
               <div>
-                <dt className="text-muted-foreground">Artist(s)</dt>
+                <dt className="text-sm font-semibold text-foreground mb-1">Artist(s)</dt>
                 <dd>{details.artists.join(", ")}</dd>
               </div>
             ) : null} */}
             {details.genres && details.genres.length > 0 ? (
               <div className="col-span-2 sm:col-span-3 lg:col-span-4">
-                <dt className="text-muted-foreground mb-2">Genres</dt>
+                <dt className="text-sm font-semibold text-foreground mb-2">Genres</dt>
                 <dd>
                   <GenrePills genres={details.genres} />
                 </dd>
@@ -110,27 +110,37 @@ export default async function MangaPage({ params }: MangaPageProps) {
             ) : null}
             {details.status ? (
               <div>
-                <dt className="text-muted-foreground">Status</dt>
+                <dt className="text-sm font-semibold text-foreground mb-1">Status</dt>
                 <dd>{details.status}</dd>
               </div>
             ) : null}
             {details.rating ? (
               <div>
-                <dt className="text-muted-foreground">Rating</dt>
+                <dt className="text-sm font-semibold text-foreground mb-1">Rating</dt>
                 <dd>{details.rating.toFixed(1)}</dd>
               </div>
             ) : null}
             {details.year ? (
               <div>
-                <dt className="text-muted-foreground">Year</dt>
+                <dt className="text-sm font-semibold text-foreground mb-1">Year</dt>
                 <dd>{details.year}</dd>
               </div>
             ) : null}
           </dl>
 
+          {/* Add to Library Button - positioned after metadata */}
+          <div>
+            <AddToLibraryButton
+              mangaId={mangaId}
+              extensionId={data.extensionId ?? ""}
+              variant="default"
+              size="sm"
+            />
+          </div>
+
           {details.links && Object.keys(details.links).length > 0 ? (
             <div className="space-y-2">
-              <h2 className="text-sm font-semibold text-muted-foreground">
+              <h2 className="text-sm font-semibold text-foreground">
                 Links
               </h2>
               <div className="flex flex-wrap gap-2">
@@ -170,18 +180,11 @@ export default async function MangaPage({ params }: MangaPageProps) {
             <ClearChaptersButton mangaId={mangaId} />
           </div>
 
-          <div className="flex flex-col sm:flex-row gap-3">
-            <ContinueReadingButton
-              chapters={chapters}
-              mangaId={mangaId}
-              mangaSlug={canonicalSlug}
-            />
-            <AddToLibraryButton
-              mangaId={mangaId}
-              extensionId={data.extensionId}
-              variant="outline"
-            />
-          </div>
+          <ContinueReadingButton
+            chapters={chapters}
+            mangaId={mangaId}
+            mangaSlug={canonicalSlug}
+          />
           <OfflineDownloadControls />
           <ChapterList
             chapters={chapters}

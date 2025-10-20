@@ -27,6 +27,13 @@ import { useSettingsStore } from "@/store/settings";
 import { CACHE_DEFAULTS } from "@/lib/constants";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+
+const DEFAULT_CACHE_FORM = {
+  enabled: CACHE_DEFAULTS.ENABLED,
+  ttlDays: CACHE_DEFAULTS.TTL_DAYS,
+  maxEntries: CACHE_DEFAULTS.MAX_ENTRIES,
+} as const;
+
 export default function SettingsPage() {
   const sidebarWidth = useUIStore((state) => state.sidebarWidth);
   const setSidebarWidth = useUIStore((state) => state.setSidebarWidth);

@@ -31,8 +31,8 @@ These documents track the evolution of the JAMRA manga reader and its features o
 
 For up-to-date feature documentation, see:
 
-- `/docs/manga-reader-features.md` - Complete feature reference
-- `/docs/architecture/lazy-page-loading.md` - Chunked loading system
+- `/docs/manga-reader.md` - Reader capabilities and roadmap
+- `/docs/architecture/lazy-page-loading.md` - Chunk-loading architecture
 - `/docs/architecture/manga-slugs.md` - Slug routing system
 
 ## Note

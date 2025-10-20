@@ -6,7 +6,7 @@ import type { EnrichedLibraryEntry } from "@/lib/api";
 import { slugify } from "@/lib/slug";
 import { AutoRefreshImage } from "@/components/ui/auto-refresh-image";
 import { resolveCoverSources } from "@/lib/cover-sources";
-import { Badge } from "@/components/ui/badge";
+import { Badge } from "@mantine/core";
 
 interface LibraryCardProps {
   entry: EnrichedLibraryEntry;
@@ -43,7 +43,11 @@ export function LibraryCard({ entry, priority = false }: LibraryCardProps) {
 
   const destination = slugify(manga.title) ?? mangaId;
   const { primary: coverPrimary, fallbacks: coverFallbacks } =
-    resolveCoverSources(manga);
+    resolveCoverSources({
+      ...manga,
+      coverUrl: manga.coverUrl ?? undefined,
+      coverUrls: manga.coverUrls ?? undefined,
+    });
 
   // Calculate progress
   const progress = totalChapters > 0 ? (readChapters / totalChapters) * 100 : 0;

@@ -247,8 +247,10 @@ export function ExtensionsManager({
     try {
       const extension = await installExtension({
         filePath: installPath.trim(),
-        enabled: autoEnable,
       });
+      if (autoEnable && extension.id) {
+        await enableExtension(extension.id);
+      }
       updateExtensionState(extension);
       setInstallPath("");
       setAutoEnable(true);
@@ -419,8 +421,13 @@ export function ExtensionsManager({
           extensionId: extension.id,
           version: latest.version,
         },
-        enabled: extension.enabled,
       });
+      // Maintain the enabled state
+      if (extension.enabled && !updated.enabled) {
+        await enableExtension(updated.id);
+      } else if (!extension.enabled && updated.enabled) {
+        await disableExtension(updated.id);
+      }
       updateExtensionState(updated);
       void refreshExtensions(true);
       notifications.show({
@@ -559,8 +566,10 @@ export function ExtensionsManager({
           extensionId: installCandidate.extension.id,
           version: installCandidate.version.version,
         },
-        enabled: marketplaceAutoEnable,
       });
+      if (marketplaceAutoEnable && extension.id) {
+        await enableExtension(extension.id);
+      }
       updateExtensionState(extension);
       setActiveTab("installed");
       void refreshExtensions(true);
@@ -645,7 +654,7 @@ export function ExtensionsManager({
                         busyExtensionId={busyExtensionId}
                         copiedField={copiedField}
                         onToggle={(event) =>
-                          handleToggleExtension(extension.id, event)
+                          handleToggleExtension(extension.id, event as MouseEvent<HTMLDivElement>)
                         }
                         onEnable={handleEnable}
                         onDisable={handleDisable}

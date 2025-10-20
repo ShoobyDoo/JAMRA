@@ -123,7 +123,7 @@ export function ContinueReadingButton({
           variant="filled"
           h="auto"
           px="lg"
-          py="lg"
+          py="md"
           classNames={buttonClassNames}
         >
           <span className="font-semibold">Start Reading</span>
@@ -155,7 +155,7 @@ export function ContinueReadingButton({
         variant="filled"
         h="auto"
         px="lg"
-        py="lg"
+        py="md"
         classNames={buttonClassNames}
       >
         <span className="font-semibold">

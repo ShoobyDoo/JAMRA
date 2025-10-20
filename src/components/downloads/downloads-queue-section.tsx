@@ -289,11 +289,11 @@ export const DownloadsQueueSection = memo(function DownloadsQueueSection({
                           {download.status === "downloading" && (
                             <Box>
                               <Progress value={percent} size="xs" mb={4} />
-                              <Group gap="xs" c="dimmed" size="xs">
+                              <Group gap="xs" c="dimmed">
                                 <Text size="xs">
                                   {percent}% • {formatSpeed(speed)}
                                 </Text>
-                                <Text size="xs">• ETA {formatETA(eta)}</Text>
+                                <Text size="xs">• ETA {eta !== null ? formatETA(eta) : "N/A"}</Text>
                               </Group>
                             </Box>
                           )}
