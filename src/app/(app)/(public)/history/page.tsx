@@ -4,16 +4,7 @@ import { useEffect, useState } from "react";
 import { useHistory } from "@/store/history";
 import { HistoryTimeline } from "@/components/history/history-timeline";
 import { HistoryFilterBar } from "@/components/history/history-filter-bar";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { Skeleton, Button, Menu } from "@mantine/core";
 import { Download, MoreVertical, Trash2, BarChart3 } from "lucide-react";
 import type { HistoryActionType } from "@/lib/api";
 import { exportHistory, type ExportFormat } from "@/lib/history-export";
@@ -109,39 +100,45 @@ export default function HistoryPage() {
             </Button>
           </Link>
 
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
+          <Menu shadow="md" width={200}>
+            <Menu.Target>
               <Button variant="outline" size="sm">
                 <MoreVertical className="h-4 w-4" />
               </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel>Actions</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => handleExport("json")}>
-                <Download className="h-4 w-4 mr-2" />
-                Export as JSON
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleExport("csv")}>
-                <Download className="h-4 w-4 mr-2" />
-                Export as CSV
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleExport("md")}>
-                <Download className="h-4 w-4 mr-2" />
-                Export as Markdown
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={handleClearHistory}
-                className="text-destructive"
+            </Menu.Target>
+
+            <Menu.Dropdown>
+              <Menu.Label>Actions</Menu.Label>
+              <Menu.Item
+                leftSection={<Download className="h-4 w-4" />}
+                onClick={() => handleExport("json")}
               >
-                <Trash2 className="h-4 w-4 mr-2" />
+                Export as JSON
+              </Menu.Item>
+              <Menu.Item
+                leftSection={<Download className="h-4 w-4" />}
+                onClick={() => handleExport("csv")}
+              >
+                Export as CSV
+              </Menu.Item>
+              <Menu.Item
+                leftSection={<Download className="h-4 w-4" />}
+                onClick={() => handleExport("md")}
+              >
+                Export as Markdown
+              </Menu.Item>
+              <Menu.Divider />
+              <Menu.Item
+                color="red"
+                leftSection={<Trash2 className="h-4 w-4" />}
+                onClick={handleClearHistory}
+              >
                 {showClearConfirm
                   ? "Click again to confirm"
                   : "Clear All History"}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+              </Menu.Item>
+            </Menu.Dropdown>
+          </Menu>
         </div>
       </div>
 
@@ -172,10 +169,10 @@ export default function HistoryPage() {
               key={i}
               className="flex items-start gap-4 rounded-lg border p-4"
             >
-              <Skeleton className="h-12 w-12 rounded" />
+              <Skeleton height={48} width={48} radius="sm" />
               <div className="flex-1 space-y-2">
-                <Skeleton className="h-4 w-3/4" />
-                <Skeleton className="h-3 w-1/2" />
+                <Skeleton height={16} width="75%" />
+                <Skeleton height={12} width="50%" />
               </div>
             </div>
           ))}
@@ -197,11 +194,11 @@ export default function HistoryPage() {
             <div className="flex justify-center pt-4">
               <Button
                 onClick={loadMore}
-                disabled={isLoading}
+                loading={isLoading}
                 variant="outline"
                 size="lg"
               >
-                {isLoading ? "Loading..." : "Load More"}
+                Load More
               </Button>
             </div>
           )}

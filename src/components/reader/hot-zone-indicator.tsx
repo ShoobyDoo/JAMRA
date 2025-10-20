@@ -63,7 +63,7 @@ export function HotZoneIndicator({ zone }: HotZoneIndicatorProps) {
       className={`fixed ${config.position} ${config.gradient} pointer-events-none z-[100] transition-all duration-200 ease-out`}
       style={{
         width: isHorizontal ? "25%" : "100%",
-        height: isHorizontal ? "100%" : "25%",
+        height: isHorizontal ? "100%" : "min(25%, 200px)",
         backdropFilter: "blur(1px)",
         WebkitBackdropFilter: "blur(1px)", // Safari support
       }}

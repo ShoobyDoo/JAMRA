@@ -2,14 +2,7 @@
 
 import { useEffect } from "react";
 import { useHistory } from "@/store/history";
-import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Skeleton, Paper, Text, Title, Stack, Group } from "@mantine/core";
 import { BookOpen, Library, TrendingUp, Star } from "lucide-react";
 import Link from "next/link";
 
@@ -48,91 +41,91 @@ export default function HistoryStatsPage() {
       {isLoading ? (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           {Array.from({ length: 4 }).map((_, i) => (
-            <Card key={i}>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <Skeleton className="h-4 w-24" />
-                <Skeleton className="h-4 w-4" />
-              </CardHeader>
-              <CardContent>
-                <Skeleton className="h-8 w-16 mb-2" />
-                <Skeleton className="h-3 w-32" />
-              </CardContent>
-            </Card>
+            <Paper key={i} p="md" withBorder>
+              <Group justify="space-between" mb="xs">
+                <Skeleton height={16} width={96} />
+                <Skeleton height={16} width={16} />
+              </Group>
+              <Skeleton height={32} width={64} mb="xs" />
+              <Skeleton height={12} width={128} />
+            </Paper>
           ))}
         </div>
       ) : stats ? (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
+          <Paper p="md" withBorder>
+            <Group justify="space-between" mb="xs">
+              <Text size="sm" fw={500}>
                 Total Entries
-              </CardTitle>
+              </Text>
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.totalEntries}</div>
-              <p className="text-xs text-muted-foreground">
-                All recorded actions
-              </p>
-            </CardContent>
-          </Card>
+            </Group>
+            <Text size="xl" fw={700}>
+              {stats.totalEntries}
+            </Text>
+            <Text size="xs" c="dimmed">
+              All recorded actions
+            </Text>
+          </Paper>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
+          <Paper p="md" withBorder>
+            <Group justify="space-between" mb="xs">
+              <Text size="sm" fw={500}>
                 Chapters Read
-              </CardTitle>
+              </Text>
               <BookOpen className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.chaptersRead}</div>
-              <p className="text-xs text-muted-foreground">
-                Total reading sessions
-              </p>
-            </CardContent>
-          </Card>
+            </Group>
+            <Text size="xl" fw={700}>
+              {stats.chaptersRead}
+            </Text>
+            <Text size="xs" c="dimmed">
+              Total reading sessions
+            </Text>
+          </Paper>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
+          <Paper p="md" withBorder>
+            <Group justify="space-between" mb="xs">
+              <Text size="sm" fw={500}>
                 Manga Started
-              </CardTitle>
+              </Text>
               <Star className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.mangaStarted}</div>
-              <p className="text-xs text-muted-foreground">
-                Unique titles read
-              </p>
-            </CardContent>
-          </Card>
+            </Group>
+            <Text size="xl" fw={700}>
+              {stats.mangaStarted}
+            </Text>
+            <Text size="xs" c="dimmed">
+              Unique titles read
+            </Text>
+          </Paper>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
+          <Paper p="md" withBorder>
+            <Group justify="space-between" mb="xs">
+              <Text size="sm" fw={500}>
                 Library Additions
-              </CardTitle>
+              </Text>
               <Library className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.libraryAdditions}</div>
-              <p className="text-xs text-muted-foreground">
-                Manga added to library
-              </p>
-            </CardContent>
-          </Card>
+            </Group>
+            <Text size="xl" fw={700}>
+              {stats.libraryAdditions}
+            </Text>
+            <Text size="xs" c="dimmed">
+              Manga added to library
+            </Text>
+          </Paper>
         </div>
       ) : null}
 
       {/* Action Breakdown */}
       {!isLoading && stats && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Activity Breakdown</CardTitle>
-            <CardDescription>Distribution of your actions</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
+        <Paper p="md" withBorder>
+          <Stack gap="md">
+            <div>
+              <Title order={3}>Activity Breakdown</Title>
+              <Text size="sm" c="dimmed">
+                Distribution of your actions
+              </Text>
+            </div>
+            <Stack gap="md">
               {Object.entries(stats.actionCounts).map(([action, count]) => {
                 const total = stats.totalEntries;
                 const percentage =
@@ -140,14 +133,14 @@ export default function HistoryStatsPage() {
 
                 return (
                   <div key={action} className="space-y-2">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="font-medium capitalize">
+                    <Group justify="space-between">
+                      <Text size="sm" fw={500} tt="capitalize">
                         {action.replace(/_/g, " ")}
-                      </span>
-                      <span className="text-muted-foreground">
+                      </Text>
+                      <Text size="sm" c="dimmed">
                         {count} ({percentage}%)
-                      </span>
-                    </div>
+                      </Text>
+                    </Group>
                     <div className="h-2 rounded-full bg-secondary overflow-hidden">
                       <div
                         className="h-full bg-primary transition-all"
@@ -157,46 +150,47 @@ export default function HistoryStatsPage() {
                   </div>
                 );
               })}
-            </div>
-          </CardContent>
-        </Card>
+            </Stack>
+          </Stack>
+        </Paper>
       )}
 
       {/* Most Read Manga */}
       {!isLoading && stats && stats.mostReadManga.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Most Read Manga</CardTitle>
-            <CardDescription>
-              Your top 10 most frequently read titles
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
+        <Paper p="md" withBorder>
+          <Stack gap="md">
+            <div>
+              <Title order={3}>Most Read Manga</Title>
+              <Text size="sm" c="dimmed">
+                Your top 10 most frequently read titles
+              </Text>
+            </div>
+            <Stack gap="xs">
               {stats.mostReadManga.map((manga, index) => (
-                <div
+                <Group
                   key={manga.mangaId}
-                  className="flex items-center justify-between py-2 border-b last:border-0"
+                  justify="space-between"
+                  className="py-2 border-b last:border-0"
                 >
-                  <div className="flex items-center gap-3">
-                    <span className="text-2xl font-bold text-muted-foreground w-8">
+                  <Group gap="md">
+                    <Text size="xl" fw={700} c="dimmed" style={{ width: 32 }}>
                       {index + 1}
-                    </span>
+                    </Text>
                     <Link
                       href={`/manga/${manga.mangaId}`}
                       className="font-medium hover:underline"
                     >
                       {manga.title}
                     </Link>
-                  </div>
-                  <span className="text-sm text-muted-foreground">
+                  </Group>
+                  <Text size="sm" c="dimmed">
                     {manga.count} {manga.count === 1 ? "chapter" : "chapters"}
-                  </span>
-                </div>
+                  </Text>
+                </Group>
               ))}
-            </div>
-          </CardContent>
-        </Card>
+            </Stack>
+          </Stack>
+        </Paper>
       )}
     </div>
   );

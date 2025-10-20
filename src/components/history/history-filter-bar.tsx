@@ -7,15 +7,7 @@ import {
   List,
   LayoutGrid,
 } from "lucide-react";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { TextInput, Select, ActionIcon, Group } from "@mantine/core";
 import type { HistoryActionType } from "@/lib/api";
 import type { HistorySortOption, HistoryViewMode } from "@/store/history";
 
@@ -46,7 +38,9 @@ export function HistoryFilterBar({
   onViewModeChange,
   totalCount,
 }: HistoryFilterBarProps) {
-  const handleQuickDateRange = (range: string) => {
+  const handleQuickDateRange = (range: string | null) => {
+    if (!range) return;
+
     const now = Date.now();
     const day = 24 * 60 * 60 * 1000;
 
@@ -71,37 +65,32 @@ export function HistoryFilterBar({
       {/* Search and Filters Row */}
       <div className="flex flex-col sm:flex-row gap-4">
         {/* Search */}
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            type="text"
-            placeholder="Search manga or chapters..."
-            value={searchQuery}
-            onChange={(e) => onSearchChange(e.target.value)}
-            className="pl-9"
-          />
-        </div>
+        <TextInput
+          placeholder="Search manga or chapters..."
+          value={searchQuery}
+          onChange={(e) => onSearchChange(e.target.value)}
+          leftSection={<Search className="h-4 w-4" />}
+          className="flex-1"
+        />
 
         {/* Action Type Filter */}
         <Select
           value={actionType ?? "all"}
-          onValueChange={(value) =>
+          onChange={(value) =>
             onActionTypeChange(
               value === "all" ? undefined : (value as HistoryActionType),
             )
           }
-        >
-          <SelectTrigger className="w-full sm:w-[180px]">
-            <SelectValue placeholder="All Actions" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Actions</SelectItem>
-            <SelectItem value="read">Read</SelectItem>
-            <SelectItem value="library_add">Added to Library</SelectItem>
-            <SelectItem value="library_remove">Removed from Library</SelectItem>
-            <SelectItem value="favorite">Favorited</SelectItem>
-          </SelectContent>
-        </Select>
+          placeholder="All Actions"
+          data={[
+            { value: "all", label: "All Actions" },
+            { value: "read", label: "Read" },
+            { value: "library_add", label: "Added to Library" },
+            { value: "library_remove", label: "Removed from Library" },
+            { value: "favorite", label: "Favorited" },
+          ]}
+          className="w-full sm:w-[180px]"
+        />
 
         {/* Date Range Filter */}
         <Select
@@ -114,70 +103,63 @@ export function HistoryFilterBar({
                   ? "week"
                   : "month"
           }
-          onValueChange={handleQuickDateRange}
-        >
-          <SelectTrigger className="w-full sm:w-[180px]">
-            <SelectValue placeholder="All Time" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Time</SelectItem>
-            <SelectItem value="today">Today</SelectItem>
-            <SelectItem value="week">Last 7 Days</SelectItem>
-            <SelectItem value="month">Last 30 Days</SelectItem>
-          </SelectContent>
-        </Select>
+          onChange={handleQuickDateRange}
+          placeholder="All Time"
+          data={[
+            { value: "all", label: "All Time" },
+            { value: "today", label: "Today" },
+            { value: "week", label: "Last 7 Days" },
+            { value: "month", label: "Last 30 Days" },
+          ]}
+          className="w-full sm:w-[180px]"
+        />
       </div>
 
       {/* Sort and View Controls */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
+        <Group gap="xs">
           <SlidersHorizontal className="h-4 w-4 text-muted-foreground" />
           <Select
             value={sortBy}
-            onValueChange={(value) => onSortChange(value as HistorySortOption)}
-          >
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Sort by" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="newest">Newest First</SelectItem>
-              <SelectItem value="oldest">Oldest First</SelectItem>
-              <SelectItem value="manga">By Manga</SelectItem>
-            </SelectContent>
-          </Select>
+            onChange={(value) => onSortChange(value as HistorySortOption)}
+            placeholder="Sort by"
+            data={[
+              { value: "newest", label: "Newest First" },
+              { value: "oldest", label: "Oldest First" },
+              { value: "manga", label: "By Manga" },
+            ]}
+            className="w-[180px]"
+          />
 
           <span className="text-sm text-muted-foreground ml-2">
             {totalCount} {totalCount === 1 ? "entry" : "entries"}
           </span>
-        </div>
+        </Group>
 
         {/* View Mode Toggle */}
-        <div className="flex items-center gap-1 rounded-lg border p-1">
-          <Button
-            variant={viewMode === "timeline" ? "secondary" : "ghost"}
-            size="sm"
+        <Group gap={4} className="rounded-lg border p-1">
+          <ActionIcon
+            variant={viewMode === "timeline" ? "filled" : "subtle"}
+            size="lg"
             onClick={() => onViewModeChange("timeline")}
-            className="h-8 w-8 p-0"
           >
             <List className="h-4 w-4" />
-          </Button>
-          <Button
-            variant={viewMode === "list" ? "secondary" : "ghost"}
-            size="sm"
+          </ActionIcon>
+          <ActionIcon
+            variant={viewMode === "list" ? "filled" : "subtle"}
+            size="lg"
             onClick={() => onViewModeChange("list")}
-            className="h-8 w-8 p-0"
           >
             <Grid2X2 className="h-4 w-4" />
-          </Button>
-          <Button
-            variant={viewMode === "grid" ? "secondary" : "ghost"}
-            size="sm"
+          </ActionIcon>
+          <ActionIcon
+            variant={viewMode === "grid" ? "filled" : "subtle"}
+            size="lg"
             onClick={() => onViewModeChange("grid")}
-            className="h-8 w-8 p-0"
           >
             <LayoutGrid className="h-4 w-4" />
-          </Button>
-        </div>
+          </ActionIcon>
+        </Group>
       </div>
     </div>
   );

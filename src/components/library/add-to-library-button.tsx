@@ -1,15 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { BookmarkPlus, BookmarkCheck, Heart, Loader2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { BookmarkPlus, BookmarkCheck, Heart } from "lucide-react";
+import { Button, Menu, ActionIcon, Group } from "@mantine/core";
 import { useLibrary } from "@/store/library";
 import type { LibraryStatus } from "@/lib/api";
 import { logger } from "@/lib/logger";
@@ -125,62 +118,63 @@ export function AddToLibraryButton({
   );
 
   return (
-    <div className="flex gap-2">
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant={variant} size={size} disabled={isLoading}>
-            {isLoading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : libraryEntry ? (
-              <>
-                <BookmarkCheck className="h-4 w-4 mr-2" />
-                {currentStatus?.label ?? "In Library"}
-              </>
-            ) : (
-              <>
-                <BookmarkPlus className="h-4 w-4 mr-2" />
-                Add to Library
-              </>
-            )}
+    <Group gap="xs">
+      <Menu shadow="md" width={192}>
+        <Menu.Target>
+          <Button
+            variant={variant}
+            size={size}
+            loading={isLoading}
+            leftSection={
+              libraryEntry ? (
+                <BookmarkCheck className="h-4 w-4" />
+              ) : (
+                <BookmarkPlus className="h-4 w-4" />
+              )
+            }
+          >
+            {libraryEntry
+              ? currentStatus?.label ?? "In Library"
+              : "Add to Library"}
           </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-48">
+        </Menu.Target>
+
+        <Menu.Dropdown>
           {STATUS_OPTIONS.map((option) => (
-            <DropdownMenuItem
+            <Menu.Item
               key={option.value}
               onClick={() => handleAddToLibrary(option.value)}
-              className={
-                libraryEntry?.status === option.value ? "bg-accent" : ""
+              leftSection={<span>{option.icon}</span>}
+              rightSection={
+                libraryEntry?.status === option.value ? (
+                  <BookmarkCheck className="h-4 w-4" />
+                ) : null
+              }
+              bg={
+                libraryEntry?.status === option.value ? "var(--mantine-color-default-hover)" : undefined
               }
             >
-              <span className="mr-2">{option.icon}</span>
               {option.label}
-              {libraryEntry?.status === option.value && (
-                <BookmarkCheck className="ml-auto h-4 w-4" />
-              )}
-            </DropdownMenuItem>
+            </Menu.Item>
           ))}
 
           {libraryEntry && (
             <>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={handleRemoveFromLibrary}
-                className="text-destructive"
-              >
+              <Menu.Divider />
+              <Menu.Item color="red" onClick={handleRemoveFromLibrary}>
                 Remove from Library
-              </DropdownMenuItem>
+              </Menu.Item>
             </>
           )}
-        </DropdownMenuContent>
-      </DropdownMenu>
+        </Menu.Dropdown>
+      </Menu>
 
       {libraryEntry && (
-        <Button
-          variant={libraryEntry.favorite ? "default" : "outline"}
-          size="icon"
+        <ActionIcon
+          variant={libraryEntry.favorite ? "filled" : "outline"}
+          size="lg"
           onClick={handleToggleFavorite}
-          disabled={isLoading}
+          loading={isLoading}
           title={
             libraryEntry.favorite ? "Remove from favorites" : "Add to favorites"
           }
@@ -188,8 +182,8 @@ export function AddToLibraryButton({
           <Heart
             className={`h-4 w-4 ${libraryEntry.favorite ? "fill-current" : ""}`}
           />
-        </Button>
+        </ActionIcon>
       )}
-    </div>
+    </Group>
   );
 }

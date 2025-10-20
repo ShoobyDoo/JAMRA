@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { useReaderSettings } from "@/store/reader-settings";
 import { ChevronRight, ChevronLeft, Loader2 } from "lucide-react";
@@ -41,27 +40,18 @@ export function PagedMode(props: PagedModeProps) {
     pages,
     currentPage,
     totalPages,
-    onPageChange,
     nextChapter,
-    mangaId,
-    mangaSlug,
     readerControls,
     onPrevPage,
     onNextPage,
   } = props;
-  const router = useRouter();
   const { pageFit, backgroundColor, readingMode, customWidth } =
     useReaderSettings();
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
-  const isDragging = useRef(false);
-  const startX = useRef(0);
-  const [dragOffset, setDragOffset] = useState(0);
-  const [showDragCursor, setShowDragCursor] = useState(false);
 
   const currentPageData = pages[currentPage];
-  const routeSlug = mangaSlug ?? mangaId;
   const isRTL = readingMode === "paged-rtl";
 
   // Update container dimensions
@@ -84,7 +74,7 @@ export function PagedMode(props: PagedModeProps) {
   const isLastPage = currentPage === totalPages - 1;
 
   const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!containerRef.current || isDragging.current) return;
+    if (!containerRef.current) return;
 
     const zone = readerControls.getHotZone(
       e.clientX,
@@ -129,117 +119,6 @@ export function PagedMode(props: PagedModeProps) {
   const handleMouseLeave = () => {
     readerControls.clearHotZone();
   };
-
-  // Drag to scroll/navigate
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-
-    const DRAG_THRESHOLD = 100; // pixels to drag to trigger page change
-
-    const handleMouseDown = (e: MouseEvent) => {
-      if (e.button !== 0) return; // Only left click
-
-      // Don't activate on interactive elements
-      const target = e.target as HTMLElement;
-      if (
-        target.tagName === "BUTTON" ||
-        target.closest("button") ||
-        target.closest("input")
-      ) {
-        return;
-      }
-
-      isDragging.current = false;
-      startX.current = e.clientX;
-      setDragOffset(0);
-      setShowDragCursor(true);
-    };
-
-    const handleMouseMove = (e: MouseEvent) => {
-      if (startX.current === 0) return;
-
-      const delta = e.clientX - startX.current;
-
-      // Mark as dragging if moved more than 5px
-      if (Math.abs(delta) > 5) {
-        isDragging.current = true;
-        // Hide controls when dragging
-        readerControls.hideControls();
-      }
-
-      // Update visual offset in real-time (positive delta = drag right, negative = drag left)
-      setDragOffset(delta);
-    };
-
-    const handleMouseUp = (e: MouseEvent) => {
-      if (startX.current === 0) return;
-
-      const dragDelta = e.clientX - startX.current;
-      setShowDragCursor(false);
-
-      // Check if drag was significant enough for page change
-      if (Math.abs(dragDelta) > DRAG_THRESHOLD) {
-        if (isRTL) {
-          // RTL mode: drag left = next page, drag right = prev page
-          if (dragDelta < 0) {
-            // Dragged left = next page
-            if (currentPage < totalPages - 1) {
-              onPageChange(currentPage + 1);
-            } else if (nextChapter && routeSlug) {
-              router.push(
-                `/read/${encodeURIComponent(routeSlug)}/chapter/${encodeURIComponent(nextChapter.slug)}`,
-              );
-            }
-          } else if (dragDelta > 0 && currentPage > 0) {
-            // Dragged right = previous page
-            onPageChange(currentPage - 1);
-          }
-        } else {
-          // LTR mode: drag right = prev page, drag left = next page
-          if (dragDelta < 0) {
-            // Dragged left = next page
-            if (currentPage < totalPages - 1) {
-              onPageChange(currentPage + 1);
-            } else if (nextChapter && routeSlug) {
-              router.push(
-                `/read/${encodeURIComponent(routeSlug)}/chapter/${encodeURIComponent(nextChapter.slug)}`,
-              );
-            }
-          } else if (dragDelta > 0 && currentPage > 0) {
-            // Dragged right = previous page
-            onPageChange(currentPage - 1);
-          }
-        }
-      }
-
-      // Reset with animation
-      setDragOffset(0);
-      startX.current = 0;
-      setTimeout(() => {
-        isDragging.current = false;
-      }, 50);
-    };
-
-    container.addEventListener("mousedown", handleMouseDown);
-    window.addEventListener("mousemove", handleMouseMove);
-    window.addEventListener("mouseup", handleMouseUp);
-
-    return () => {
-      container.removeEventListener("mousedown", handleMouseDown);
-      window.removeEventListener("mousemove", handleMouseMove);
-      window.removeEventListener("mouseup", handleMouseUp);
-    };
-  }, [
-    currentPage,
-    totalPages,
-    onPageChange,
-    nextChapter,
-    routeSlug,
-    router,
-    isRTL,
-    readerControls,
-  ]);
 
   const getImageStyles = (): React.CSSProperties => {
     if (!currentPageData) return {};
@@ -387,13 +266,8 @@ export function PagedMode(props: PagedModeProps) {
       {/* Page image */}
       <div
         ref={imageRef}
-        className="relative z-10 flex items-center justify-center transition-transform"
-        style={{
-          ...getImageStyles(),
-          transform: `translateX(${dragOffset}px)`,
-          transition: dragOffset === 0 ? "transform 0.2s ease-out" : "none",
-          cursor: showDragCursor ? "grabbing" : "default",
-        }}
+        className="relative z-10 flex items-center justify-center"
+        style={getImageStyles()}
       >
         <Image
           src={currentPageData.url}

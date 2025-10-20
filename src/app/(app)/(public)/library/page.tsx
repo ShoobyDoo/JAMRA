@@ -4,8 +4,9 @@ import { useEffect, useState } from "react";
 import { useLibrary } from "@/store/library";
 import { LibraryGrid } from "@/components/library/library-grid";
 import { LibraryFilterBar } from "@/components/library/library-filter-bar";
-import type { LibraryStatus, LibrarySortOption } from "@/store/library";
-import { Skeleton } from "@/components/ui/skeleton";
+import type { LibraryStatus } from "@/lib/api";
+import type { LibrarySortOption } from "@/store/library";
+import { Skeleton } from "@mantine/core";
 
 export default function LibraryPage() {
   const {
@@ -91,9 +92,9 @@ export default function LibraryPage() {
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
           {Array.from({ length: 12 }).map((_, i) => (
             <div key={i} className="space-y-3">
-              <Skeleton className="aspect-[2/3] w-full rounded-lg" />
-              <Skeleton className="h-4 w-3/4" />
-              <Skeleton className="h-3 w-1/2" />
+              <Skeleton className="aspect-[2/3] w-full" radius="md" />
+              <Skeleton height={16} width="75%" />
+              <Skeleton height={12} width="50%" />
             </div>
           ))}
         </div>
