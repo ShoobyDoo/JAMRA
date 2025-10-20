@@ -1,4 +1,5 @@
 import { Skeleton } from "@mantine/core";
+import { MangaGridSkeleton } from "@/components/skeletons";
 
 export default function SearchLoading() {
   return (
@@ -24,19 +25,10 @@ export default function SearchLoading() {
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
-        {Array.from({ length: 10 }).map((_, index) => (
-          <div
-            key={index}
-            className="rounded-lg border border-border bg-card p-3 space-y-3"
-          >
-            <Skeleton height={160} radius="md" />
-            <Skeleton height={14} width="85%" />
-            <Skeleton height={12} width="60%" />
-            <Skeleton height={10} width="70%" />
-          </div>
-        ))}
-      </div>
+      <MangaGridSkeleton
+        count={10}
+        className="sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5"
+      />
     </div>
   );
 }

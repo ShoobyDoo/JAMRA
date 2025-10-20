@@ -1,20 +1,27 @@
 "use client";
 
 import { X } from "lucide-react";
-import { useReaderSettings, type ReadingMode, type PageFit, type BackgroundColor } from "@/store/reader-settings";
+import {
+  useReaderSettings,
+  type ReadingMode,
+  type PageFit,
+  type BackgroundColor,
+} from "@/store/reader-settings";
 
 interface ReaderSettingsPanelProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-export function ReaderSettingsPanel({ isOpen, onClose }: ReaderSettingsPanelProps) {
+export function ReaderSettingsPanel({
+  isOpen,
+  onClose,
+}: ReaderSettingsPanelProps) {
   const {
     readingMode,
     pageFit,
     backgroundColor,
     customWidth,
-    scrollSpeed,
     gapSize,
     dualPageGap,
     preloadCount,
@@ -25,7 +32,6 @@ export function ReaderSettingsPanel({ isOpen, onClose }: ReaderSettingsPanelProp
     setPageFit,
     setBackgroundColor,
     setCustomWidth,
-    setScrollSpeed,
     setGapSize,
     setDualPageGap,
     setPreloadCount,
@@ -35,13 +41,31 @@ export function ReaderSettingsPanel({ isOpen, onClose }: ReaderSettingsPanelProp
     resetToDefaults,
   } = useReaderSettings();
 
-  if (!isOpen) return null;
-
-  const readingModes: { value: ReadingMode; label: string; description: string }[] = [
-    { value: "paged-ltr", label: "Paged (LTR)", description: "Left to right navigation" },
-    { value: "paged-rtl", label: "Paged (RTL)", description: "Right to left navigation" },
-    { value: "dual-page", label: "Dual Page", description: "Two pages side by side" },
-    { value: "vertical", label: "Vertical Scroll", description: "Webtoon/Manhwa style" },
+  const readingModes: {
+    value: ReadingMode;
+    label: string;
+    description: string;
+  }[] = [
+    {
+      value: "paged-ltr",
+      label: "Paged (LTR)",
+      description: "Left to right navigation",
+    },
+    {
+      value: "paged-rtl",
+      label: "Paged (RTL)",
+      description: "Right to left navigation",
+    },
+    {
+      value: "dual-page",
+      label: "Dual Page",
+      description: "Two pages side by side",
+    },
+    {
+      value: "vertical",
+      label: "Vertical Scroll",
+      description: "Webtoon/Manhwa style",
+    },
   ];
 
   const pageFits: { value: PageFit; label: string }[] = [
@@ -52,7 +76,11 @@ export function ReaderSettingsPanel({ isOpen, onClose }: ReaderSettingsPanelProp
     { value: "custom", label: "Custom Width" },
   ];
 
-  const backgroundColors: { value: BackgroundColor; label: string; color: string }[] = [
+  const backgroundColors: {
+    value: BackgroundColor;
+    label: string;
+    color: string;
+  }[] = [
     { value: "black", label: "Black", color: "bg-black" },
     { value: "dark-gray", label: "Dark Gray", color: "bg-gray-900" },
     { value: "white", label: "White", color: "bg-white" },
@@ -63,13 +91,19 @@ export function ReaderSettingsPanel({ isOpen, onClose }: ReaderSettingsPanelProp
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm transition-opacity duration-200 animate-in fade-in"
+        className={`fixed inset-0 z-50 bg-black/50 backdrop-blur-sm transition-opacity duration-200 ${
+          isOpen ? "opacity-100" : "opacity-0 pointer-events-none"
+        }`}
         onClick={onClose}
         aria-hidden="true"
       />
 
       {/* Panel */}
-      <div className="fixed right-0 top-0 z-50 h-full w-full max-w-md overflow-y-auto border-l border-border bg-background shadow-xl transition-transform duration-300 animate-in slide-in-from-right">
+      <div
+        className={`fixed right-0 top-0 z-50 h-full w-full max-w-md overflow-y-auto border-l border-border bg-background shadow-xl transition-transform duration-200 ease-out ${
+          isOpen ? "translate-x-0" : "translate-x-full"
+        }`}
+      >
         {/* Header */}
         <div className="sticky top-0 flex items-center justify-between border-b border-border bg-background px-6 py-4">
           <h2 className="text-lg font-semibold">Reader Settings</h2>
@@ -99,7 +133,9 @@ export function ReaderSettingsPanel({ isOpen, onClose }: ReaderSettingsPanelProp
                   }`}
                 >
                   <div className="font-medium text-sm">{mode.label}</div>
-                  <div className="text-xs text-muted-foreground">{mode.description}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {mode.description}
+                  </div>
                 </button>
               ))}
             </div>
@@ -160,7 +196,9 @@ export function ReaderSettingsPanel({ isOpen, onClose }: ReaderSettingsPanelProp
                       : "border-border hover:border-primary/50"
                   }`}
                 >
-                  <div className={`h-6 w-6 rounded border border-border ${bg.color}`} />
+                  <div
+                    className={`h-6 w-6 rounded border border-border ${bg.color}`}
+                  />
                   <span className="text-sm font-medium">{bg.label}</span>
                 </button>
               ))}
@@ -169,43 +207,29 @@ export function ReaderSettingsPanel({ isOpen, onClose }: ReaderSettingsPanelProp
 
           {/* Vertical Mode Settings */}
           {readingMode === "vertical" && (
-            <>
-              <div className="space-y-3">
-                <label className="text-sm font-medium">
-                  Scroll Speed: <span className="text-muted-foreground">{scrollSpeed}</span>
-                </label>
-                <input
-                  type="range"
-                  min="1"
-                  max="50"
-                  value={scrollSpeed}
-                  onChange={(e) => setScrollSpeed(Number(e.target.value))}
-                  className="h-2 w-full cursor-pointer appearance-none rounded-full bg-secondary accent-primary"
-                />
-              </div>
-
-              <div className="space-y-3">
-                <label className="text-sm font-medium">
-                  Gap Between Pages: <span className="text-muted-foreground">{gapSize}px</span>
-                </label>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  step="4"
-                  value={gapSize}
-                  onChange={(e) => setGapSize(Number(e.target.value))}
-                  className="h-2 w-full cursor-pointer appearance-none rounded-full bg-secondary accent-primary"
-                />
-              </div>
-            </>
+            <div className="space-y-3">
+              <label className="text-sm font-medium">
+                Gap Between Pages:{" "}
+                <span className="text-muted-foreground">{gapSize}px</span>
+              </label>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                step="4"
+                value={gapSize}
+                onChange={(e) => setGapSize(Number(e.target.value))}
+                className="h-2 w-full cursor-pointer appearance-none rounded-full bg-secondary accent-primary"
+              />
+            </div>
           )}
 
           {/* Dual Page Settings */}
           {readingMode === "dual-page" && (
             <div className="space-y-3">
               <label className="text-sm font-medium">
-                Gap Between Pages: <span className="text-muted-foreground">{dualPageGap}px</span>
+                Gap Between Pages:{" "}
+                <span className="text-muted-foreground">{dualPageGap}px</span>
               </label>
               <input
                 type="range"
@@ -222,7 +246,8 @@ export function ReaderSettingsPanel({ isOpen, onClose }: ReaderSettingsPanelProp
           {/* Performance */}
           <div className="space-y-3">
             <label className="text-sm font-medium">
-              Preload Pages: <span className="text-muted-foreground">{preloadCount}</span>
+              Preload Pages:{" "}
+              <span className="text-muted-foreground">{preloadCount}</span>
             </label>
             <input
               type="range"

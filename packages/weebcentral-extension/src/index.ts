@@ -41,11 +41,11 @@ const extension: ExtensionModule = {
       // Check if hot-updates are requested via filters
       const useHotUpdates = request.filters?.useHotUpdates === true;
 
-      console.log('[WeebCentral] Catalogue request:', {
+      console.log("[WeebCentral] Catalogue request:", {
         page: request.page,
         query: request.query,
         filters: request.filters,
-        useHotUpdates
+        useHotUpdates,
       });
 
       const result = useHotUpdates
@@ -56,7 +56,12 @@ const extension: ExtensionModule = {
             request.filters,
           );
 
-      console.log('[WeebCentral] Returning', result.items.length, 'items, first:', result.items[0]?.title);
+      console.log(
+        "[WeebCentral] Returning",
+        result.items.length,
+        "items, first:",
+        result.items[0]?.title,
+      );
 
       const response: CatalogueResponse = {
         items: result.items,

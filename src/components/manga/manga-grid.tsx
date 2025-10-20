@@ -15,7 +15,11 @@ interface MangaGridProps {
   isLoading?: boolean;
 }
 
-export function MangaGrid({ items, extensionId, isLoading = false }: MangaGridProps) {
+export function MangaGrid({
+  items,
+  extensionId,
+  isLoading = false,
+}: MangaGridProps) {
   const hasItems = items.length > 0;
 
   const skeletonSlots = useMemo(() => {

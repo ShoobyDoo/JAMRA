@@ -5,7 +5,7 @@ export function useReaderProgress(
   mangaId: string,
   chapterId: string,
   totalPages: number,
-  initialPage?: number
+  initialPage?: number,
 ) {
   const store = useReadingProgress();
   const {
@@ -34,7 +34,14 @@ export function useReaderProgress(
       }
     };
     initChapter();
-  }, [mangaId, chapterId, totalPages, setCurrentChapter, initialPage, setCurrentPage]);
+  }, [
+    mangaId,
+    chapterId,
+    totalPages,
+    setCurrentChapter,
+    initialPage,
+    setCurrentPage,
+  ]);
 
   const goToPage = useCallback(
     (pageIndex: number) => {
@@ -47,7 +54,7 @@ export function useReaderProgress(
         }
       }
     },
-    [totalPages, setCurrentPage, markChapterComplete, mangaId, chapterId]
+    [totalPages, setCurrentPage, markChapterComplete, mangaId, chapterId],
   );
 
   const nextPage = useCallback(() => {

@@ -59,7 +59,7 @@ Recent regressions introduced non-blocking chunk loading in the reader but surfa
    - When revisiting a chunk, reuse cached pages instantly, skip re-fetch unless `forceRefresh` flag is set (future extension support).
 
 6. **UI State Enhancements**
-   - Reader controls bottom bar: show spinner only when the *target chunk* is `pending`.
+   - Reader controls bottom bar: show spinner only when the _target chunk_ is `pending`.
    - When chunk `error`, show inline message (e.g., `Failed to load page. Retry`) with button calling `retryChunk(currentChunk)`.
    - Ensure `onPrevPage`/`onNextPage` guard against navigating to indexes whose chunks are `error` (auto-trigger retry).
 
@@ -70,4 +70,3 @@ Recent regressions introduced non-blocking chunk loading in the reader but surfa
    - Manual: rapid scrubbing across 50+ pages to confirm page availability without jumps.
    - Automated: add unit test for chunk store helper (if feasible) to verify state transitions.
    - Confirm logs show `debug` for aborted fetches, `error` only on genuine failures.
-

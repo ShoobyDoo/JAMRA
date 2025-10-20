@@ -6,6 +6,7 @@ import { modals } from "@mantine/modals";
 import { notifications } from "@mantine/notifications";
 import { RefreshCw } from "lucide-react";
 import { clearChaptersCache } from "@/lib/api";
+import { logger } from "@/lib/logger";
 
 interface ClearChaptersButtonProps {
   mangaId: string;
@@ -18,9 +19,8 @@ export function ClearChaptersButton({ mangaId }: ClearChaptersButtonProps) {
     modals.openConfirmModal({
       title: "Clear chapter cache?",
       centered: true,
-      children: (
-        "This will force a refresh of chapter data on next load. The page will reload automatically."
-      ),
+      children:
+        "This will force a refresh of chapter data on next load. The page will reload automatically.",
       labels: { confirm: "Clear cache", cancel: "Cancel" },
       confirmProps: { color: "blue" },
       onConfirm: async () => {
@@ -38,10 +38,18 @@ export function ClearChaptersButton({ mangaId }: ClearChaptersButtonProps) {
             window.location.reload();
           }, 2000);
         } catch (error) {
-          console.error("Failed to clear chapters:", error);
+          logger.error("Failed to clear chapter cache", {
+            component: "ClearChaptersButton",
+            action: "clear-chapters-cache",
+            mangaId,
+            error: error instanceof Error ? error : new Error(String(error)),
+          });
           notifications.show({
             title: "Failed to clear cache",
-            message: error instanceof Error ? error.message : "Unknown error. Please try again.",
+            message:
+              error instanceof Error
+                ? error.message
+                : "Unknown error. Please try again.",
             color: "red",
             autoClose: 5000,
           });

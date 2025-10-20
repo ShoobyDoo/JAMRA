@@ -38,7 +38,10 @@ export class WeebCentralScraper {
   private rateLimiter: RateLimiter;
   private seriesCache: Map<string, SeriesMetadata> = new Map();
   private cache?: ExtensionCache;
-  private chapterPagesCache: Map<string, { pages: ChapterPages["pages"]; fetchedAt: number }> = new Map();
+  private chapterPagesCache: Map<
+    string,
+    { pages: ChapterPages["pages"]; fetchedAt: number }
+  > = new Map();
 
   constructor(rateLimiter: RateLimiter, cache?: ExtensionCache) {
     this.rateLimiter = rateLimiter;
@@ -49,13 +52,19 @@ export class WeebCentralScraper {
     this.cache = cache;
   }
 
-  private async fetchChapterPageList(chapterId: string): Promise<ChapterPages["pages"]> {
-    console.log(`[WeebCentral] fetchChapterPageList called for chapter ${chapterId}`);
+  private async fetchChapterPageList(
+    chapterId: string,
+  ): Promise<ChapterPages["pages"]> {
+    console.log(
+      `[WeebCentral] fetchChapterPageList called for chapter ${chapterId}`,
+    );
 
     const cached = this.chapterPagesCache.get(chapterId);
     const now = Date.now();
     if (cached && now - cached.fetchedAt < CHAPTER_PAGES_CACHE_TTL_MS) {
-      console.log(`[WeebCentral] Using cached pages for chapter ${chapterId} (${cached.pages.length} images)`);
+      console.log(
+        `[WeebCentral] Using cached pages for chapter ${chapterId} (${cached.pages.length} images)`,
+      );
       return cached.pages;
     }
 
@@ -64,7 +73,9 @@ export class WeebCentralScraper {
 
     const html = await this.rateLimiter.throttle(async () => {
       const response = await fetch(url, { headers: HEADERS });
-      console.log(`[WeebCentral] HTTP Response: ${response.status} ${response.statusText}`);
+      console.log(
+        `[WeebCentral] HTTP Response: ${response.status} ${response.statusText}`,
+      );
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
@@ -77,16 +88,18 @@ export class WeebCentralScraper {
     const images: ChapterPages["pages"] = [];
 
     // Count all section and img tags for debugging
-    console.log(`[WeebCentral] DOM stats: ${$('section').length} sections, ${$('img').length} images`);
+    console.log(
+      `[WeebCentral] DOM stats: ${$("section").length} sections, ${$("img").length} images`,
+    );
 
     // Try multiple selectors to find images
     const selectors = [
-      'section[x-data] img',
-      'section img',
+      "section[x-data] img",
+      "section img",
       'img[src*="official.lowee.us"]',
       'img[src*="manga"]',
       'img[alt*="Page"]',
-      'img',
+      "img",
     ];
 
     for (const selector of selectors) {
@@ -95,9 +108,17 @@ export class WeebCentralScraper {
       console.log(`[WeebCentral] Trying selector: ${selector}`);
       $(selector).each((i, el) => {
         const src = $(el).attr("src");
-        console.log(`[WeebCentral]   Found img #${i}: src=${src?.substring(0, 50)}...`);
+        console.log(
+          `[WeebCentral]   Found img #${i}: src=${src?.substring(0, 50)}...`,
+        );
 
-        if (src && !src.includes("logo") && !src.includes("icon") && !src.includes("avatar") && !src.includes("broken_image")) {
+        if (
+          src &&
+          !src.includes("logo") &&
+          !src.includes("icon") &&
+          !src.includes("avatar") &&
+          !src.includes("broken_image")
+        ) {
           const width = $(el).attr("width");
           const height = $(el).attr("height");
 
@@ -110,13 +131,19 @@ export class WeebCentralScraper {
         }
       });
 
-      console.log(`[WeebCentral]   Result: ${images.length} images after selector ${selector}`);
+      console.log(
+        `[WeebCentral]   Result: ${images.length} images after selector ${selector}`,
+      );
     }
 
-    console.log(`[WeebCentral] Final result: Found ${images.length} images for chapter ${chapterId}`);
+    console.log(
+      `[WeebCentral] Final result: Found ${images.length} images for chapter ${chapterId}`,
+    );
 
     if (images.length === 0) {
-      console.warn(`[WeebCentral] No images found for chapter ${chapterId}. HTML length: ${html.length}`);
+      console.warn(
+        `[WeebCentral] No images found for chapter ${chapterId}. HTML length: ${html.length}`,
+      );
       console.warn(`[WeebCentral] HTML preview: ${html.substring(0, 500)}`);
     }
 
@@ -149,7 +176,10 @@ export class WeebCentralScraper {
       const seriesHref = $seriesLink.attr("href");
 
       // Get title from data-tip attribute
-      const title = $article.attr("data-tip") || $article.find("img").first().attr("alt")?.replace(" cover", "") || "";
+      const title =
+        $article.attr("data-tip") ||
+        $article.find("img").first().attr("alt")?.replace(" cover", "") ||
+        "";
 
       if (seriesHref && title) {
         const match = seriesHref.match(/\/series\/([^\/]+)\/(.+)/);
@@ -172,7 +202,9 @@ export class WeebCentralScraper {
           const thumbnailUrls: string[] = [];
 
           // 1. Constructed /normal/ webp (highest quality, always available)
-          thumbnailUrls.push(`https://temp.compsci88.com/cover/normal/${id}.webp`);
+          thumbnailUrls.push(
+            `https://temp.compsci88.com/cover/normal/${id}.webp`,
+          );
 
           // 2. Extract any additional sources from current article
           $article.find('picture source[type="image/webp"]').each((i, el) => {
@@ -216,7 +248,7 @@ export class WeebCentralScraper {
   async searchManga(
     query: string,
     page: number,
-    filters?: Record<string, unknown>
+    filters?: Record<string, unknown>,
   ): Promise<CatalogueResult> {
     const limit = 32;
     const offset = (page - 1) * limit;
@@ -232,7 +264,7 @@ export class WeebCentralScraper {
     // Add filters
     if (filters?.status && Array.isArray(filters.status)) {
       filters.status.forEach((s: string) =>
-        params.append("included_status", s)
+        params.append("included_status", s),
       );
     }
 
@@ -246,7 +278,7 @@ export class WeebCentralScraper {
 
     if (filters?.excludeGenres && Array.isArray(filters.excludeGenres)) {
       filters.excludeGenres.forEach((g: string) =>
-        params.append("excluded_tag", g)
+        params.append("excluded_tag", g),
       );
     }
 
@@ -281,7 +313,8 @@ export class WeebCentralScraper {
         title = $article.find(".text-lg").first().text().trim();
       }
       if (!title) {
-        title = $article.find("img").first().attr("alt")?.replace(" cover", "") || "";
+        title =
+          $article.find("img").first().attr("alt")?.replace(" cover", "") || "";
       }
 
       if (href && title) {
@@ -300,7 +333,9 @@ export class WeebCentralScraper {
           const thumbnailUrls: string[] = [];
 
           // 1. Constructed /normal/ webp (highest quality)
-          thumbnailUrls.push(`https://temp.compsci88.com/cover/normal/${id}.webp`);
+          thumbnailUrls.push(
+            `https://temp.compsci88.com/cover/normal/${id}.webp`,
+          );
 
           // 2. Extract any additional sources from current article
           $article.find('picture source[type="image/webp"]').each((i, el) => {
@@ -345,7 +380,10 @@ export class WeebCentralScraper {
     let metadata = this.seriesCache.get(mangaId);
     if (!metadata) {
       // Try persistent cache first
-      const cachedName = await this.cache?.get<string>(SERIES_CACHE_NAMESPACE, mangaId);
+      const cachedName = await this.cache?.get<string>(
+        SERIES_CACHE_NAMESPACE,
+        mangaId,
+      );
       if (cachedName) {
         metadata = { id: mangaId, name: cachedName };
         this.seriesCache.set(mangaId, metadata);
@@ -361,7 +399,9 @@ export class WeebCentralScraper {
 
     const html = await this.rateLimiter.throttle(async () => {
       const response = await fetch(url, { headers: HEADERS });
-      console.log(`[WeebCentral] Manga details response: ${response.status} ${response.statusText}`);
+      console.log(
+        `[WeebCentral] Manga details response: ${response.status} ${response.statusText}`,
+      );
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
@@ -385,24 +425,39 @@ export class WeebCentralScraper {
       const $li = $(`li:has(strong:contains("${label}"))`);
       if ($li.length === 0) return [];
 
-      return $li.find("a")
+      return $li
+        .find("a")
         .map((i, el) => $(el).text().trim())
         .get()
         .filter(Boolean);
     };
 
     const title = $("h1").first().text().trim();
-    const description = $('section[x-data] p').first().text().trim() ||
-                       $('section p').first().text().trim() ||
-                       "No description available.";
+    const description =
+      $("section[x-data] p").first().text().trim() ||
+      $("section p").first().text().trim() ||
+      "No description available.";
 
     const authorsText = getMetadata("Author(s)");
-    const authors = authorsText ? authorsText.split(",").map((s) => s.trim()).filter(Boolean) : getMetadataLinks("Author(s)");
+    const authors = authorsText
+      ? authorsText
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean)
+      : getMetadataLinks("Author(s)");
 
     const artistsText = getMetadata("Artist(s)");
-    const artists = artistsText ? artistsText.split(",").map((s) => s.trim()).filter(Boolean) : getMetadataLinks("Artist(s)");
+    const artists = artistsText
+      ? artistsText
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean)
+      : getMetadataLinks("Artist(s)");
 
-    const genres = getMetadataLinks("Tags(s)") || getMetadataLinks("Genre(s)") || getMetadataLinks("Genres");
+    const genres =
+      getMetadataLinks("Tags(s)") ||
+      getMetadataLinks("Genre(s)") ||
+      getMetadataLinks("Genres");
     const statusText = getMetadata("Status").toLowerCase();
     const released = getMetadata("Released");
 
@@ -427,7 +482,7 @@ export class WeebCentralScraper {
     // 1. Get all <source> elements (priority order, excluding /small/ variants)
     $('picture source[type="image/webp"]').each((i, el) => {
       const srcset = $(el).attr("srcset")?.split(" ")[0];
-      if (srcset && !srcset.includes('/small/')) {
+      if (srcset && !srcset.includes("/small/")) {
         coverUrls.push(srcset);
       }
     });
@@ -447,7 +502,7 @@ export class WeebCentralScraper {
     // 4. Add /small/ variants as last resort
     $('picture source[type="image/webp"]').each((i, el) => {
       const srcset = $(el).attr("srcset")?.split(" ")[0];
-      if (srcset && srcset.includes('/small/') && !coverUrls.includes(srcset)) {
+      if (srcset && srcset.includes("/small/") && !coverUrls.includes(srcset)) {
         coverUrls.push(srcset);
       }
     });
@@ -489,15 +544,14 @@ export class WeebCentralScraper {
   }
 
   private async getChapterList(
-    seriesId: string
+    seriesId: string,
   ): Promise<NonNullable<MangaDetails["chapters"]>> {
     const cacheKey = `${seriesId}:v2`;
     if (this.cache) {
       try {
-        const cached = await this.cache.get<NonNullable<MangaDetails["chapters"]>>(
-          CHAPTER_CACHE_NAMESPACE,
-          cacheKey
-        );
+        const cached = await this.cache.get<
+          NonNullable<MangaDetails["chapters"]>
+        >(CHAPTER_CACHE_NAMESPACE, cacheKey);
         if (cached && Array.isArray(cached) && cached.length > 0) {
           return cached;
         }
@@ -511,7 +565,9 @@ export class WeebCentralScraper {
 
     const html = await this.rateLimiter.throttle(async () => {
       const response = await fetch(url, { headers: HEADERS });
-      console.log(`[WeebCentral] Chapter list response: ${response.status} ${response.statusText}`);
+      console.log(
+        `[WeebCentral] Chapter list response: ${response.status} ${response.statusText}`,
+      );
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
@@ -634,7 +690,10 @@ export class WeebCentralScraper {
           if (/^\d+(?:\.\d+)?$/.test(text)) return;
           if (/^(?:vol|volume)\s+/i.test(text)) return;
           if (/^\w+\s+ago$/i.test(text)) return;
-          if (/^\d+\s+(?:minutes|minute|hours|hour|days|day)\s+ago$/i.test(text)) return;
+          if (
+            /^\d+\s+(?:minutes|minute|hours|hour|days|day)\s+ago$/i.test(text)
+          )
+            return;
           if (text.length <= 2) return;
           // Prefer texts that explicitly mention scans/translation/groups
           if (/(scan|group|team|translat)/i.test(text)) {
@@ -662,7 +721,11 @@ export class WeebCentralScraper {
       chapterText = chapterText.replace(/\s+/g, " ").trim();
 
       // If we still don't have clean text, try to extract just "Chapter X" pattern
-      if (!chapterText || chapterText.includes("{") || chapterText.includes(".st0")) {
+      if (
+        !chapterText ||
+        chapterText.includes("{") ||
+        chapterText.includes(".st0")
+      ) {
         const cleanMatch = $link.text().match(/Chapter\s+(\d+(?:\.\d+)?)/i);
         if (cleanMatch) {
           chapterText = `Chapter ${cleanMatch[1]}`;
@@ -676,7 +739,9 @@ export class WeebCentralScraper {
 
           // Extract chapter number from text like "Chapter 212" or "Ch. 100.5"
           const numberMatch = chapterText.match(/(\d+(?:\.\d+)?)/);
-          const chapterNumber = numberMatch ? numberMatch[1] : String(chapters.length + 1);
+          const chapterNumber = numberMatch
+            ? numberMatch[1]
+            : String(chapters.length + 1);
 
           chapters.push({
             id: chapterId,
@@ -709,7 +774,10 @@ export class WeebCentralScraper {
 
     // Ensure images is always an array
     if (!images || !Array.isArray(images)) {
-      console.error(`[WeebCentral] fetchChapterPageList returned invalid data for chapter ${chapterId}:`, images);
+      console.error(
+        `[WeebCentral] fetchChapterPageList returned invalid data for chapter ${chapterId}:`,
+        images,
+      );
       return {
         chapterId,
         mangaId: "",

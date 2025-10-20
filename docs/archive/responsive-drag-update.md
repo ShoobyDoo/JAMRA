@@ -1,22 +1,27 @@
 # Responsive Drag Update - Real-time Visual Feedback
 
 ## Problem
+
 Drag interaction felt delayed and unresponsive. The image only moved after releasing the mouse (threshold-based navigation), not during the drag itself.
 
 ## Solution
+
 Added real-time visual feedback using CSS transforms that track mouse movement instantly.
 
 ## Implementation
 
 ### Vertical Mode
+
 - **Already responsive**: Uses `useDragScroll` hook with native scroll behavior
 - Scroll position updates in real-time as you drag
 - No changes needed
 
 ### Paged Mode & Dual-Page Mode
+
 Added instant visual feedback using transform animations:
 
 #### Before (Delayed):
+
 ```typescript
 // Only calculated delta on mouseup
 const handleMouseUp = () => {
@@ -24,10 +29,11 @@ const handleMouseUp = () => {
   if (Math.abs(dragDelta) > THRESHOLD) {
     // Navigate to next/prev page
   }
-}
+};
 ```
 
 #### After (Responsive):
+
 ```typescript
 // Real-time drag offset state
 const [dragOffset, setDragOffset] = useState(0);
@@ -64,11 +70,13 @@ const handleMouseMove = (e: MouseEvent) => {
 ### Visual Feedback Details
 
 **Transform Behavior:**
+
 - Drag amount matches mouse movement exactly (1:1 ratio)
 - No transition while dragging (instant feedback)
 - Smooth snap-back animation on release (if not navigating)
 
 **Cursor States:**
+
 - `grab` when hovering
 - `grabbing` while dragging
 - Returns to `grab` on release
@@ -93,11 +101,13 @@ const handleMouseMove = (e: MouseEvent) => {
 ## User Experience
 
 ### Before
+
 - Drag feels "sticky" or delayed
 - No visual indication until threshold is met
 - Uncertain if drag is being detected
 
 ### After
+
 ✅ Image follows your mouse instantly
 ✅ 1:1 drag-to-movement ratio (native feeling)
 ✅ Clear visual feedback during drag
@@ -106,21 +116,23 @@ const handleMouseMove = (e: MouseEvent) => {
 
 ## Technical Specifications
 
-| Aspect | Value |
-|--------|-------|
-| Transform type | `translateY()` |
-| Ratio | 1:1 (mouse px = image px) |
-| Transition (dragging) | none |
-| Transition (release) | 200ms ease-out |
-| Threshold | 100px |
-| Cursor states | grab → grabbing → grab |
+| Aspect                | Value                     |
+| --------------------- | ------------------------- |
+| Transform type        | `translateY()`            |
+| Ratio                 | 1:1 (mouse px = image px) |
+| Transition (dragging) | none                      |
+| Transition (release)  | 200ms ease-out            |
+| Threshold             | 100px                     |
+| Cursor states         | grab → grabbing → grab    |
 
 ## Build Status
+
 ✅ ESLint: Passing
 ✅ TypeScript: Passing
 ✅ Build: Success (reader 10.5 kB)
 
 ## Testing Notes
+
 - Drag feels much more responsive and native
 - Visual feedback is instant and smooth
 - Snap-back animation is polished

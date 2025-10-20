@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getAllReadingProgress, getEnrichedReadingProgress } from "@/lib/api";
 import { ContinueReadingCard } from "@/components/manga/continue-reading-card";
 import { hydrateProgressWithDetails } from "@/lib/reading-history";
+import { logger } from "@/lib/logger";
 
 export const dynamic = "force-dynamic";
 
@@ -10,7 +11,11 @@ export default async function HomePage() {
     try {
       return await getEnrichedReadingProgress(12);
     } catch (error) {
-      console.error("Failed to fetch enriched reading progress", error);
+      logger.error("Failed to fetch enriched reading progress", {
+        component: "HomePage",
+        action: "load-enriched-progress",
+        error: error instanceof Error ? error : new Error(String(error)),
+      });
       const readingHistory = await getAllReadingProgress().catch(() => []);
       return hydrateProgressWithDetails(readingHistory);
     }
@@ -44,8 +49,12 @@ export default async function HomePage() {
   }
 
   // Separate available and unavailable manga
-  const availableManga = enrichedHistory.filter((item) => !item.error && item.manga);
-  const unavailableManga = enrichedHistory.filter((item) => item.error || !item.manga);
+  const availableManga = enrichedHistory.filter(
+    (item) => !item.error && item.manga,
+  );
+  const unavailableManga = enrichedHistory.filter(
+    (item) => item.error || !item.manga,
+  );
 
   return (
     <div className="space-y-8 p-6">
@@ -60,7 +69,7 @@ export default async function HomePage() {
           </div>
 
           <div className="grid gap-4 sm:grid-cols-1 lg:grid-cols-2 xl:grid-cols-3">
-            {availableManga.map((item) => (
+            {availableManga.map((item, index) => (
               <ContinueReadingCard
                 key={`${item.mangaId}:${item.chapterId}`}
                 manga={item.manga}
@@ -70,6 +79,7 @@ export default async function HomePage() {
                 totalPages={item.totalPages}
                 lastReadAt={item.lastReadAt}
                 error={item.error}
+                priority={index === 0}
               />
             ))}
           </div>
@@ -85,7 +95,8 @@ export default async function HomePage() {
             </h2>
             <p className="text-sm text-muted-foreground">
               These manga cannot be loaded because their extensions are disabled
-              or unavailable. Enable the required extensions to continue reading.
+              or unavailable. Enable the required extensions to continue
+              reading.
             </p>
           </div>
 

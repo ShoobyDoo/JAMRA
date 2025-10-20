@@ -47,18 +47,18 @@ Stores everything needed to rebuild the manga details page offline.
 
 ```typescript
 interface OfflineMangaMetadata {
-  version: 1;                          // Schema version for migrations
-  downloadedAt: number;                // Unix timestamp
-  lastUpdatedAt: number;               // Unix timestamp
+  version: 1; // Schema version for migrations
+  downloadedAt: number; // Unix timestamp
+  lastUpdatedAt: number; // Unix timestamp
 
   // Manga details
-  mangaId: string;                     // Stable internal ID
-  slug: string;                        // URL slug
-  extensionId: string;                 // Source extension
+  mangaId: string; // Stable internal ID
+  slug: string; // URL slug
+  extensionId: string; // Source extension
   title: string;
   description?: string;
-  coverUrl?: string;                   // Original URL (for reference)
-  coverPath: string;                   // Relative path: "cover.jpg"
+  coverUrl?: string; // Original URL (for reference)
+  coverPath: string; // Relative path: "cover.jpg"
   authors?: string[];
   artists?: string[];
   genres?: string[];
@@ -74,21 +74,21 @@ interface OfflineMangaMetadata {
 }
 
 interface OfflineChapterMetadata {
-  chapterId: string;                   // Stable internal ID
-  slug: string;                        // URL slug
-  number?: string;                     // "1", "1.5", etc.
-  title?: string;                      // Full title: "Into the Fray!"
-  displayTitle: string;                // Computed: "Chapter 1 - Into the Fray!"
+  chapterId: string; // Stable internal ID
+  slug: string; // URL slug
+  number?: string; // "1", "1.5", etc.
+  title?: string; // Full title: "Into the Fray!"
+  displayTitle: string; // Computed: "Chapter 1 - Into the Fray!"
   volume?: string;
   publishedAt?: string;
   languageCode?: string;
   scanlators?: string[];
 
   // Chapter storage info
-  folderName: string;                  // "chapter-0001"
+  folderName: string; // "chapter-0001"
   totalPages: number;
-  downloadedAt: number;                // Unix timestamp
-  sizeBytes: number;                   // Total size of all pages
+  downloadedAt: number; // Unix timestamp
+  sizeBytes: number; // Total size of all pages
 }
 ```
 
@@ -103,19 +103,19 @@ interface OfflineChapterPages {
 
   chapterId: string;
   mangaId: string;
-  folderName: string;                  // "chapter-0001"
+  folderName: string; // "chapter-0001"
 
   pages: OfflinePageMetadata[];
 }
 
 interface OfflinePageMetadata {
-  index: number;                       // 0-indexed page number
-  originalUrl: string;                 // Original source URL
-  filename: string;                    // "page-0001.jpg"
+  index: number; // 0-indexed page number
+  originalUrl: string; // Original source URL
+  filename: string; // "page-0001.jpg"
   width?: number;
   height?: number;
   sizeBytes: number;
-  mimeType: string;                    // "image/jpeg", "image/png", etc.
+  mimeType: string; // "image/jpeg", "image/png", etc.
 }
 ```
 
@@ -213,9 +213,9 @@ Main entry point for offline storage operations.
 ```typescript
 export class OfflineStorageManager {
   constructor(
-    private readonly dataDir: string,           // .jamra-data path
+    private readonly dataDir: string, // .jamra-data path
     private readonly repository: OfflineRepository,
-    private readonly catalogService: CatalogService
+    private readonly catalogService: CatalogService,
   ) {}
 
   // Queue management
@@ -223,36 +223,41 @@ export class OfflineStorageManager {
     extensionId: string,
     mangaId: string,
     chapterId: string,
-    priority?: number
-  ): Promise<void>
+    priority?: number,
+  ): Promise<void>;
 
   async queueMangaDownload(
     extensionId: string,
     mangaId: string,
-    chapterIds?: string[],  // Download specific chapters, or all if undefined
-    priority?: number
-  ): Promise<void>
+    chapterIds?: string[], // Download specific chapters, or all if undefined
+    priority?: number,
+  ): Promise<void>;
 
-  async cancelDownload(queueId: number): Promise<void>
-  async pauseDownloads(): Promise<void>
-  async resumeDownloads(): Promise<void>
+  async cancelDownload(queueId: number): Promise<void>;
+  async pauseDownloads(): Promise<void>;
+  async resumeDownloads(): Promise<void>;
 
   // Query operations
-  async isChapterDownloaded(mangaId: string, chapterId: string): Promise<boolean>
-  async isMangaDownloaded(mangaId: string): Promise<boolean>
-  async getDownloadedManga(): Promise<OfflineMangaMetadata[]>
-  async getDownloadedChapters(mangaId: string): Promise<OfflineChapterMetadata[]>
-  async getDownloadProgress(queueId: number): Promise<DownloadProgress | null>
-  async getQueuedDownloads(): Promise<QueuedDownload[]>
+  async isChapterDownloaded(
+    mangaId: string,
+    chapterId: string,
+  ): Promise<boolean>;
+  async isMangaDownloaded(mangaId: string): Promise<boolean>;
+  async getDownloadedManga(): Promise<OfflineMangaMetadata[]>;
+  async getDownloadedChapters(
+    mangaId: string,
+  ): Promise<OfflineChapterMetadata[]>;
+  async getDownloadProgress(queueId: number): Promise<DownloadProgress | null>;
+  async getQueuedDownloads(): Promise<QueuedDownload[]>;
 
   // Delete operations
-  async deleteChapter(mangaId: string, chapterId: string): Promise<void>
-  async deleteManga(mangaId: string): Promise<void>
-  async clearAllDownloads(): Promise<void>
+  async deleteChapter(mangaId: string, chapterId: string): Promise<void>;
+  async deleteManga(mangaId: string): Promise<void>;
+  async clearAllDownloads(): Promise<void>;
 
   // Size management
-  async getTotalStorageSize(): Promise<number>
-  async getMangaStorageSize(mangaId: string): Promise<number>
+  async getTotalStorageSize(): Promise<number>;
+  async getMangaStorageSize(mangaId: string): Promise<number>;
 }
 ```
 
@@ -265,8 +270,8 @@ export class DownloadWorker {
   private isRunning = false;
   private currentDownload: QueuedDownload | null = null;
 
-  async start(): Promise<void>
-  async stop(): Promise<void>
+  async start(): Promise<void>;
+  async stop(): Promise<void>;
 
   private async processQueue(): Promise<void> {
     while (this.isRunning) {
@@ -289,7 +294,7 @@ export class DownloadWorker {
 
   private async downloadItem(item: QueuedDownload): Promise<void> {
     // Mark as downloading
-    await this.repository.updateQueueStatus(item.id, 'downloading');
+    await this.repository.updateQueueStatus(item.id, "downloading");
 
     if (item.chapterId) {
       // Download single chapter
@@ -300,11 +305,11 @@ export class DownloadWorker {
     }
 
     // Mark as completed
-    await this.repository.updateQueueStatus(item.id, 'completed');
+    await this.repository.updateQueueStatus(item.id, "completed");
   }
 
-  private async downloadChapter(item: QueuedDownload): Promise<void>
-  private async downloadManga(item: QueuedDownload): Promise<void>
+  private async downloadChapter(item: QueuedDownload): Promise<void>;
+  private async downloadManga(item: QueuedDownload): Promise<void>;
 }
 ```
 
@@ -316,13 +321,13 @@ Handles image fetching and saving with retry logic.
 export class ImageDownloader {
   constructor(
     private readonly maxRetries: number = 3,
-    private readonly retryDelay: number = 1000
+    private readonly retryDelay: number = 1000,
   ) {}
 
   async downloadImage(
     url: string,
     destPath: string,
-    onProgress?: (bytes: number) => void
+    onProgress?: (bytes: number) => void,
   ): Promise<{ sizeBytes: number; mimeType: string }> {
     let attempt = 0;
 
@@ -334,7 +339,7 @@ export class ImageDownloader {
         }
 
         const buffer = await response.arrayBuffer();
-        const mimeType = response.headers.get('content-type') || 'image/jpeg';
+        const mimeType = response.headers.get("content-type") || "image/jpeg";
 
         // Ensure directory exists
         await fs.mkdir(path.dirname(destPath), { recursive: true });
@@ -350,7 +355,7 @@ export class ImageDownloader {
       }
     }
 
-    throw new Error('Max retries exceeded');
+    throw new Error("Max retries exceeded");
   }
 }
 ```
@@ -391,10 +396,16 @@ app.get("/api/offline/queue", async (req, res) => {
 });
 
 // Delete chapter
-app.delete("/api/offline/manga/:mangaId/chapters/:chapterId", async (req, res) => {
-  await offlineManager.deleteChapter(req.params.mangaId, req.params.chapterId);
-  res.json({ success: true });
-});
+app.delete(
+  "/api/offline/manga/:mangaId/chapters/:chapterId",
+  async (req, res) => {
+    await offlineManager.deleteChapter(
+      req.params.mangaId,
+      req.params.chapterId,
+    );
+    res.json({ success: true });
+  },
+);
 
 // Get storage stats
 app.get("/api/offline/storage", async (req, res) => {
@@ -424,7 +435,7 @@ export function DownloadMangaButton({
   mangaId,
   mangaSlug,
   extensionId,
-  chapterCount
+  chapterCount,
 }: DownloadMangaButtonProps) {
   const [isDownloaded, setIsDownloaded] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
@@ -465,7 +476,7 @@ export function DownloadMangaButton({
 export function DownloadChapterButton({
   mangaId,
   chapterId,
-  extensionId
+  extensionId,
 }: DownloadChapterButtonProps) {
   // Similar to manga button but for individual chapters
 }
@@ -483,7 +494,7 @@ export default async function OfflineLibraryPage() {
     <div>
       <h1>Offline Library</h1>
       <div className="grid">
-        {offlineManga.map(manga => (
+        {offlineManga.map((manga) => (
           <OfflineMangaCard key={manga.mangaId} manga={manga} />
         ))}
       </div>
@@ -508,7 +519,7 @@ export function DownloadQueue() {
 
   return (
     <div className="fixed bottom-4 right-4 w-80">
-      {queue.map(item => (
+      {queue.map((item) => (
         <DownloadProgressCard key={item.id} download={item} />
       ))}
     </div>
@@ -537,11 +548,11 @@ export function useOfflinePages(mangaId: string, chapterId: string) {
       if (metadata) {
         setIsOffline(true);
         // Convert local file paths to blob URLs
-        const offlinePages = metadata.pages.map(page => ({
+        const offlinePages = metadata.pages.map((page) => ({
           index: page.index,
           url: `/api/offline/page/${mangaId}/${chapterId}/${page.filename}`,
           width: page.width,
-          height: page.height
+          height: page.height,
         }));
         setPages(offlinePages);
       }
@@ -597,9 +608,9 @@ app.get("/api/offline/page/:mangaId/:chapterId/:filename", async (req, res) => {
 
 ```typescript
 interface CleanupPolicy {
-  maxStorageBytes?: number;      // Delete oldest downloads when exceeded
-  maxAgeUnreadDays?: number;     // Delete unread chapters older than X days
-  keepReadChapters?: boolean;    // Keep chapters that have been read
+  maxStorageBytes?: number; // Delete oldest downloads when exceeded
+  maxAgeUnreadDays?: number; // Delete unread chapters older than X days
+  keepReadChapters?: boolean; // Keep chapters that have been read
 }
 
 async function enforceCleanupPolicy(policy: CleanupPolicy): Promise<void> {
@@ -649,6 +660,7 @@ interface StorageStats {
 ## Implementation Timeline
 
 **Phase 1: Core Infrastructure** (8-12 hours)
+
 - ✅ Design schema and directory structure
 - Create `offline-storage` package
 - Implement `OfflineStorageManager` class
@@ -656,17 +668,20 @@ interface StorageStats {
 - Add SQLite tables and repository
 
 **Phase 2: Download Worker** (6-8 hours)
+
 - Implement `DownloadWorker` class
 - Implement `ImageDownloader` with retry logic
 - Add queue processing logic
 - Handle error cases and cleanup
 
 **Phase 3: API Integration** (4-6 hours)
+
 - Add API endpoints for download management
 - Integrate with catalog server
 - Add offline page serving endpoint
 
 **Phase 4: UI Components** (8-12 hours)
+
 - Download buttons on manga details page
 - Individual chapter download buttons
 - Download queue status widget
@@ -674,6 +689,7 @@ interface StorageStats {
 - Storage management page
 
 **Phase 5: Offline Reader** (4-6 hours)
+
 - Detect offline chapters in reader
 - Load pages from local storage
 - Add offline indicator badge

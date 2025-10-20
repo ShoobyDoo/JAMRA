@@ -7,6 +7,16 @@ import type {
   MangaSummary,
 } from "@jamra/extension-sdk";
 import type { ExtensionArtifactSignature } from "@jamra/extension-registry";
+import {
+  ExtensionRepository,
+  MangaRepository,
+  ChapterRepository,
+  ReadingProgressRepository,
+  CoverCacheRepository,
+  SettingsRepository,
+  LibraryRepository,
+  HistoryRepository,
+} from "./repositories/index.js";
 
 function deserialize<T>(value: string | null | undefined): T | undefined {
   if (!value) return undefined;
@@ -166,7 +176,26 @@ export interface CoverCacheRecord {
 }
 
 export class CatalogRepository {
-  constructor(private readonly db: Database.Database) {}
+  // Domain repositories for modular data access
+  private readonly extensions: ExtensionRepository;
+  private readonly manga: MangaRepository;
+  private readonly chapters: ChapterRepository;
+  private readonly readingProgress: ReadingProgressRepository;
+  private readonly coverCache: CoverCacheRepository;
+  private readonly settings: SettingsRepository;
+  private readonly library: LibraryRepository;
+  private readonly history: HistoryRepository;
+
+  constructor(private readonly db: Database.Database) {
+    this.extensions = new ExtensionRepository(db);
+    this.manga = new MangaRepository(db);
+    this.chapters = new ChapterRepository(db);
+    this.readingProgress = new ReadingProgressRepository(db);
+    this.coverCache = new CoverCacheRepository(db);
+    this.settings = new SettingsRepository(db);
+    this.library = new LibraryRepository(db);
+    this.history = new HistoryRepository(db);
+  }
 
   upsertExtension(
     manifest: ExtensionManifest,
@@ -478,7 +507,7 @@ export class CatalogRepository {
   upsertMangaSummaries(
     extensionId: string,
     items: MangaSummary[],
-    seriesNames?: Map<string, string>
+    seriesNames?: Map<string, string>,
   ): void {
     const stmt = this.db.prepare(`
       INSERT INTO manga (
@@ -527,7 +556,9 @@ export class CatalogRepository {
           alt_titles_json: serialize(item.altTitles),
           description: item.description ?? null,
           cover_url: item.coverUrl ?? null,
-          cover_urls_json: serialize(item.coverUrls ?? (item.coverUrl ? [item.coverUrl] : undefined)),
+          cover_urls_json: serialize(
+            item.coverUrls ?? (item.coverUrl ? [item.coverUrl] : undefined),
+          ),
           status: item.status ?? null,
           tags_json: serialize(item.tags),
           demographic: item.demographic ?? null,
@@ -646,12 +677,14 @@ export class CatalogRepository {
     payload: ChapterPages,
   ): void {
     // Validate payload structure
-    if (!payload || typeof payload !== 'object') {
-      throw new Error('Invalid chapter pages payload: expected object');
+    if (!payload || typeof payload !== "object") {
+      throw new Error("Invalid chapter pages payload: expected object");
     }
 
     if (!payload.pages || !Array.isArray(payload.pages)) {
-      throw new Error(`Invalid chapter pages payload: pages is not iterable (got ${typeof payload.pages})`);
+      throw new Error(
+        `Invalid chapter pages payload: pages is not iterable (got ${typeof payload.pages})`,
+      );
     }
 
     const deleteStmt = this.db.prepare(
@@ -698,7 +731,7 @@ export class CatalogRepository {
     chapterId: string,
     currentPage: number,
     totalPages: number,
-    scrollPosition?: number
+    scrollPosition?: number,
   ): void {
     this.db
       .prepare(
@@ -716,7 +749,7 @@ export class CatalogRepository {
         total_pages = excluded.total_pages,
         scroll_position = excluded.scroll_position,
         last_read_at = excluded.last_read_at;
-    `
+    `,
       )
       .run({
         manga_id: mangaId,
@@ -730,15 +763,17 @@ export class CatalogRepository {
 
   getReadingProgress(
     mangaId: string,
-    chapterId: string
-  ): {
-    mangaId: string;
-    chapterId: string;
-    currentPage: number;
-    totalPages: number;
-    scrollPosition: number;
-    lastReadAt: number;
-  } | undefined {
+    chapterId: string,
+  ):
+    | {
+        mangaId: string;
+        chapterId: string;
+        currentPage: number;
+        totalPages: number;
+        scrollPosition: number;
+        lastReadAt: number;
+      }
+    | undefined {
     const row = this.db
       .prepare(
         `
@@ -751,7 +786,7 @@ export class CatalogRepository {
         last_read_at as lastReadAt
       FROM reading_progress
       WHERE manga_id = @manga_id AND chapter_id = @chapter_id
-    `
+    `,
       )
       .get({
         manga_id: mangaId,
@@ -790,7 +825,7 @@ export class CatalogRepository {
         last_read_at as lastReadAt
       FROM reading_progress
       ORDER BY last_read_at DESC
-    `
+    `,
       )
       .all() as Array<{
       mangaId: string;
@@ -833,7 +868,7 @@ export class CatalogRepository {
       )
       WHERE rn = 1
       ORDER BY lastReadAt DESC
-    `
+    `,
       )
       .all() as Array<{
       mangaId: string;
@@ -845,14 +880,14 @@ export class CatalogRepository {
     }>;
   }
 
-  getMangaWithDetails(
-    mangaId: string
-  ): {
-    extensionId: string;
-    details: MangaDetails;
-    chapters: ChapterSummary[];
-    summaryLastSyncedAt?: number;
-  } | undefined {
+  getMangaWithDetails(mangaId: string):
+    | {
+        extensionId: string;
+        details: MangaDetails;
+        chapters: ChapterSummary[];
+        summaryLastSyncedAt?: number;
+      }
+    | undefined {
     const mangaRow = this.db
       .prepare(
         `
@@ -875,7 +910,7 @@ export class CatalogRepository {
         FROM manga
         WHERE id = @manga_id
         LIMIT 1
-      `
+      `,
       )
       .get({ manga_id: mangaId }) as
       | {
@@ -914,7 +949,7 @@ export class CatalogRepository {
         FROM manga_details
         WHERE manga_id = @manga_id
         LIMIT 1
-      `
+      `,
       )
       .get({ manga_id: mangaId }) as
       | {
@@ -948,7 +983,7 @@ export class CatalogRepository {
           published_at DESC,
           chapter_number DESC,
           id DESC
-      `
+      `,
       )
       .all({ manga_id: mangaId }) as Array<{
       id: string;
@@ -982,16 +1017,17 @@ export class CatalogRepository {
       languageCode: mangaRow.languageCode ?? undefined,
       updatedAt: mangaRow.updatedAt ?? undefined,
       authors: detailsRow
-        ? deserialize<string[]>(detailsRow.authorsJson) ?? undefined
+        ? (deserialize<string[]>(detailsRow.authorsJson) ?? undefined)
         : undefined,
       artists: detailsRow
-        ? deserialize<string[]>(detailsRow.artistsJson) ?? undefined
+        ? (deserialize<string[]>(detailsRow.artistsJson) ?? undefined)
         : undefined,
       genres: detailsRow
-        ? deserialize<string[]>(detailsRow.genresJson) ?? undefined
+        ? (deserialize<string[]>(detailsRow.genresJson) ?? undefined)
         : undefined,
       links: detailsRow
-        ? deserialize<Record<string, string>>(detailsRow.linksJson) ?? undefined
+        ? (deserialize<Record<string, string>>(detailsRow.linksJson) ??
+          undefined)
         : undefined,
       rating: detailsRow?.rating ?? undefined,
       year: detailsRow?.year ?? undefined,
@@ -1015,13 +1051,16 @@ export class CatalogRepository {
     };
   }
 
-  getMangaCoverUrls(extensionId: string, mangaId: string): string[] | undefined {
+  getMangaCoverUrls(
+    extensionId: string,
+    mangaId: string,
+  ): string[] | undefined {
     const row = this.db
       .prepare(
         `SELECT cover_urls_json as coverUrlsJson
          FROM manga
          WHERE id = @manga_id AND extension_id = @extension_id
-         LIMIT 1`
+         LIMIT 1`,
       )
       .get({ manga_id: mangaId, extension_id: extensionId }) as
       | { coverUrlsJson: string | null }
@@ -1031,12 +1070,16 @@ export class CatalogRepository {
     return deserialize<string[]>(row.coverUrlsJson) ?? undefined;
   }
 
-  updateMangaCoverUrls(extensionId: string, mangaId: string, urls: string[]): void {
+  updateMangaCoverUrls(
+    extensionId: string,
+    mangaId: string,
+    urls: string[],
+  ): void {
     const stmt = this.db.prepare(
       `UPDATE manga
        SET cover_urls_json = @cover_urls_json,
            cover_url = COALESCE(@cover_url, cover_url)
-       WHERE id = @manga_id AND extension_id = @extension_id`
+       WHERE id = @manga_id AND extension_id = @extension_id`,
     );
 
     stmt.run({
@@ -1047,7 +1090,10 @@ export class CatalogRepository {
     });
   }
 
-  getCoverCache(extensionId: string, mangaId: string): CoverCacheRecord | undefined {
+  getCoverCache(
+    extensionId: string,
+    mangaId: string,
+  ): CoverCacheRecord | undefined {
     const row = this.db
       .prepare(
         `SELECT
@@ -1060,9 +1106,11 @@ export class CatalogRepository {
            expires_at as expiresAt
          FROM manga_cover_cache
          WHERE manga_id = @manga_id AND extension_id = @extension_id
-         LIMIT 1`
+         LIMIT 1`,
       )
-      .get({ manga_id: mangaId, extension_id: extensionId }) as RawCoverCacheRow | undefined;
+      .get({ manga_id: mangaId, extension_id: extensionId }) as
+      | RawCoverCacheRow
+      | undefined;
 
     if (!row) return undefined;
 
@@ -1080,7 +1128,7 @@ export class CatalogRepository {
   upsertCoverCache(
     extensionId: string,
     mangaId: string,
-    entry: CoverCacheRecord & { expiresAt?: number | null }
+    entry: CoverCacheRecord & { expiresAt?: number | null },
   ): void {
     const stmt = this.db.prepare(
       `INSERT INTO manga_cover_cache (
@@ -1103,7 +1151,7 @@ export class CatalogRepository {
          metadata_json = excluded.metadata_json,
          updated_at = excluded.updated_at,
          expires_at = excluded.expires_at;
-      `
+      `,
     );
 
     stmt.run({
@@ -1123,7 +1171,7 @@ export class CatalogRepository {
     this.db
       .prepare(
         `DELETE FROM manga_cover_cache
-         WHERE manga_id = @manga_id AND extension_id = @extension_id`
+         WHERE manga_id = @manga_id AND extension_id = @extension_id`,
       )
       .run({ manga_id: mangaId, extension_id: extensionId });
   }
@@ -1150,7 +1198,7 @@ export class CatalogRepository {
            FROM manga_cover_cache
            ORDER BY updated_at ASC
            LIMIT @limit
-         )`
+         )`,
       )
       .run({ limit: toDelete });
   }
@@ -1159,7 +1207,7 @@ export class CatalogRepository {
     const result = this.db
       .prepare(
         `DELETE FROM manga_cover_cache
-         WHERE expires_at IS NOT NULL AND expires_at <= @now`
+         WHERE expires_at IS NOT NULL AND expires_at <= @now`,
       )
       .run({ now: nowTs });
 
@@ -1172,7 +1220,7 @@ export class CatalogRepository {
         `SELECT value
          FROM app_settings
          WHERE key = @key
-         LIMIT 1`
+         LIMIT 1`,
       )
       .get({ key }) as { value: string } | undefined;
 
@@ -1191,7 +1239,7 @@ export class CatalogRepository {
        VALUES (@key, @value, @updated_at)
        ON CONFLICT(key) DO UPDATE SET
          value = excluded.value,
-         updated_at = excluded.updated_at`
+         updated_at = excluded.updated_at`,
     );
 
     stmt.run({
@@ -1203,13 +1251,15 @@ export class CatalogRepository {
 
   getMangaBySlug(
     extensionId: string,
-    slug: string
-  ): {
-    id: string;
-    extensionId: string;
-    slug: string | null;
-    title: string;
-  } | undefined {
+    slug: string,
+  ):
+    | {
+        id: string;
+        extensionId: string;
+        slug: string | null;
+        title: string;
+      }
+    | undefined {
     const lookupSlug = slug.trim().toLowerCase();
 
     const row = this.db
@@ -1224,7 +1274,7 @@ export class CatalogRepository {
       WHERE extension_id = @extension_id
         AND slug = @slug
       LIMIT 1
-    `
+    `,
       )
       .get({
         extension_id: extensionId,
@@ -1248,7 +1298,7 @@ export class CatalogRepository {
       SELECT series_name
       FROM manga
       WHERE id = @manga_id
-    `
+    `,
       )
       .get({ manga_id: mangaId }) as { series_name: string | null } | undefined;
 
@@ -1262,12 +1312,948 @@ export class CatalogRepository {
       UPDATE manga
       SET series_name = @series_name
       WHERE id = @manga_id
-    `
+    `,
       )
       .run({
         manga_id: mangaId,
         series_name: seriesName,
       });
+  }
+
+  // ==================== Library Management ====================
+
+  addToLibrary(
+    mangaId: string,
+    extensionId: string,
+    status: "reading" | "plan_to_read" | "completed" | "on_hold" | "dropped",
+    options?: {
+      personalRating?: number;
+      favorite?: boolean;
+      notes?: string;
+      startedAt?: number;
+      completedAt?: number;
+    },
+  ): {
+    mangaId: string;
+    extensionId: string;
+    status: string;
+    personalRating: number | null;
+    favorite: boolean;
+    notes: string | null;
+    addedAt: number;
+    updatedAt: number;
+    startedAt: number | null;
+    completedAt: number | null;
+  } {
+    const timestamp = now();
+
+    this.db
+      .prepare(
+        `
+      INSERT INTO library_entries (
+        manga_id,
+        extension_id,
+        status,
+        personal_rating,
+        favorite,
+        notes,
+        added_at,
+        updated_at,
+        started_at,
+        completed_at
+      ) VALUES (
+        @manga_id,
+        @extension_id,
+        @status,
+        @personal_rating,
+        @favorite,
+        @notes,
+        @added_at,
+        @updated_at,
+        @started_at,
+        @completed_at
+      )
+      ON CONFLICT(manga_id) DO UPDATE SET
+        extension_id = excluded.extension_id,
+        status = excluded.status,
+        personal_rating = excluded.personal_rating,
+        favorite = excluded.favorite,
+        notes = excluded.notes,
+        updated_at = excluded.updated_at,
+        started_at = excluded.started_at,
+        completed_at = excluded.completed_at;
+    `,
+      )
+      .run({
+        manga_id: mangaId,
+        extension_id: extensionId,
+        status,
+        personal_rating: options?.personalRating ?? null,
+        favorite: options?.favorite ? 1 : 0,
+        notes: options?.notes ?? null,
+        added_at: timestamp,
+        updated_at: timestamp,
+        started_at: options?.startedAt ?? null,
+        completed_at: options?.completedAt ?? null,
+      });
+
+    return {
+      mangaId,
+      extensionId,
+      status,
+      personalRating: options?.personalRating ?? null,
+      favorite: options?.favorite ?? false,
+      notes: options?.notes ?? null,
+      addedAt: timestamp,
+      updatedAt: timestamp,
+      startedAt: options?.startedAt ?? null,
+      completedAt: options?.completedAt ?? null,
+    };
+  }
+
+  updateLibraryEntry(
+    mangaId: string,
+    updates: {
+      status?: "reading" | "plan_to_read" | "completed" | "on_hold" | "dropped";
+      personalRating?: number | null;
+      favorite?: boolean;
+      notes?: string | null;
+      startedAt?: number | null;
+      completedAt?: number | null;
+    },
+  ): void {
+    const fields: string[] = [];
+    const params: Record<string, unknown> = {
+      manga_id: mangaId,
+      updated_at: now(),
+    };
+
+    if (updates.status !== undefined) {
+      fields.push("status = @status");
+      params.status = updates.status;
+    }
+    if (updates.personalRating !== undefined) {
+      fields.push("personal_rating = @personal_rating");
+      params.personal_rating = updates.personalRating;
+    }
+    if (updates.favorite !== undefined) {
+      fields.push("favorite = @favorite");
+      params.favorite = updates.favorite ? 1 : 0;
+    }
+    if (updates.notes !== undefined) {
+      fields.push("notes = @notes");
+      params.notes = updates.notes;
+    }
+    if (updates.startedAt !== undefined) {
+      fields.push("started_at = @started_at");
+      params.started_at = updates.startedAt;
+    }
+    if (updates.completedAt !== undefined) {
+      fields.push("completed_at = @completed_at");
+      params.completed_at = updates.completedAt;
+    }
+
+    if (fields.length === 0) return;
+
+    fields.push("updated_at = @updated_at");
+
+    this.db
+      .prepare(
+        `
+      UPDATE library_entries
+      SET ${fields.join(", ")}
+      WHERE manga_id = @manga_id
+    `,
+      )
+      .run(params);
+  }
+
+  removeFromLibrary(mangaId: string): void {
+    this.db
+      .prepare("DELETE FROM library_entries WHERE manga_id = @manga_id")
+      .run({ manga_id: mangaId });
+  }
+
+  getLibraryEntry(mangaId: string):
+    | {
+        mangaId: string;
+        extensionId: string;
+        status: string;
+        personalRating: number | null;
+        favorite: boolean;
+        notes: string | null;
+        addedAt: number;
+        updatedAt: number;
+        startedAt: number | null;
+        completedAt: number | null;
+      }
+    | undefined {
+    const row = this.db
+      .prepare(
+        `
+      SELECT
+        manga_id as mangaId,
+        extension_id as extensionId,
+        status,
+        personal_rating as personalRating,
+        favorite,
+        notes,
+        added_at as addedAt,
+        updated_at as updatedAt,
+        started_at as startedAt,
+        completed_at as completedAt
+      FROM library_entries
+      WHERE manga_id = @manga_id
+    `,
+      )
+      .get({ manga_id: mangaId }) as
+      | {
+          mangaId: string;
+          extensionId: string;
+          status: string;
+          personalRating: number | null;
+          favorite: number;
+          notes: string | null;
+          addedAt: number;
+          updatedAt: number;
+          startedAt: number | null;
+          completedAt: number | null;
+        }
+      | undefined;
+
+    if (!row) return undefined;
+
+    return {
+      ...row,
+      favorite: row.favorite === 1,
+    };
+  }
+
+  getLibraryEntries(filters?: { status?: string; favorite?: boolean }): Array<{
+    mangaId: string;
+    extensionId: string;
+    status: string;
+    personalRating: number | null;
+    favorite: boolean;
+    notes: string | null;
+    addedAt: number;
+    updatedAt: number;
+    startedAt: number | null;
+    completedAt: number | null;
+  }> {
+    let query = `
+      SELECT
+        manga_id as mangaId,
+        extension_id as extensionId,
+        status,
+        personal_rating as personalRating,
+        favorite,
+        notes,
+        added_at as addedAt,
+        updated_at as updatedAt,
+        started_at as startedAt,
+        completed_at as completedAt
+      FROM library_entries
+    `;
+
+    const conditions: string[] = [];
+    const params: Record<string, unknown> = {};
+
+    if (filters?.status) {
+      conditions.push("status = @status");
+      params.status = filters.status;
+    }
+
+    if (filters?.favorite !== undefined) {
+      conditions.push("favorite = @favorite");
+      params.favorite = filters.favorite ? 1 : 0;
+    }
+
+    if (conditions.length > 0) {
+      query += ` WHERE ${conditions.join(" AND ")}`;
+    }
+
+    query += " ORDER BY updated_at DESC";
+
+    const rows = this.db.prepare(query).all(params) as Array<{
+      mangaId: string;
+      extensionId: string;
+      status: string;
+      personalRating: number | null;
+      favorite: number;
+      notes: string | null;
+      addedAt: number;
+      updatedAt: number;
+      startedAt: number | null;
+      completedAt: number | null;
+    }>;
+
+    return rows.map((row) => ({
+      ...row,
+      favorite: row.favorite === 1,
+    }));
+  }
+
+  getEnrichedLibraryEntries(filters?: {
+    status?: string;
+    favorite?: boolean;
+  }): Array<{
+    mangaId: string;
+    extensionId: string;
+    status: string;
+    personalRating: number | null;
+    favorite: boolean;
+    notes: string | null;
+    addedAt: number;
+    updatedAt: number;
+    startedAt: number | null;
+    completedAt: number | null;
+    manga: {
+      title: string;
+      description: string | null;
+      coverUrl: string | null;
+      coverUrls: string[] | null;
+      status: string | null;
+      tags: string[] | null;
+    };
+    totalChapters: number;
+    readChapters: number;
+  }> {
+    let query = `
+      SELECT
+        le.manga_id as mangaId,
+        le.extension_id as extensionId,
+        le.status,
+        le.personal_rating as personalRating,
+        le.favorite,
+        le.notes,
+        le.added_at as addedAt,
+        le.updated_at as updatedAt,
+        le.started_at as startedAt,
+        le.completed_at as completedAt,
+        m.title,
+        m.description,
+        m.cover_url as coverUrl,
+        m.cover_urls_json as coverUrlsJson,
+        m.status as mangaStatus,
+        m.tags_json as tagsJson,
+        (SELECT COUNT(*) FROM chapters WHERE manga_id = le.manga_id) as totalChapters,
+        (SELECT COUNT(DISTINCT chapter_id) FROM reading_progress WHERE manga_id = le.manga_id) as readChapters
+      FROM library_entries le
+      LEFT JOIN manga m ON le.manga_id = m.id
+    `;
+
+    const conditions: string[] = [];
+    const params: Record<string, unknown> = {};
+
+    if (filters?.status) {
+      conditions.push("le.status = @status");
+      params.status = filters.status;
+    }
+
+    if (filters?.favorite !== undefined) {
+      conditions.push("le.favorite = @favorite");
+      params.favorite = filters.favorite ? 1 : 0;
+    }
+
+    if (conditions.length > 0) {
+      query += ` WHERE ${conditions.join(" AND ")}`;
+    }
+
+    query += " ORDER BY le.updated_at DESC";
+
+    const rows = this.db.prepare(query).all(params) as Array<{
+      mangaId: string;
+      extensionId: string;
+      status: string;
+      personalRating: number | null;
+      favorite: number;
+      notes: string | null;
+      addedAt: number;
+      updatedAt: number;
+      startedAt: number | null;
+      completedAt: number | null;
+      title: string | null;
+      description: string | null;
+      coverUrl: string | null;
+      coverUrlsJson: string | null;
+      mangaStatus: string | null;
+      tagsJson: string | null;
+      totalChapters: number;
+      readChapters: number;
+    }>;
+
+    return rows.map((row) => ({
+      mangaId: row.mangaId,
+      extensionId: row.extensionId,
+      status: row.status,
+      personalRating: row.personalRating,
+      favorite: row.favorite === 1,
+      notes: row.notes,
+      addedAt: row.addedAt,
+      updatedAt: row.updatedAt,
+      startedAt: row.startedAt,
+      completedAt: row.completedAt,
+      manga: {
+        title: row.title ?? "Unknown Title",
+        description: row.description,
+        coverUrl: row.coverUrl,
+        coverUrls: deserialize<string[]>(row.coverUrlsJson) ?? null,
+        status: row.mangaStatus,
+        tags: deserialize<string[]>(row.tagsJson) ?? null,
+      },
+      totalChapters: row.totalChapters,
+      readChapters: row.readChapters,
+    }));
+  }
+
+  getLibraryStats(): {
+    totalManga: number;
+    byStatus: {
+      reading: number;
+      plan_to_read: number;
+      completed: number;
+      on_hold: number;
+      dropped: number;
+    };
+    totalChaptersRead: number;
+    favorites: number;
+  } {
+    const totalRow = this.db
+      .prepare("SELECT COUNT(*) as count FROM library_entries")
+      .get() as { count: number };
+
+    const statusRows = this.db
+      .prepare(
+        `
+      SELECT status, COUNT(*) as count
+      FROM library_entries
+      GROUP BY status
+    `,
+      )
+      .all() as Array<{ status: string; count: number }>;
+
+    const favoritesRow = this.db
+      .prepare(
+        "SELECT COUNT(*) as count FROM library_entries WHERE favorite = 1",
+      )
+      .get() as { count: number };
+
+    const chaptersRow = this.db
+      .prepare(
+        `
+      SELECT COUNT(DISTINCT chapter_id) as count
+      FROM reading_progress
+      WHERE manga_id IN (SELECT manga_id FROM library_entries)
+    `,
+      )
+      .get() as { count: number };
+
+    const byStatus = {
+      reading: 0,
+      plan_to_read: 0,
+      completed: 0,
+      on_hold: 0,
+      dropped: 0,
+    };
+
+    for (const row of statusRows) {
+      if (row.status in byStatus) {
+        byStatus[row.status as keyof typeof byStatus] = row.count;
+      }
+    }
+
+    return {
+      totalManga: totalRow.count,
+      byStatus,
+      totalChaptersRead: chaptersRow.count,
+      favorites: favoritesRow.count,
+    };
+  }
+
+  // ==================== Library Tags ====================
+
+  createLibraryTag(
+    name: string,
+    color?: string,
+  ): {
+    id: number;
+    name: string;
+    color: string | null;
+    createdAt: number;
+  } {
+    const result = this.db
+      .prepare(
+        `
+      INSERT INTO library_tags (name, color, created_at)
+      VALUES (@name, @color, @created_at)
+      ON CONFLICT(name) DO UPDATE SET
+        color = excluded.color
+      RETURNING id, name, color, created_at as createdAt
+    `,
+      )
+      .get({
+        name,
+        color: color ?? null,
+        created_at: now(),
+      }) as {
+      id: number;
+      name: string;
+      color: string | null;
+      createdAt: number;
+    };
+
+    return result;
+  }
+
+  deleteLibraryTag(tagId: number): void {
+    this.db
+      .prepare("DELETE FROM library_tags WHERE id = @tag_id")
+      .run({ tag_id: tagId });
+  }
+
+  getLibraryTags(): Array<{
+    id: number;
+    name: string;
+    color: string | null;
+    createdAt: number;
+    mangaCount: number;
+  }> {
+    const rows = this.db
+      .prepare(
+        `
+      SELECT
+        lt.id,
+        lt.name,
+        lt.color,
+        lt.created_at as createdAt,
+        COUNT(let.manga_id) as mangaCount
+      FROM library_tags lt
+      LEFT JOIN library_entry_tags let ON lt.id = let.tag_id
+      GROUP BY lt.id
+      ORDER BY lt.name ASC
+    `,
+      )
+      .all() as Array<{
+      id: number;
+      name: string;
+      color: string | null;
+      createdAt: number;
+      mangaCount: number;
+    }>;
+
+    return rows;
+  }
+
+  addTagToLibraryEntry(mangaId: string, tagId: number): void {
+    this.db
+      .prepare(
+        `
+      INSERT INTO library_entry_tags (manga_id, tag_id)
+      VALUES (@manga_id, @tag_id)
+      ON CONFLICT DO NOTHING
+    `,
+      )
+      .run({ manga_id: mangaId, tag_id: tagId });
+  }
+
+  removeTagFromLibraryEntry(mangaId: string, tagId: number): void {
+    this.db
+      .prepare(
+        "DELETE FROM library_entry_tags WHERE manga_id = @manga_id AND tag_id = @tag_id",
+      )
+      .run({ manga_id: mangaId, tag_id: tagId });
+  }
+
+  getTagsForLibraryEntry(mangaId: string): Array<{
+    id: number;
+    name: string;
+    color: string | null;
+  }> {
+    const rows = this.db
+      .prepare(
+        `
+      SELECT lt.id, lt.name, lt.color
+      FROM library_tags lt
+      INNER JOIN library_entry_tags let ON lt.id = let.tag_id
+      WHERE let.manga_id = @manga_id
+      ORDER BY lt.name ASC
+    `,
+      )
+      .all({ manga_id: mangaId }) as Array<{
+      id: number;
+      name: string;
+      color: string | null;
+    }>;
+
+    return rows;
+  }
+
+  // ==================== History Management ====================
+
+  logHistoryEntry(entry: {
+    mangaId: string;
+    chapterId?: string;
+    actionType: string;
+    timestamp?: number;
+    extensionId?: string;
+    metadata?: Record<string, unknown>;
+  }): number {
+    const result = this.db
+      .prepare(
+        `
+      INSERT INTO history_entries (
+        manga_id,
+        chapter_id,
+        action_type,
+        timestamp,
+        extension_id,
+        metadata
+      ) VALUES (@manga_id, @chapter_id, @action_type, @timestamp, @extension_id, @metadata)
+    `,
+      )
+      .run({
+        manga_id: entry.mangaId,
+        chapter_id: entry.chapterId ?? null,
+        action_type: entry.actionType,
+        timestamp: entry.timestamp ?? now(),
+        extension_id: entry.extensionId ?? null,
+        metadata: serialize(entry.metadata),
+      });
+
+    return result.lastInsertRowid as number;
+  }
+
+  getHistory(options?: {
+    limit?: number;
+    offset?: number;
+    mangaId?: string;
+    actionType?: string;
+    startDate?: number;
+    endDate?: number;
+  }): Array<{
+    id: number;
+    mangaId: string;
+    chapterId: string | null;
+    actionType: string;
+    timestamp: number;
+    extensionId: string | null;
+    metadata: Record<string, unknown> | null;
+  }> {
+    const conditions: string[] = [];
+    const params: Record<string, unknown> = {};
+
+    if (options?.mangaId) {
+      conditions.push("manga_id = @manga_id");
+      params.manga_id = options.mangaId;
+    }
+
+    if (options?.actionType) {
+      conditions.push("action_type = @action_type");
+      params.action_type = options.actionType;
+    }
+
+    if (options?.startDate) {
+      conditions.push("timestamp >= @start_date");
+      params.start_date = options.startDate;
+    }
+
+    if (options?.endDate) {
+      conditions.push("timestamp <= @end_date");
+      params.end_date = options.endDate;
+    }
+
+    const whereClause =
+      conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+
+    let query = `
+      SELECT
+        id,
+        manga_id as mangaId,
+        chapter_id as chapterId,
+        action_type as actionType,
+        timestamp,
+        extension_id as extensionId,
+        metadata
+      FROM history_entries
+      ${whereClause}
+      ORDER BY timestamp DESC
+    `;
+
+    if (options?.limit) {
+      query += ` LIMIT @limit`;
+      params.limit = options.limit;
+    }
+
+    if (options?.offset) {
+      query += ` OFFSET @offset`;
+      params.offset = options.offset;
+    }
+
+    const rows = this.db.prepare(query).all(params) as Array<{
+      id: number;
+      mangaId: string;
+      chapterId: string | null;
+      actionType: string;
+      timestamp: number;
+      extensionId: string | null;
+      metadata: string | null;
+    }>;
+
+    return rows.map((row) => ({
+      ...row,
+      metadata: deserialize<Record<string, unknown>>(row.metadata) ?? null,
+    }));
+  }
+
+  getEnrichedHistory(options?: {
+    limit?: number;
+    offset?: number;
+    mangaId?: string;
+    actionType?: string;
+    startDate?: number;
+    endDate?: number;
+  }): Array<{
+    id: number;
+    mangaId: string;
+    chapterId: string | null;
+    actionType: string;
+    timestamp: number;
+    extensionId: string | null;
+    metadata: Record<string, unknown> | null;
+    manga: {
+      title: string;
+      coverUrl: string | null;
+      slug: string | null;
+    } | null;
+    chapter: {
+      title: string | null;
+      chapterNumber: string | null;
+    } | null;
+  }> {
+    const conditions: string[] = [];
+    const params: Record<string, unknown> = {};
+
+    if (options?.mangaId) {
+      conditions.push("h.manga_id = @manga_id");
+      params.manga_id = options.mangaId;
+    }
+
+    if (options?.actionType) {
+      conditions.push("h.action_type = @action_type");
+      params.action_type = options.actionType;
+    }
+
+    if (options?.startDate) {
+      conditions.push("h.timestamp >= @start_date");
+      params.start_date = options.startDate;
+    }
+
+    if (options?.endDate) {
+      conditions.push("h.timestamp <= @end_date");
+      params.end_date = options.endDate;
+    }
+
+    const whereClause =
+      conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+
+    let query = `
+      SELECT
+        h.id,
+        h.manga_id as mangaId,
+        h.chapter_id as chapterId,
+        h.action_type as actionType,
+        h.timestamp,
+        h.extension_id as extensionId,
+        h.metadata,
+        m.title as mangaTitle,
+        m.cover_url as mangaCoverUrl,
+        m.slug as mangaSlug,
+        c.title as chapterTitle,
+        c.chapter_number as chapterNumber
+      FROM history_entries h
+      LEFT JOIN manga m ON h.manga_id = m.id
+      LEFT JOIN chapters c ON h.chapter_id = c.id
+      ${whereClause}
+      ORDER BY h.timestamp DESC
+    `;
+
+    if (options?.limit) {
+      query += ` LIMIT @limit`;
+      params.limit = options.limit;
+    }
+
+    if (options?.offset) {
+      query += ` OFFSET @offset`;
+      params.offset = options.offset;
+    }
+
+    const rows = this.db.prepare(query).all(params) as Array<{
+      id: number;
+      mangaId: string;
+      chapterId: string | null;
+      actionType: string;
+      timestamp: number;
+      extensionId: string | null;
+      metadata: string | null;
+      mangaTitle: string | null;
+      mangaCoverUrl: string | null;
+      mangaSlug: string | null;
+      chapterTitle: string | null;
+      chapterNumber: string | null;
+    }>;
+
+    return rows.map((row) => ({
+      id: row.id,
+      mangaId: row.mangaId,
+      chapterId: row.chapterId,
+      actionType: row.actionType,
+      timestamp: row.timestamp,
+      extensionId: row.extensionId,
+      metadata: deserialize<Record<string, unknown>>(row.metadata) ?? null,
+      manga: row.mangaTitle
+        ? {
+            title: row.mangaTitle,
+            coverUrl: row.mangaCoverUrl,
+            slug: row.mangaSlug,
+          }
+        : null,
+      chapter: row.chapterId
+        ? {
+            title: row.chapterTitle,
+            chapterNumber: row.chapterNumber,
+          }
+        : null,
+    }));
+  }
+
+  getHistoryByManga(
+    mangaId: string,
+    limit?: number,
+  ): Array<{
+    id: number;
+    mangaId: string;
+    chapterId: string | null;
+    actionType: string;
+    timestamp: number;
+    extensionId: string | null;
+    metadata: Record<string, unknown> | null;
+  }> {
+    return this.getHistory({ mangaId, limit });
+  }
+
+  clearHistory(beforeTimestamp?: number): number {
+    if (beforeTimestamp) {
+      const result = this.db
+        .prepare("DELETE FROM history_entries WHERE timestamp <= @timestamp")
+        .run({ timestamp: beforeTimestamp });
+      return result.changes ?? 0;
+    } else {
+      const result = this.db.prepare("DELETE FROM history_entries").run();
+      return result.changes ?? 0;
+    }
+  }
+
+  deleteHistoryEntry(id: number): void {
+    this.db.prepare("DELETE FROM history_entries WHERE id = @id").run({ id });
+  }
+
+  getHistoryStats(options?: { startDate?: number; endDate?: number }): {
+    totalEntries: number;
+    chaptersRead: number;
+    mangaStarted: number;
+    libraryAdditions: number;
+    actionCounts: Record<string, number>;
+    mostReadManga: Array<{ mangaId: string; title: string; count: number }>;
+  } {
+    const conditions: string[] = [];
+    const params: Record<string, unknown> = {};
+
+    if (options?.startDate) {
+      conditions.push("timestamp >= @start_date");
+      params.start_date = options.startDate;
+    }
+
+    if (options?.endDate) {
+      conditions.push("timestamp <= @end_date");
+      params.end_date = options.endDate;
+    }
+
+    const whereClause =
+      conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+
+    const totalRow = this.db
+      .prepare(`SELECT COUNT(*) as count FROM history_entries ${whereClause}`)
+      .get(params) as { count: number };
+
+    const chaptersReadRow = this.db
+      .prepare(
+        `SELECT COUNT(*) as count FROM history_entries ${whereClause} ${whereClause ? "AND" : "WHERE"} action_type = 'read'`,
+      )
+      .get(params) as { count: number };
+
+    const mangaStartedRow = this.db
+      .prepare(
+        `SELECT COUNT(DISTINCT manga_id) as count FROM history_entries ${whereClause} ${whereClause ? "AND" : "WHERE"} action_type = 'read'`,
+      )
+      .get(params) as { count: number };
+
+    const libraryAdditionsRow = this.db
+      .prepare(
+        `SELECT COUNT(*) as count FROM history_entries ${whereClause} ${whereClause ? "AND" : "WHERE"} action_type = 'library_add'`,
+      )
+      .get(params) as { count: number };
+
+    const actionCountsRows = this.db
+      .prepare(
+        `
+      SELECT action_type, COUNT(*) as count
+      FROM history_entries
+      ${whereClause}
+      GROUP BY action_type
+      ORDER BY count DESC
+    `,
+      )
+      .all(params) as Array<{ action_type: string; count: number }>;
+
+    const actionCounts: Record<string, number> = {};
+    for (const row of actionCountsRows) {
+      actionCounts[row.action_type] = row.count;
+    }
+
+    const mostReadMangaRows = this.db
+      .prepare(
+        `
+      SELECT
+        h.manga_id as mangaId,
+        m.title,
+        COUNT(*) as count
+      FROM history_entries h
+      LEFT JOIN manga m ON h.manga_id = m.id
+      ${whereClause} ${whereClause ? "AND" : "WHERE"} h.action_type = 'read'
+      GROUP BY h.manga_id
+      ORDER BY count DESC
+      LIMIT 10
+    `,
+      )
+      .all(params) as Array<{
+      mangaId: string;
+      title: string | null;
+      count: number;
+    }>;
+
+    return {
+      totalEntries: totalRow.count,
+      chaptersRead: chaptersReadRow.count,
+      mangaStarted: mangaStartedRow.count,
+      libraryAdditions: libraryAdditionsRow.count,
+      actionCounts,
+      mostReadManga: mostReadMangaRows.map((row) => ({
+        mangaId: row.mangaId,
+        title: row.title ?? "Unknown",
+        count: row.count,
+      })),
+    };
   }
 
   /**
@@ -1279,6 +2265,14 @@ export class CatalogRepository {
   nukeUserData(): void {
     // Use a transaction to ensure atomicity
     const transaction = this.db.transaction(() => {
+      // Clear history
+      this.db.prepare("DELETE FROM history_entries").run();
+
+      // Clear library data
+      this.db.prepare("DELETE FROM library_entry_tags").run();
+      this.db.prepare("DELETE FROM library_tags").run();
+      this.db.prepare("DELETE FROM library_entries").run();
+
       // Clear reading progress
       this.db.prepare("DELETE FROM reading_progress").run();
 

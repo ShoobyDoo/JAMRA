@@ -17,19 +17,26 @@ import {
 import { modals } from "@mantine/modals";
 import { notifications } from "@mantine/notifications";
 import { AlertTriangle, RefreshCw, Sidebar } from "lucide-react";
-import { nukeUserData, updateCacheSettings, fetchCacheSettings } from "@/lib/api";
+import {
+  nukeUserData,
+  updateCacheSettings,
+  fetchCacheSettings,
+} from "@/lib/api";
 import { useUIStore, MIN_SIDEBAR_WIDTH, MAX_SIDEBAR_WIDTH } from "@/store/ui";
 import { useSettingsStore } from "@/store/settings";
+import { CACHE_DEFAULTS } from "@/lib/constants";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+
 const DEFAULT_CACHE_FORM = {
-  enabled: true,
-  ttlDays: 7,
-  maxEntries: 32,
-};
+  enabled: CACHE_DEFAULTS.ENABLED,
+  ttlDays: CACHE_DEFAULTS.TTL_DAYS,
+  maxEntries: CACHE_DEFAULTS.MAX_ENTRIES,
+} as const;
 
 export default function SettingsPage() {
-  const { sidebarWidth, setSidebarWidth } = useUIStore();
+  const sidebarWidth = useUIStore((state) => state.sidebarWidth);
+  const setSidebarWidth = useUIStore((state) => state.setSidebarWidth);
   const imageCache = useSettingsStore((state) => state.imageCache);
   const setImageCache = useSettingsStore((state) => state.setImageCache);
   const applyServerImageCacheSettings = useSettingsStore(
@@ -67,9 +74,10 @@ export default function SettingsPage() {
       return "Caching disabled — covers will always load from the source.";
     }
     const ttlHours = cacheForm.ttlDays * 24;
-    const prettyTtl = ttlHours < 48
-      ? `${Math.max(ttlHours, 1).toFixed(0)} hour${ttlHours >= 2 ? "s" : ""}`
-      : `${cacheForm.ttlDays.toFixed(1)} days`;
+    const prettyTtl =
+      ttlHours < 48
+        ? `${Math.max(ttlHours, 1).toFixed(0)} hour${ttlHours >= 2 ? "s" : ""}`
+        : `${cacheForm.ttlDays.toFixed(1)} days`;
     return `Caching enabled — storing up to ${cacheForm.maxEntries} covers for ${prettyTtl}.`;
   }, [cacheForm]);
 
@@ -107,8 +115,16 @@ export default function SettingsPage() {
   };
 
   const handleResetCacheSettings = () => {
-    setCacheForm(DEFAULT_CACHE_FORM);
-    setImageCache(DEFAULT_CACHE_FORM);
+    setCacheForm({
+      enabled: CACHE_DEFAULTS.ENABLED,
+      ttlDays: CACHE_DEFAULTS.TTL_DAYS,
+      maxEntries: CACHE_DEFAULTS.MAX_ENTRIES,
+    });
+    setImageCache({
+      enabled: CACHE_DEFAULTS.ENABLED,
+      ttlDays: CACHE_DEFAULTS.TTL_DAYS,
+      maxEntries: CACHE_DEFAULTS.MAX_ENTRIES,
+    });
   };
 
   const handleRefreshCacheSettings = async () => {
@@ -152,7 +168,7 @@ export default function SettingsPage() {
           <Text size="sm">
             This will <strong>permanently delete</strong>:
           </Text>
-          <ul style={{ margin: 0, paddingLeft: "1.5rem" }}>
+          <ul className="m-0 list-disc pl-6">
             <li>All reading progress and history</li>
             <li>All cached manga and chapters</li>
             <li>All downloaded images</li>
@@ -187,7 +203,8 @@ export default function SettingsPage() {
                 be gone forever.
               </Text>
               <Text size="sm" fw={600} c="red">
-                Type &quot;DELETE&quot; in your mind and click confirm if you&apos;re certain.
+                Type &quot;DELETE&quot; in your mind and click confirm if
+                you&apos;re certain.
               </Text>
             </Stack>
           ),
@@ -265,7 +282,7 @@ export default function SettingsPage() {
                   { value: 260, label: "Default" },
                   { value: MAX_SIDEBAR_WIDTH, label: `${MAX_SIDEBAR_WIDTH}px` },
                 ]}
-                style={{ flex: 1 }}
+                className="flex-1"
               />
               <Text size="sm" fw={500} w={60} ta="center">
                 {sidebarWidth}px
@@ -331,7 +348,9 @@ export default function SettingsPage() {
               setCacheForm((prev) => ({
                 ...prev,
                 maxEntries:
-                  typeof value === "number" ? Math.max(0, Math.round(value)) : 0,
+                  typeof value === "number"
+                    ? Math.max(0, Math.round(value))
+                    : 0,
               }))
             }
             min={0}
@@ -379,10 +398,7 @@ export default function SettingsPage() {
         withBorder
         p="lg"
         radius="md"
-        style={{
-          borderColor: "var(--mantine-color-red-6)",
-          backgroundColor: "var(--mantine-color-red-0)",
-        }}
+        className="border border-[var(--mantine-color-red-6)] bg-[var(--mantine-color-red-0)]"
       >
         <Stack gap="md">
           <Group gap="xs">

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
-import { Button } from "@mantine/core";
+import { Button, type ButtonProps } from "@mantine/core";
 import { BookOpen } from "lucide-react";
 import { getAllReadingProgress } from "@/lib/api";
 import type { ReadingProgressData } from "@/lib/api";
@@ -12,12 +12,18 @@ import {
   getChapterSortValue,
   sortChaptersDesc,
 } from "@/lib/chapter-meta";
+import { logger } from "@/lib/logger";
 
 interface ContinueReadingButtonProps {
   chapters: ChapterWithSlug[];
   mangaId: string;
   mangaSlug: string;
 }
+
+const buttonClassNames: ButtonProps["classNames"] = {
+  label:
+    "flex w-full flex-col items-start gap-1 text-left whitespace-normal overflow-visible leading-snug",
+};
 
 export function ContinueReadingButton({
   chapters,
@@ -30,10 +36,7 @@ export function ContinueReadingButton({
   } | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const sortedChapters = useMemo(
-    () => sortChaptersDesc(chapters),
-    [chapters],
-  );
+  const sortedChapters = useMemo(() => sortChaptersDesc(chapters), [chapters]);
 
   const earliestChapter = useMemo(() => {
     if (sortedChapters.length === 0) {
@@ -45,7 +48,10 @@ export function ContinueReadingButton({
         chapter,
         value: getChapterSortValue(chapter),
       }))
-      .filter((entry): entry is { chapter: ChapterWithSlug; value: number } => entry.value !== null)
+      .filter(
+        (entry): entry is { chapter: ChapterWithSlug; value: number } =>
+          entry.value !== null,
+      )
       .sort((a, b) => a.value - b.value);
 
     if (numericCandidates.length > 0) {
@@ -60,9 +66,7 @@ export function ContinueReadingButton({
       try {
         const allProgress = await getAllReadingProgress();
         // Filter to this manga's progress
-        const mangaProgress = allProgress.filter(
-          (p) => p.mangaId === mangaId
-        );
+        const mangaProgress = allProgress.filter((p) => p.mangaId === mangaId);
 
         if (mangaProgress.length === 0) {
           setLastReadChapter(null);
@@ -71,16 +75,23 @@ export function ContinueReadingButton({
 
         // Find the most recently read chapter
         const mostRecent = mangaProgress.reduce((prev, current) =>
-          current.lastReadAt > prev.lastReadAt ? current : prev
+          current.lastReadAt > prev.lastReadAt ? current : prev,
         );
 
         // Find the corresponding chapter
-        const chapter = sortedChapters.find((ch) => ch.id === mostRecent.chapterId);
+        const chapter = sortedChapters.find(
+          (ch) => ch.id === mostRecent.chapterId,
+        );
         if (chapter) {
           setLastReadChapter({ chapter, progress: mostRecent });
         }
       } catch (error) {
-        console.error("Failed to fetch reading progress:", error);
+        logger.error("Failed to load continue reading progress", {
+          component: "ContinueReadingButton",
+          action: "load-progress",
+          mangaId,
+          error: error instanceof Error ? error : new Error(String(error)),
+        });
       } finally {
         setLoading(false);
       }
@@ -98,8 +109,7 @@ export function ContinueReadingButton({
       return null;
     }
 
-    const startLabel =
-      formatChapterTitle(earliestChapter);
+    const startLabel = formatChapterTitle(earliestChapter);
 
     return (
       <Link
@@ -111,12 +121,13 @@ export function ContinueReadingButton({
           size="lg"
           leftSection={<BookOpen size={20} />}
           variant="filled"
-          className="h-auto py-4"
+          h="auto"
+          px="lg"
+          py="md"
+          classNames={buttonClassNames}
         >
-          <div className="flex flex-col items-start gap-1 text-left">
-            <span className="font-semibold">Start Reading</span>
-            <span className="text-xs opacity-90">{startLabel}</span>
-          </div>
+          <span className="font-semibold">Start Reading</span>
+          <span className="text-xs opacity-90">{startLabel}</span>
         </Button>
       </Link>
     );
@@ -125,7 +136,7 @@ export function ContinueReadingButton({
   const { chapter, progress } = lastReadChapter;
   const isComplete = progress.currentPage >= progress.totalPages - 1;
   const progressPercent = Math.round(
-    (progress.currentPage / progress.totalPages) * 100
+    (progress.currentPage / progress.totalPages) * 100,
   );
 
   const pageQuery = new URLSearchParams({
@@ -142,20 +153,21 @@ export function ContinueReadingButton({
         size="lg"
         leftSection={<BookOpen size={20} />}
         variant="filled"
-        className="h-auto py-4"
+        h="auto"
+        px="lg"
+        py="md"
+        classNames={buttonClassNames}
       >
-        <div className="flex flex-col items-start gap-1 text-left">
-          <span className="font-semibold">
-            {isComplete ? "Read Again" : "Continue Reading"}
-          </span>
-          <span className="text-xs opacity-90">
-            {formatChapterTitle(chapter)}
-            {" · "}
-            Page {progress.currentPage + 1} of {progress.totalPages}
-            {" · "}
-            {progressPercent}% complete
-          </span>
-        </div>
+        <span className="font-semibold">
+          {isComplete ? "Read Again" : "Continue Reading"}
+        </span>
+        <span className="text-xs opacity-90">
+          {formatChapterTitle(chapter)}
+          {" · "}
+          Page {progress.currentPage + 1} of {progress.totalPages}
+          {" · "}
+          {progressPercent}% complete
+        </span>
       </Button>
     </Link>
   );

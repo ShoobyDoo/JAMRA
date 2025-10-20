@@ -34,7 +34,10 @@ export function compareChaptersDesc(
   const bValue = getChapterSortValue(b);
 
   if (aValue !== null || bValue !== null) {
-    return (bValue ?? Number.NEGATIVE_INFINITY) - (aValue ?? Number.NEGATIVE_INFINITY);
+    return (
+      (bValue ?? Number.NEGATIVE_INFINITY) -
+      (aValue ?? Number.NEGATIVE_INFINITY)
+    );
   }
 
   return b.slug.localeCompare(a.slug);

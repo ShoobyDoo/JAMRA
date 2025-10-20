@@ -18,7 +18,9 @@ function buildBaseChapterSlug(chapter: ChapterSummary): string {
 
   const titleSlug = slugify(chapter.title);
   if (titleSlug) {
-    return titleSlug.startsWith("chapter-") ? titleSlug : `chapter-${titleSlug}`;
+    return titleSlug.startsWith("chapter-")
+      ? titleSlug
+      : `chapter-${titleSlug}`;
   }
 
   const volumeSlug = slugify(chapter.volume);
@@ -30,7 +32,9 @@ function buildBaseChapterSlug(chapter: ChapterSummary): string {
   return `chapter-${idFallback.slice(0, 8) || "unknown"}`;
 }
 
-export function withChapterSlugs(chapters: ChapterSummary[]): ChapterWithSlug[] {
+export function withChapterSlugs(
+  chapters: ChapterSummary[],
+): ChapterWithSlug[] {
   const counts = new Map<string, number>();
 
   return chapters.map((chapter) => {
@@ -39,7 +43,8 @@ export function withChapterSlugs(chapters: ChapterSummary[]): ChapterWithSlug[] 
 
     counts.set(baseSlug, existingCount + 1);
 
-    const slug = existingCount === 0 ? baseSlug : `${baseSlug}-${existingCount + 1}`;
+    const slug =
+      existingCount === 0 ? baseSlug : `${baseSlug}-${existingCount + 1}`;
 
     return {
       ...chapter,
@@ -69,7 +74,10 @@ export function formatChapterSlugForDisplay(slug: string): string {
   }
 
   if (decoded.startsWith("chapter-")) {
-    const remainder = decoded.slice("chapter-".length).replace(/-/g, " ").trim();
+    const remainder = decoded
+      .slice("chapter-".length)
+      .replace(/-/g, " ")
+      .trim();
     return remainder.length > 0 ? `Chapter ${remainder}` : "Chapter";
   }
 

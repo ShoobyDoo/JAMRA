@@ -9,7 +9,10 @@
 export { OfflineStorageManager } from "./manager.js";
 export { DownloadWorker } from "./downloader.js";
 export { OfflineRepository } from "./repository.js";
-export { ImageDownloader, getDefaultDownloader } from "./utils/image-downloader.js";
+export {
+  ImageDownloader,
+  getDefaultDownloader,
+} from "./utils/image-downloader.js";
 
 // Types
 export type {
@@ -35,7 +38,10 @@ export type {
   OfflineStorageEventListener,
 } from "./types.js";
 
-export type { DownloadImageOptions, DownloadImageResult } from "./utils/image-downloader.js";
+export type {
+  DownloadImageOptions,
+  DownloadImageResult,
+} from "./utils/image-downloader.js";
 export type { DownloadWorkerOptions } from "./downloader.js";
 
 // Utilities

@@ -5,6 +5,8 @@ import { Loader, Stack, Title } from "@mantine/core";
 import { fetchCacheSettings } from "@/lib/api";
 import { useUIStore } from "@/store/ui";
 import { useSettingsStore } from "@/store/settings";
+import { logger } from "@/lib/logger";
+import { TIMEOUTS } from "@/lib/constants";
 
 export function HydrationBoundary({ children }: { children: React.ReactNode }) {
   const [isHydrated, setIsHydrated] = useState(false);
@@ -44,26 +46,29 @@ export function HydrationBoundary({ children }: { children: React.ReactNode }) {
         });
       })
       .catch((error) => {
-        console.warn("Failed to load cache settings", error);
+        logger.warn("Failed to load server cache settings", {
+          component: "HydrationBoundary",
+          action: "sync-cache-settings",
+          error: error instanceof Error ? error : new Error(String(error)),
+        });
       });
 
     return () => {
       cancelled = true;
     };
-  }, [
-    applyServerImageCacheSettings,
-    imageCacheSynced,
-    storesHydrated,
-  ]);
+  }, [applyServerImageCacheSettings, imageCacheSynced, storesHydrated]);
 
   useEffect(() => {
     // Failsafe: if hydration takes too long (>2s), show content anyway
     const timeout = setTimeout(() => {
       if (!isHydrated) {
-        console.warn("Hydration timeout - forcing render");
+        logger.warn("Hydration timeout exceeded; forcing render", {
+          component: "HydrationBoundary",
+          action: "hydrate-timeout",
+        });
         setIsHydrated(true);
       }
-    }, 2000);
+    }, TIMEOUTS.HYDRATION);
 
     return () => clearTimeout(timeout);
   }, [isHydrated]);
@@ -74,12 +79,7 @@ export function HydrationBoundary({ children }: { children: React.ReactNode }) {
         <Stack align="center" gap="xl">
           <Title
             order={1}
-            style={{
-              fontSize: "3rem",
-              fontWeight: 700,
-              letterSpacing: "0.05em",
-              color: "var(--foreground)",
-            }}
+            className="text-5xl font-bold tracking-[0.05em] text-foreground"
           >
             JAMRA
           </Title>

@@ -10,6 +10,7 @@ import { useDebouncedValue } from "@mantine/hooks";
 import { fetchCataloguePage } from "@/lib/api";
 import { slugify } from "@/lib/slug";
 import type { MangaSummary } from "@/lib/api";
+import { logger } from "@/lib/logger";
 
 function normalizeText(value: string): string {
   return value
@@ -102,7 +103,12 @@ export function SearchBar() {
           color: "red",
           autoClose: 4000,
         });
-        console.error("Search failed:", error);
+        logger.error("Search request failed", {
+          component: "SearchBar",
+          action: "search",
+          query: debouncedQuery,
+          error: error instanceof Error ? error : new Error(String(error)),
+        });
       })
       .finally(() => setLoading(false));
   }, [debouncedQuery]);
@@ -132,7 +138,7 @@ export function SearchBar() {
         router.push(`/search?q=${encodeURIComponent(query.trim())}`);
       }
     },
-    [query, router]
+    [query, router],
   );
 
   const handleResultClick = useCallback(
@@ -142,7 +148,7 @@ export function SearchBar() {
       const destination = slugify(manga.slug ?? manga.title) ?? manga.id;
       router.push(`/manga/${encodeURIComponent(destination)}`);
     },
-    [router]
+    [router],
   );
 
   const handleClear = useCallback(() => {
@@ -153,8 +159,8 @@ export function SearchBar() {
   }, []);
 
   return (
-    <div className="relative">
-      <form onSubmit={handleSubmit} className="relative">
+    <div className="relative w-full">
+      <form onSubmit={handleSubmit} className="relative w-full">
         <TextInput
           ref={inputRef}
           type="search"
@@ -167,7 +173,7 @@ export function SearchBar() {
           }}
           aria-label="Search manga"
           placeholder="Search manga…"
-          className="w-96"
+          className="w-full"
           size="sm"
           radius="md"
           leftSection={
@@ -197,10 +203,9 @@ export function SearchBar() {
           ref={dropdownRef}
           shadow="lg"
           radius="md"
-          className="absolute top-full mt-2 w-full z-50 border border-border"
-          style={{ maxHeight: "500px" }}
+          className="absolute top-full z-50 mt-2 w-full max-h-[500px] overflow-hidden border border-border"
         >
-          <div className="flex flex-col overflow-y-auto max-h-[500px]">
+          <div className="flex max-h-[500px] flex-col overflow-y-auto">
             {results.map((manga) => (
               <button
                 key={manga.id}

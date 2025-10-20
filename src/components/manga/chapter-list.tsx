@@ -10,6 +10,7 @@ import type { ReadingProgressData } from "@/lib/api";
 import type { ChapterWithSlug } from "@/lib/chapter-slug";
 import { formatChapterTitle, sortChaptersDesc } from "@/lib/chapter-meta";
 import { useOfflineMangaContext } from "./offline-manga-context";
+import { logger } from "@/lib/logger";
 
 interface ChapterListProps {
   chapters: ChapterWithSlug[];
@@ -17,8 +18,14 @@ interface ChapterListProps {
   mangaSlug: string;
 }
 
-export function ChapterList({ chapters, mangaId, mangaSlug }: ChapterListProps) {
-  const [progressMap, setProgressMap] = useState<Map<string, ReadingProgressData>>(new Map());
+export function ChapterList({
+  chapters,
+  mangaId,
+  mangaSlug,
+}: ChapterListProps) {
+  const [progressMap, setProgressMap] = useState<
+    Map<string, ReadingProgressData>
+  >(new Map());
   const [loadingProgress, setLoadingProgress] = useState(true);
   const offline = useOfflineMangaContext();
 
@@ -34,7 +41,12 @@ export function ChapterList({ chapters, mangaId, mangaSlug }: ChapterListProps) 
         });
         setProgressMap(map);
       } catch (error) {
-        console.error("Failed to fetch reading progress:", error);
+        logger.error("Failed to fetch reading progress", {
+          component: "ChapterList",
+          action: "load-progress",
+          mangaId,
+          error: error instanceof Error ? error : new Error(String(error)),
+        });
         notifications.show({
           title: "Failed to load progress",
           message: "Could not load your reading progress for this manga",
@@ -54,7 +66,11 @@ export function ChapterList({ chapters, mangaId, mangaSlug }: ChapterListProps) 
   const getChapterStatus = (chapterId: string) => {
     const progress = progressMap.get(chapterId);
     if (!progress) {
-      return { label: "Unread", isRead: false, progress: null as ReadingProgressData | null };
+      return {
+        label: "Unread",
+        isRead: false,
+        progress: null as ReadingProgressData | null,
+      };
     }
     const isRead = progress.currentPage >= progress.totalPages - 1;
     return {
@@ -67,7 +83,9 @@ export function ChapterList({ chapters, mangaId, mangaSlug }: ChapterListProps) 
   return (
     <div className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-card">
       {sortedChapters.length === 0 ? (
-        <div className="p-4 text-sm text-muted-foreground">No chapters available.</div>
+        <div className="p-4 text-sm text-muted-foreground">
+          No chapters available.
+        </div>
       ) : (
         sortedChapters.map((chapter) => {
           const { label, isRead, progress } = getChapterStatus(chapter.id);
@@ -153,15 +171,23 @@ interface ChapterOfflineControlsProps {
   offline: ReturnType<typeof useOfflineMangaContext>;
 }
 
-function ChapterOfflineControls({ chapter, offline }: ChapterOfflineControlsProps) {
+function ChapterOfflineControls({
+  chapter,
+  offline,
+}: ChapterOfflineControlsProps) {
   const [cancelLoading, setCancelLoading] = useState(false);
 
   if (!offline || !offline.extensionId || !offline.offlineAvailable) {
     return null;
   }
 
-  const { chapterQueueMap, offlineChaptersMap, queueChapter, cancelDownload, isChapterPending } =
-    offline;
+  const {
+    chapterQueueMap,
+    offlineChaptersMap,
+    queueChapter,
+    cancelDownload,
+    isChapterPending,
+  } = offline;
 
   const isDownloaded = offlineChaptersMap.has(chapter.id);
   const queueItem = chapterQueueMap.get(chapter.id);
@@ -177,7 +203,13 @@ function ChapterOfflineControls({ chapter, offline }: ChapterOfflineControlsProp
         autoClose: 3000,
       });
     } catch (error) {
-      console.error("Failed to queue chapter download:", error);
+      logger.error("Failed to queue chapter download", {
+        component: "ChapterList",
+        action: "queue-chapter",
+        mangaId: offline.mangaId ?? "unknown",
+        chapterId: chapter.id,
+        error: error instanceof Error ? error : new Error(String(error)),
+      });
       const message =
         error instanceof ApiError
           ? error.message
@@ -205,7 +237,14 @@ function ChapterOfflineControls({ chapter, offline }: ChapterOfflineControlsProp
         autoClose: 3000,
       });
     } catch (error) {
-      console.error("Failed to cancel download:", error);
+      logger.error("Failed to cancel chapter download", {
+        component: "ChapterList",
+        action: "cancel-download",
+        mangaId: offline.mangaId ?? "unknown",
+        chapterId: chapter.id,
+        queueId: queueItem.id,
+        error: error instanceof Error ? error : new Error(String(error)),
+      });
       const message =
         error instanceof ApiError
           ? error.message
@@ -233,12 +272,19 @@ function ChapterOfflineControls({ chapter, offline }: ChapterOfflineControlsProp
     if (queueItem) {
       const percent =
         queueItem.progressTotal > 0
-          ? Math.round((queueItem.progressCurrent / queueItem.progressTotal) * 100)
+          ? Math.round(
+              (queueItem.progressCurrent / queueItem.progressTotal) * 100,
+            )
           : 0;
       const isDownloading = queueItem.status === "downloading";
       return (
         <StatusPill
-          icon={<Loader2 size={14} className={isDownloading ? "animate-spin" : ""} />}
+          icon={
+            <Loader2
+              size={14}
+              className={isDownloading ? "animate-spin" : ""}
+            />
+          }
           tone={isDownloading ? "info" : "warning"}
         >
           {isDownloading ? `Downloading ${percent}%` : "Queued"}
@@ -248,7 +294,10 @@ function ChapterOfflineControls({ chapter, offline }: ChapterOfflineControlsProp
 
     if (pending) {
       return (
-        <StatusPill icon={<Loader2 size={14} className="animate-spin" />} tone="info">
+        <StatusPill
+          icon={<Loader2 size={14} className="animate-spin" />}
+          tone="info"
+        >
           Queuing…
         </StatusPill>
       );

@@ -366,12 +366,10 @@ export class ExtensionHost {
     const totalPages = full.pages.length;
     const totalChunks = Math.max(1, Math.ceil(totalPages / chunkSize));
 
-    const slice = full.pages
-      .slice(startIndex, endIndex)
-      .map((page, index) => ({
-        ...page,
-        index: startIndex + index,
-      }));
+    const slice = full.pages.slice(startIndex, endIndex).map((page, index) => ({
+      ...page,
+      index: startIndex + index,
+    }));
 
     return {
       chapterId: full.chapterId,

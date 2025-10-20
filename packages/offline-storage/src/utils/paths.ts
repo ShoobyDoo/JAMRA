@@ -11,10 +11,13 @@ import type { OfflinePaths } from "../types.js";
  * Generates zero-padded chapter folder name
  * @example "chapter-0001", "chapter-0042", "chapter-0123"
  */
-export function generateChapterFolderName(chapterNumber: string | number): string {
-  const num = typeof chapterNumber === "string"
-    ? Number.parseFloat(chapterNumber)
-    : chapterNumber;
+export function generateChapterFolderName(
+  chapterNumber: string | number,
+): string {
+  const num =
+    typeof chapterNumber === "string"
+      ? Number.parseFloat(chapterNumber)
+      : chapterNumber;
 
   if (Number.isNaN(num)) {
     // Fallback for non-numeric chapter numbers
@@ -30,7 +33,10 @@ export function generateChapterFolderName(chapterNumber: string | number): strin
  * Generates zero-padded page filename
  * @example "page-0001.jpg", "page-0042.jpg"
  */
-export function generatePageFilename(pageIndex: number, extension: string = "jpg"): string {
+export function generatePageFilename(
+  pageIndex: number,
+  extension: string = "jpg",
+): string {
   const paddedIndex = String(pageIndex).padStart(4, "0");
   return `page-${paddedIndex}.${extension}`;
 }
@@ -60,8 +66,16 @@ export function getImageExtension(url: string, mimeType?: string): string {
 export function buildMangaPaths(
   dataDir: string,
   extensionId: string,
-  mangaSlug: string
-): Pick<OfflinePaths, "offlineDir" | "extensionDir" | "mangaDir" | "chaptersDir" | "metadataFile" | "coverFile"> {
+  mangaSlug: string,
+): Pick<
+  OfflinePaths,
+  | "offlineDir"
+  | "extensionDir"
+  | "mangaDir"
+  | "chaptersDir"
+  | "metadataFile"
+  | "coverFile"
+> {
   const offlineDir = path.join(dataDir, "offline");
   const extensionDir = path.join(offlineDir, extensionId);
   const mangaDir = path.join(extensionDir, mangaSlug);
@@ -86,7 +100,7 @@ export function buildChapterPaths(
   dataDir: string,
   extensionId: string,
   mangaSlug: string,
-  chapterFolderName: string
+  chapterFolderName: string,
 ): Pick<OfflinePaths, "chapterDir"> & { metadataFile: string } {
   const mangaPaths = buildMangaPaths(dataDir, extensionId, mangaSlug);
   const chapterDir = path.join(mangaPaths.chaptersDir, chapterFolderName);
@@ -106,9 +120,14 @@ export function buildPagePath(
   extensionId: string,
   mangaSlug: string,
   chapterFolderName: string,
-  pageFilename: string
+  pageFilename: string,
 ): string {
-  const chapterPaths = buildChapterPaths(dataDir, extensionId, mangaSlug, chapterFolderName);
+  const chapterPaths = buildChapterPaths(
+    dataDir,
+    extensionId,
+    mangaSlug,
+    chapterFolderName,
+  );
   return path.join(chapterPaths.chapterDir, pageFilename);
 }
 

@@ -1,9 +1,16 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { logger } from "@/lib/logger";
 
 export interface OfflineDownloadEvent {
-  type: "download-started" | "download-progress" | "download-completed" | "download-failed" | "chapter-deleted" | "manga-deleted";
+  type:
+    | "download-started"
+    | "download-progress"
+    | "download-completed"
+    | "download-failed"
+    | "chapter-deleted"
+    | "manga-deleted";
   queueId?: number;
   mangaId?: string;
   chapterId?: string;
@@ -38,17 +45,22 @@ export function useOfflineEvents(options: UseOfflineEventsOptions = {}) {
       if (cancelled) return;
 
       try {
-        const apiUrl = process.env.NEXT_PUBLIC_JAMRA_API_URL || "http://localhost:4545";
+        const rawApiBase =
+          process.env.NEXT_PUBLIC_JAMRA_API_URL ?? "http://localhost:4545/api";
+        const normalizedApiBase = rawApiBase.replace(/\/+$/, "");
 
         // Check if offline storage is available before connecting
         try {
-          const checkResponse = await fetch(`${apiUrl}/api/offline/queue`, {
-            method: 'HEAD',
-          });
+          const checkResponse = await fetch(
+            `${normalizedApiBase}/offline/queue`,
+            {
+              method: "HEAD",
+            },
+          );
 
           if (cancelled) return;
 
-          if (checkResponse.status === 503) {
+          if (checkResponse.status === 503 || checkResponse.status === 404) {
             // Offline storage is not available - don't try to connect
             offlineStorageDisabledRef.current = true;
             setConnected(false);
@@ -57,14 +69,25 @@ export function useOfflineEvents(options: UseOfflineEventsOptions = {}) {
         } catch {
           if (cancelled) return;
           // Network error - will retry
-          console.warn("[Offline Events] Failed to check offline storage availability, will retry");
+          logger.warn(
+            "Failed to check offline storage availability; will retry",
+            {
+              component: "useOfflineEvents",
+              action: "check-availability",
+            },
+          );
         }
 
-        const eventSource = new EventSource(`${apiUrl}/api/offline/events`);
+        const eventSource = new EventSource(
+          `${normalizedApiBase}/offline/events`,
+        );
         eventSourceRef.current = eventSource;
 
         eventSource.addEventListener("connected", () => {
-          console.log("[Offline Events] Connected to SSE stream");
+          logger.info("Connected to offline SSE stream", {
+            component: "useOfflineEvents",
+            action: "connected",
+          });
           setConnected(true);
           reconnectAttemptsRef.current = 0;
         });
@@ -120,7 +143,14 @@ export function useOfflineEvents(options: UseOfflineEventsOptions = {}) {
 
           // Only retry a few times before giving up
           if (reconnectAttemptsRef.current >= 3) {
-            console.warn("[Offline Events] Failed to connect after 3 attempts, offline features may not be available");
+            logger.warn(
+              "Offline events connection failed after maximum retries",
+              {
+                component: "useOfflineEvents",
+                action: "max-retries",
+                attempts: reconnectAttemptsRef.current,
+              },
+            );
             offlineStorageDisabledRef.current = true;
             return;
           }
@@ -128,7 +158,7 @@ export function useOfflineEvents(options: UseOfflineEventsOptions = {}) {
           // Attempt to reconnect with exponential backoff
           const delay = Math.min(
             reconnectDelay * Math.pow(2, reconnectAttemptsRef.current),
-            30000
+            30000,
           );
           reconnectAttemptsRef.current++;
 
@@ -137,7 +167,13 @@ export function useOfflineEvents(options: UseOfflineEventsOptions = {}) {
           }, delay);
         };
       } catch {
-        console.warn("[Offline Events] Failed to connect to SSE stream, offline features may not be available");
+        logger.warn(
+          "Failed to establish offline events SSE connection",
+          {
+            component: "useOfflineEvents",
+            action: "connect-failure",
+          },
+        );
         setConnected(false);
       }
     };

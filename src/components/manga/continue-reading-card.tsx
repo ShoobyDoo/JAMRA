@@ -9,6 +9,7 @@ import { withChapterSlugs } from "@/lib/chapter-slug";
 import { formatChapterTitle, sortChaptersAsc } from "@/lib/chapter-meta";
 import { AutoRefreshImage } from "@/components/ui/auto-refresh-image";
 import { resolveCoverSources } from "@/lib/cover-sources";
+import { formatTimeAgo } from "@/lib/time";
 
 interface ContinueReadingCardProps {
   manga: MangaDetails | null;
@@ -19,6 +20,7 @@ interface ContinueReadingCardProps {
   lastReadAt: number;
   error?: string | null;
   extensionId?: string;
+  priority?: boolean;
 }
 
 export function ContinueReadingCard({
@@ -30,27 +32,10 @@ export function ContinueReadingCard({
   lastReadAt,
   error,
   extensionId,
+  priority = false,
 }: ContinueReadingCardProps) {
   // Format last read time
-  const lastReadDate = new Date(lastReadAt);
-  const now = new Date();
-  const diffMs = now.getTime() - lastReadDate.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMs / 3600000);
-  const diffDays = Math.floor(diffMs / 86400000);
-
-  let timeAgo: string;
-  if (diffMins < 1) {
-    timeAgo = "Just now";
-  } else if (diffMins < 60) {
-    timeAgo = `${diffMins} minute${diffMins !== 1 ? "s" : ""} ago`;
-  } else if (diffHours < 24) {
-    timeAgo = `${diffHours} hour${diffHours !== 1 ? "s" : ""} ago`;
-  } else if (diffDays < 7) {
-    timeAgo = `${diffDays} day${diffDays !== 1 ? "s" : ""} ago`;
-  } else {
-    timeAgo = lastReadDate.toLocaleDateString();
-  }
+  const timeAgo = formatTimeAgo(lastReadAt);
 
   const chaptersWithSlugs = useMemo(
     () => withChapterSlugs(manga?.chapters ?? []),
@@ -83,9 +68,7 @@ export function ContinueReadingCard({
                   Unavailable Manga
                 </h3>
               </div>
-              <p className="text-sm text-muted-foreground">
-                ID: {mangaId}
-              </p>
+              <p className="text-sm text-muted-foreground">ID: {mangaId}</p>
               <p className="text-xs text-muted-foreground">
                 Last read: {timeAgo}
               </p>
@@ -107,19 +90,26 @@ export function ContinueReadingCard({
   }
 
   // Find the current chapter info
-  const currentChapter = chaptersWithSlugs.find((ch) => ch.id === currentChapterId);
+  const currentChapter = chaptersWithSlugs.find(
+    (ch) => ch.id === currentChapterId,
+  );
 
   // Calculate chapter progress
   const totalChapters = sortedChaptersAsc.length;
-  const currentChapterIndex = sortedChaptersAsc.findIndex((ch) => ch.id === currentChapterId);
+  const currentChapterIndex = sortedChaptersAsc.findIndex(
+    (ch) => ch.id === currentChapterId,
+  );
   const readChapters = currentChapterIndex >= 0 ? currentChapterIndex + 1 : 0; // +1 because we're currently reading this chapter
-  const chapterProgress = totalChapters > 0 ? (readChapters / totalChapters) * 100 : 0;
+  const chapterProgress =
+    totalChapters > 0 ? (readChapters / totalChapters) * 100 : 0;
 
   // Calculate page progress percentage
-  const pageProgress = totalPages > 0 ? ((currentPage + 1) / totalPages) * 100 : 0;
+  const pageProgress =
+    totalPages > 0 ? ((currentPage + 1) / totalPages) * 100 : 0;
 
   const destination = slugify(manga.slug ?? manga.title) ?? mangaId;
-  const { primary: coverPrimary, fallbacks: coverFallbacks } = resolveCoverSources(manga);
+  const { primary: coverPrimary, fallbacks: coverFallbacks } =
+    resolveCoverSources(manga);
 
   const pageQuery = new URLSearchParams({
     page: String(currentPage),
@@ -143,6 +133,7 @@ export function ContinueReadingCard({
               sizes="96px"
               mangaId={mangaId}
               extensionId={extensionId}
+              priority={priority}
             />
           ) : (
             <div className="flex h-full items-center justify-center text-muted-foreground">
@@ -171,7 +162,9 @@ export function ContinueReadingCard({
               {manga.title}
             </h3>
             <p className="text-sm text-muted-foreground">
-              {currentChapter ? formatChapterTitle(currentChapter) : `Chapter ${currentChapterId}`}
+              {currentChapter
+                ? formatChapterTitle(currentChapter)
+                : `Chapter ${currentChapterId}`}
             </p>
             <p className="text-xs text-muted-foreground">
               Page {currentPage + 1} of {totalPages} • {timeAgo}
@@ -199,7 +192,9 @@ export function ContinueReadingCard({
               <div className="space-y-1">
                 <div className="flex justify-between text-xs text-muted-foreground">
                   <span>Chapter Progress</span>
-                  <span>{readChapters} / {totalChapters} chapters</span>
+                  <span>
+                    {readChapters} / {totalChapters} chapters
+                  </span>
                 </div>
                 <div className="h-1.5 overflow-hidden rounded-full bg-muted">
                   <div
@@ -212,7 +207,6 @@ export function ContinueReadingCard({
           </div>
         </div>
       </div>
-
     </Link>
   );
 }

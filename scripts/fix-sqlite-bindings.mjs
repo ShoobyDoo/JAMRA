@@ -27,7 +27,12 @@ async function findBetterSqlite() {
   const entries = await readdir(pnpmDir, { withFileTypes: true });
   for (const entry of entries) {
     if (entry.isDirectory() && entry.name.startsWith("better-sqlite3@")) {
-      const modulePath = path.join(pnpmDir, entry.name, "node_modules", "better-sqlite3");
+      const modulePath = path.join(
+        pnpmDir,
+        entry.name,
+        "node_modules",
+        "better-sqlite3",
+      );
       if (existsSync(modulePath)) return modulePath;
     }
   }
@@ -53,8 +58,11 @@ async function main() {
   }
 
   const bindings = await readdir(bindingDir, { withFileTypes: true });
-  const hasBindings = bindings.some(e => e.isDirectory() &&
-    (e.name.startsWith("node-v") || e.name.startsWith("electron-v")));
+  const hasBindings = bindings.some(
+    (e) =>
+      e.isDirectory() &&
+      (e.name.startsWith("node-v") || e.name.startsWith("electron-v")),
+  );
 
   if (!hasBindings) {
     console.log("   No valid bindings found, skipping");
@@ -69,14 +77,27 @@ async function main() {
   }
 
   // Also clean up any stale bindings in the pnpm cache
-  const cachePattern = path.join(repoRoot, "node_modules", ".pnpm", "better-sqlite3@*");
+  const cachePattern = path.join(
+    repoRoot,
+    "node_modules",
+    ".pnpm",
+    "better-sqlite3@*",
+  );
   const cacheGlob = cachePattern.replace(/\*/g, "");
 
   try {
-    const pnpmEntries = await readdir(path.dirname(cacheGlob), { withFileTypes: true });
+    const pnpmEntries = await readdir(path.dirname(cacheGlob), {
+      withFileTypes: true,
+    });
     for (const entry of pnpmEntries) {
       if (entry.isDirectory() && entry.name.startsWith("better-sqlite3@")) {
-        const cacheBuild = path.join(path.dirname(cacheGlob), entry.name, "node_modules", "better-sqlite3", "build");
+        const cacheBuild = path.join(
+          path.dirname(cacheGlob),
+          entry.name,
+          "node_modules",
+          "better-sqlite3",
+          "build",
+        );
         if (existsSync(cacheBuild)) {
           await rm(cacheBuild, { recursive: true, force: true });
         }

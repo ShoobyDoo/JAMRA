@@ -3,17 +3,18 @@ import { pathToFileURL } from "node:url";
 import type { ExtensionFactory, ExtensionModule } from "@jamra/extension-sdk";
 import { validateManifest } from "./manifest.js";
 import { ExtensionLoadError } from "./errors.js";
+import { createLogger } from "./logger.js";
+
+const logger = createLogger("ExtensionLoader", "debug");
 
 async function resolveModule(
   factoryOrModule: unknown,
 ): Promise<ExtensionModule> {
-  console.log('[ExtensionLoader] Resolving module:', {
+  logger.debug("Resolving module", {
     type: typeof factoryOrModule,
     isNull: factoryOrModule === null,
     isUndefined: factoryOrModule === undefined,
-    keys: typeof factoryOrModule === 'object' && factoryOrModule !== null
-      ? Object.keys(factoryOrModule)
-      : [],
+    hasKeys: typeof factoryOrModule === "object" && factoryOrModule !== null,
   });
 
   if (!factoryOrModule) {
@@ -32,26 +33,26 @@ async function resolveModule(
     "manifest" in factoryOrModule &&
     "handlers" in factoryOrModule
   ) {
-    console.log('[ExtensionLoader] ✓ Found valid extension module with manifest and handlers');
+    logger.debug("Found valid extension module with manifest and handlers");
     return factoryOrModule as ExtensionModule;
   }
 
-  // Log structure for debugging
   if (typeof factoryOrModule === "object" && factoryOrModule !== null) {
     const keys = Object.keys(factoryOrModule);
     const moduleWithDefault = factoryOrModule as Record<string, unknown>;
-    const hasDefault = 'default' in factoryOrModule;
+    const hasDefault = "default" in factoryOrModule;
     const defaultValue = hasDefault ? moduleWithDefault.default : null;
-    const defaultKeys = defaultValue !== null && typeof defaultValue === 'object' && defaultValue !== null
-      ? Object.keys(defaultValue as Record<string, unknown>)
-      : null;
+    const defaultKeys =
+      defaultValue !== null &&
+      typeof defaultValue === "object" &&
+      defaultValue !== null
+        ? Object.keys(defaultValue as Record<string, unknown>)
+        : null;
 
-    console.error('[ExtensionLoader] ✗ Module structure:', {
+    logger.error("Invalid module structure", {
       keys,
-      hasManifest: 'manifest' in factoryOrModule,
-      hasHandlers: 'handlers' in factoryOrModule,
-      firstLevelKeys: keys,
-      // Check nested defaults
+      hasManifest: "manifest" in factoryOrModule,
+      hasHandlers: "handlers" in factoryOrModule,
       hasDefault,
       defaultKeys,
     });
@@ -68,22 +69,20 @@ export async function importExtension(
   const resolvedPath = path.resolve(filePath);
   const moduleUrl = pathToFileURL(resolvedPath).href;
 
-  console.log('[ExtensionLoader] Importing extension from:', filePath);
-  console.log('[ExtensionLoader] Resolved path:', resolvedPath);
-  console.log('[ExtensionLoader] Module URL:', moduleUrl);
+  logger.debug("Importing extension", {
+    filePath,
+    resolvedPath,
+    moduleUrl,
+  });
 
   try {
     const imported = await import(moduleUrl);
-    console.log('[ExtensionLoader] Import successful, analyzing structure:', {
+    logger.debug("Import successful, analyzing structure", {
       importedKeys: Object.keys(imported),
       hasDefault: !!imported.default,
       hasExtension: !!imported.extension,
       hasFactory: !!imported.factory,
-      hasExtension2: !!imported.Extension,
       defaultType: typeof imported.default,
-      defaultKeys: imported.default && typeof imported.default === 'object'
-        ? Object.keys(imported.default)
-        : null,
     });
 
     const candidate =
@@ -93,13 +92,20 @@ export async function importExtension(
       imported.Extension ??
       imported;
 
-    console.log('[ExtensionLoader] Selected candidate for resolution');
+    logger.debug("Selected candidate for resolution");
     const extension = await resolveModule(candidate);
     validateManifest(extension.manifest);
-    console.log('[ExtensionLoader] ✓ Extension loaded successfully:', extension.manifest.name);
+    logger.info("Extension loaded successfully", {
+      name: extension.manifest.name,
+      id: extension.manifest.id,
+      version: extension.manifest.version,
+    });
     return extension;
   } catch (error) {
-    console.error('[ExtensionLoader] ✗ Failed to import extension:', error);
+    logger.error("Failed to import extension", {
+      filePath,
+      error: error instanceof Error ? error.message : String(error),
+    });
     if (error instanceof ExtensionLoadError) throw error;
     throw new ExtensionLoadError(
       `Failed to load extension from ${filePath}`,

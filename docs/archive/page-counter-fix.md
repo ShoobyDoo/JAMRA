@@ -1,11 +1,14 @@
 # Page Counter Flash Fix
 
 ## Problem
+
 When navigating pages (keyboard, buttons, or click), the page counter at the bottom would flash incorrect values:
+
 - Navigate from page 1 to page 2
 - Display shows: `2 / 3` → `1 / 3` → `2 / 3` (flashing)
 
 ## Root Cause
+
 The `setCurrentPage` function in the Zustand store was making **two separate state updates**:
 
 ```typescript
@@ -20,12 +23,14 @@ setCurrentPage: (page) => {
 ```
 
 ### Why This Caused Flashing:
+
 1. First `set()` updates `currentPage` → triggers re-render with new page
 2. Component reads `currentPage = 2` but old progress data still exists
 3. Second `setProgress()` updates progress → triggers another re-render
 4. Component flashes between states during the two renders
 
 ## Solution
+
 Combined both updates into a **single atomic operation** using a state updater function:
 
 ```typescript
@@ -36,8 +41,9 @@ setCurrentPage: (page) => {
   if (currentMangaId && currentChapterId) {
     const key = `${currentMangaId}:${currentChapterId}`;
     set((state) => ({
-      currentPage: page,           // Update current page
-      progress: {                  // AND update progress
+      currentPage: page, // Update current page
+      progress: {
+        // AND update progress
         ...state.progress,
         [key]: {
           mangaId: currentMangaId,
@@ -51,10 +57,11 @@ setCurrentPage: (page) => {
   } else {
     set({ currentPage: page });
   }
-}
+};
 ```
 
 ### Benefits:
+
 ✅ **Single state update** - Only one `set()` call
 ✅ **Atomic operation** - Both `currentPage` and `progress` update together
 ✅ **No race conditions** - Components only re-render once with correct data
@@ -65,6 +72,7 @@ setCurrentPage: (page) => {
 ### Zustand State Update Patterns
 
 **❌ Bad - Multiple updates:**
+
 ```typescript
 set({ currentPage: page });
 get().setProgress(...); // Calls set() again
@@ -72,6 +80,7 @@ get().setProgress(...); // Calls set() again
 ```
 
 **✅ Good - Single atomic update:**
+
 ```typescript
 set((state) => ({
   currentPage: page,
@@ -81,6 +90,7 @@ set((state) => ({
 ```
 
 ### Why It Matters
+
 - React batches updates within the same event handler
 - But separate `set()` calls in Zustand can trigger multiple renders
 - Using the updater function `set((state) => ...)` ensures atomicity
@@ -95,22 +105,26 @@ set((state) => ({
 ## Result
 
 ### Before:
+
 ```
 Click Next → Display: 2/3 → 1/3 → 2/3 (flash!)
 ```
 
 ### After:
+
 ```
 Click Next → Display: 2/3 (instant, no flash)
 ```
 
 ## Build Status
+
 ✅ ESLint: Passing
 ✅ TypeScript: Passing
 ✅ Build: Success
 ✅ No performance impact (fewer renders = better performance)
 
 ## Testing
+
 - [x] Button navigation: No flashing
 - [x] Keyboard navigation: No flashing
 - [x] Progress bar updates smoothly

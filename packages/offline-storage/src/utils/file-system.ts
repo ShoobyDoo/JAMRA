@@ -131,7 +131,10 @@ export async function getDirSize(dirPath: string): Promise<number> {
 /**
  * Copies a file
  */
-export async function copyFile(srcPath: string, destPath: string): Promise<void> {
+export async function copyFile(
+  srcPath: string,
+  destPath: string,
+): Promise<void> {
   await ensureDir(path.dirname(destPath));
   await fs.copyFile(srcPath, destPath);
 }
@@ -150,9 +153,7 @@ export async function move(srcPath: string, destPath: string): Promise<void> {
 export async function listFiles(dirPath: string): Promise<string[]> {
   try {
     const entries = await fs.readdir(dirPath, { withFileTypes: true });
-    return entries
-      .filter(entry => entry.isFile())
-      .map(entry => entry.name);
+    return entries.filter((entry) => entry.isFile()).map((entry) => entry.name);
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") {
       return [];
@@ -168,8 +169,8 @@ export async function listDirs(dirPath: string): Promise<string[]> {
   try {
     const entries = await fs.readdir(dirPath, { withFileTypes: true });
     return entries
-      .filter(entry => entry.isDirectory())
-      .map(entry => entry.name);
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name);
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") {
       return [];

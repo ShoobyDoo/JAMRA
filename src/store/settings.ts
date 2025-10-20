@@ -66,10 +66,10 @@ export const useSettingsStore = create<SettingsState>()(
             ...get().imageCache,
             enabled: settings.enabled,
             ttlDays: settings.ttlMs / (24 * 60 * 60 * 1000),
-            workingUrlTtlDays:
-              settings.ttlMs / (24 * 60 * 60 * 1000),
+            workingUrlTtlDays: settings.ttlMs / (24 * 60 * 60 * 1000),
             maxEntries: settings.maxEntries,
-            fetchTimeoutMs: settings.fetchTimeoutMs ?? get().imageCache.fetchTimeoutMs,
+            fetchTimeoutMs:
+              settings.fetchTimeoutMs ?? get().imageCache.fetchTimeoutMs,
           },
           imageCacheSynced: true,
         }),
@@ -85,6 +85,7 @@ export const useSettingsStore = create<SettingsState>()(
   ),
 );
 
-export const DEFAULT_IMAGE_CACHE_TTL_MS = DEFAULT_IMAGE_CACHE.ttlDays * 24 * 60 * 60 * 1000;
+export const DEFAULT_IMAGE_CACHE_TTL_MS =
+  DEFAULT_IMAGE_CACHE.ttlDays * 24 * 60 * 60 * 1000;
 export const DEFAULT_WORKING_URL_TTL_MS =
   DEFAULT_IMAGE_CACHE.workingUrlTtlDays * 24 * 60 * 60 * 1000;

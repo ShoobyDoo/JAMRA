@@ -84,15 +84,6 @@ export interface MangaDetails extends MangaSummary {
   links?: Record<string, string>;
 }
 
-export interface CachedCover {
-  dataUrl: string;
-  sourceUrl: string;
-  updatedAt: string;
-  expiresAt?: string;
-  mimeType?: string;
-  bytes?: number;
-}
-
 export interface ChapterSummary {
   id: string;
   title?: string;

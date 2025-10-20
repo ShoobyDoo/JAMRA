@@ -25,7 +25,10 @@ export const useUIStore = create<UIState>()(
         set({ collapsed: shouldCollapse });
       },
       setSidebarWidth: (width: number) => {
-        const clampedWidth = Math.max(MIN_SIDEBAR_WIDTH, Math.min(MAX_SIDEBAR_WIDTH, width));
+        const clampedWidth = Math.max(
+          MIN_SIDEBAR_WIDTH,
+          Math.min(MAX_SIDEBAR_WIDTH, width),
+        );
         set({ sidebarWidth: clampedWidth });
       },
       setHasHydrated: (state: boolean) => {

@@ -31,7 +31,7 @@ export interface NetworkLogContext extends LogContext {
 }
 
 class Logger {
-  private isDev = process.env.NODE_ENV === 'development';
+  private isDev = process.env.NODE_ENV === "development";
   private minLevel: LogLevel = this.isDev ? LogLevel.DEBUG : LogLevel.INFO;
 
   setMinLevel(level: LogLevel): void {
@@ -63,11 +63,15 @@ class Logger {
     return level >= this.minLevel;
   }
 
-  private formatMessage(level: LogLevel, message: string, context?: LogContext): string {
+  private formatMessage(
+    level: LogLevel,
+    message: string,
+    context?: LogContext,
+  ): string {
     const timestamp = new Date().toISOString();
     const levelName = LogLevel[level];
-    const component = context?.component ? `[${context.component}]` : '';
-    const action = context?.action ? `(${context.action})` : '';
+    const component = context?.component ? `[${context.component}]` : "";
+    const action = context?.action ? `(${context.action})` : "";
 
     return `${timestamp} ${levelName} ${component}${action} ${message}`;
   }
@@ -75,7 +79,7 @@ class Logger {
   private formatNetworkMessage(
     level: LogLevel,
     message: string,
-    context?: NetworkLogContext
+    context?: NetworkLogContext,
   ): string {
     const baseMessage = this.formatMessage(level, message, context);
 
@@ -85,13 +89,17 @@ class Logger {
 
     if (context.url) networkDetails.push(`URL: ${context.url}`);
     if (context.method) networkDetails.push(`Method: ${context.method}`);
-    if (context.statusCode) networkDetails.push(`Status: ${context.statusCode}`);
-    if (context.duration !== undefined) networkDetails.push(`Duration: ${context.duration}ms`);
-    if (context.requestSize !== undefined) networkDetails.push(`Req Size: ${context.requestSize}B`);
-    if (context.responseSize !== undefined) networkDetails.push(`Res Size: ${context.responseSize}B`);
+    if (context.statusCode)
+      networkDetails.push(`Status: ${context.statusCode}`);
+    if (context.duration !== undefined)
+      networkDetails.push(`Duration: ${context.duration}ms`);
+    if (context.requestSize !== undefined)
+      networkDetails.push(`Req Size: ${context.requestSize}B`);
+    if (context.responseSize !== undefined)
+      networkDetails.push(`Res Size: ${context.responseSize}B`);
 
     if (networkDetails.length > 0) {
-      return `${baseMessage} | ${networkDetails.join(' | ')}`;
+      return `${baseMessage} | ${networkDetails.join(" | ")}`;
     }
 
     return baseMessage;
@@ -118,7 +126,11 @@ class Logger {
     }
   }
 
-  private logNetwork(level: LogLevel, message: string, context?: NetworkLogContext): void {
+  private logNetwork(
+    level: LogLevel,
+    message: string,
+    context?: NetworkLogContext,
+  ): void {
     if (!this.shouldLog(level)) return;
 
     const formattedMessage = this.formatNetworkMessage(level, message, context);
@@ -156,7 +168,11 @@ class Logger {
   }
 
   // Network-specific logging methods
-  networkRequest(url: string, method: string, context?: Omit<NetworkLogContext, 'url' | 'method'>): void {
+  networkRequest(
+    url: string,
+    method: string,
+    context?: Omit<NetworkLogContext, "url" | "method">,
+  ): void {
     this.logNetwork(LogLevel.DEBUG, `Network request initiated`, {
       ...context,
       url,
@@ -170,7 +186,10 @@ class Logger {
     method: string,
     statusCode: number,
     duration: number,
-    context?: Omit<NetworkLogContext, 'url' | 'method' | 'statusCode' | 'duration'>
+    context?: Omit<
+      NetworkLogContext,
+      "url" | "method" | "statusCode" | "duration"
+    >,
   ): void {
     const level = statusCode >= 400 ? LogLevel.ERROR : LogLevel.DEBUG;
     this.logNetwork(level, `Network response received`, {
@@ -188,7 +207,7 @@ class Logger {
     method: string,
     error: Error,
     duration?: number,
-    context?: Omit<NetworkLogContext, 'url' | 'method' | 'error' | 'duration'>
+    context?: Omit<NetworkLogContext, "url" | "method" | "error" | "duration">,
   ): void {
     this.logNetwork(LogLevel.ERROR, `Network request failed`, {
       ...context,
@@ -204,24 +223,36 @@ class Logger {
   apiCall(endpoint: string, method: string, context?: LogContext): void {
     this.networkRequest(endpoint, method, {
       ...context,
-      component: 'API',
-      action: 'api-call',
+      component: "API",
+      action: "api-call",
     });
   }
 
-  apiResponse(endpoint: string, method: string, statusCode: number, duration: number, context?: LogContext): void {
+  apiResponse(
+    endpoint: string,
+    method: string,
+    statusCode: number,
+    duration: number,
+    context?: LogContext,
+  ): void {
     this.networkResponse(endpoint, method, statusCode, duration, {
       ...context,
-      component: 'API',
-      action: 'api-response',
+      component: "API",
+      action: "api-response",
     });
   }
 
-  apiError(endpoint: string, method: string, error: Error, duration?: number, context?: LogContext): void {
+  apiError(
+    endpoint: string,
+    method: string,
+    error: Error,
+    duration?: number,
+    context?: LogContext,
+  ): void {
     this.networkError(endpoint, method, error, duration, {
       ...context,
-      component: 'API',
-      action: 'api-error',
+      component: "API",
+      action: "api-error",
     });
   }
 
@@ -229,7 +260,7 @@ class Logger {
     this.debug(`Component mounted`, {
       ...context,
       component: componentName,
-      action: 'mount',
+      action: "mount",
     });
   }
 
@@ -237,14 +268,18 @@ class Logger {
     this.debug(`Component unmounted`, {
       ...context,
       component: componentName,
-      action: 'unmount',
+      action: "unmount",
     });
   }
 
-  userAction(action: string, details?: Record<string, unknown>, context?: LogContext): void {
+  userAction(
+    action: string,
+    details?: Record<string, unknown>,
+    context?: LogContext,
+  ): void {
     this.info(`User action: ${action}`, {
       ...context,
-      component: 'UserInteraction',
+      component: "UserInteraction",
       action,
       ...details,
     });
@@ -253,7 +288,7 @@ class Logger {
   performance(operation: string, duration: number, context?: LogContext): void {
     this.debug(`Performance: ${operation} took ${duration}ms`, {
       ...context,
-      component: 'Performance',
+      component: "Performance",
       action: operation,
       duration,
     });

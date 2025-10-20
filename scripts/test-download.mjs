@@ -13,7 +13,9 @@ async function testDownload() {
   try {
     // 1. Get manga details
     console.log("1. Fetching manga details...");
-    const mangaResponse = await fetch(`${API_URL}/api/manga/com.jamra.example/example-1`);
+    const mangaResponse = await fetch(
+      `${API_URL}/api/manga/com.jamra.example/example-1`,
+    );
     if (!mangaResponse.ok) {
       throw new Error(`Failed to fetch manga: ${mangaResponse.status}`);
     }
@@ -28,21 +30,28 @@ async function testDownload() {
 
     // 2. Queue a chapter download
     const testChapter = manga.chapters[0];
-    console.log(`2. Queuing chapter download: ${testChapter.title || testChapter.id}...`);
-    const queueResponse = await fetch(`${API_URL}/api/offline/download/chapter`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        extensionId: "com.jamra.example",
-        mangaId: "example-1",
-        chapterId: testChapter.id,
-        priority: 0,
-      }),
-    });
+    console.log(
+      `2. Queuing chapter download: ${testChapter.title || testChapter.id}...`,
+    );
+    const queueResponse = await fetch(
+      `${API_URL}/api/offline/download/chapter`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          extensionId: "com.jamra.example",
+          mangaId: "example-1",
+          chapterId: testChapter.id,
+          priority: 0,
+        }),
+      },
+    );
 
     if (!queueResponse.ok) {
       const error = await queueResponse.text();
-      throw new Error(`Failed to queue download: ${queueResponse.status} - ${error}`);
+      throw new Error(
+        `Failed to queue download: ${queueResponse.status} - ${error}`,
+      );
     }
 
     const queueData = await queueResponse.json();
@@ -57,10 +66,14 @@ async function testDownload() {
     const queueCheckData = await queueCheckResponse.json();
     console.log(`   ✓ Queue items: ${queueCheckData.queue.length}`);
 
-    const ourItem = queueCheckData.queue.find(q => q.id === queueData.queueId);
+    const ourItem = queueCheckData.queue.find(
+      (q) => q.id === queueData.queueId,
+    );
     if (ourItem) {
       console.log(`   ✓ Status: ${ourItem.status}`);
-      console.log(`   ✓ Progress: ${ourItem.progressCurrent}/${ourItem.progressTotal}\n`);
+      console.log(
+        `   ✓ Progress: ${ourItem.progressCurrent}/${ourItem.progressTotal}\n`,
+      );
     }
 
     // 4. Test SSE connection
@@ -69,7 +82,9 @@ async function testDownload() {
     console.log("   → (This will show real-time download progress)");
     console.log("   → Press Ctrl+C to stop\n");
 
-    const eventSource = new (await import("eventsource")).default(`${API_URL}/api/offline/events`);
+    const eventSource = new (await import("eventsource")).default(
+      `${API_URL}/api/offline/events`,
+    );
 
     eventSource.addEventListener("connected", () => {
       console.log("   ✓ SSE connection established\n");
@@ -83,10 +98,13 @@ async function testDownload() {
 
     eventSource.addEventListener("download-progress", (e) => {
       const data = JSON.parse(e.data);
-      const percent = data.progressTotal > 0
-        ? Math.round((data.progressCurrent / data.progressTotal) * 100)
-        : 0;
-      console.log(`[PROGRESS] Queue ${data.queueId}: ${data.progressCurrent}/${data.progressTotal} pages (${percent}%)`);
+      const percent =
+        data.progressTotal > 0
+          ? Math.round((data.progressCurrent / data.progressTotal) * 100)
+          : 0;
+      console.log(
+        `[PROGRESS] Queue ${data.queueId}: ${data.progressCurrent}/${data.progressTotal} pages (${percent}%)`,
+      );
     });
 
     eventSource.addEventListener("download-completed", (e) => {
@@ -109,7 +127,6 @@ async function testDownload() {
       eventSource.close();
       process.exit(1);
     };
-
   } catch (error) {
     console.error("\n❌ Test failed:", error.message);
     process.exit(1);

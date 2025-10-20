@@ -1,320 +1,99 @@
-# Library and History Feature Implementation Plan
+# Library & History Features
+
+Last reviewed: February 2025
+
+This guide describes the shipped behaviour for the Library and History surfaces, covering persistence, API contracts, and client-side usage.
+
+---
 
 ## Overview
 
-This document outlines the implementation plan for the Library and History features in JAMRA. These features will leverage the existing reading progress and offline storage infrastructure.
+- **Library** lets users bookmark manga, track status (reading/completed/etc.), favourite titles, and organise entries with tags. It powers the Library page at `/library`.
+- **History** records notable events (reads, favourites, library changes, downloads) to fuel the timeline at `/history` and related statistics.
 
-## Current Infrastructure
+Both features build on the catalog database (`packages/catalog-db`), are exposed through REST endpoints in `packages/catalog-server`, and surfaced via Zustand stores in `src/store`.
 
-### Existing Database Tables
-- `reading_progress` - Tracks reading progress for each chapter (manga_id, chapter_id, current_page, total_pages, last_read_at)
-- `offline_manga` - Tracks downloaded manga
-- `offline_chapters` - Tracks downloaded chapters
+---
 
-### Existing Functionality
-- Reading progress is already tracked in `packages/catalog-db/src/catalogRepository.ts`
-- Methods: `saveReadingProgress()`, `getReadingProgress()`, `getAllReadingProgress()`, `getLatestReadingProgressPerManga()`
-- Offline manga tracking in `packages/offline-storage`
+## Persistence Model
 
-## Library Feature
+| Table | Purpose | Key Columns |
+| ----- | ------- | ----------- |
+| `library_entries` | One row per manga in the library. | `manga_id` (PK), `extension_id`, `status`, `personal_rating`, `favorite`, `notes`, timestamps (`added_at`, `updated_at`, `started_at`, `completed_at`). |
+| `library_tags` | User-defined tags. | `id`, `name`, `color`, `created_at`. |
+| `library_entry_tags` | Join table between library entries and tags. | Composite PK `(manga_id, tag_id)`. |
+| `history_entries` | Audit log of user actions. | `id`, `manga_id`, `chapter_id?`, `action_type`, `timestamp`, `extension_id?`, `metadata` (JSON). |
 
-### Purpose
-The Library is a curated collection of manga that the user is actively following or interested in. It should include:
-- Manga the user is currently reading (has reading progress)
-- Manga the user has downloaded for offline reading
-- Manga the user has manually added to their library
+---
 
-### Database Schema
+## API Surface
 
-#### New Table: `library`
-```sql
-CREATE TABLE library (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  manga_id TEXT NOT NULL,
-  extension_id TEXT NOT NULL,
-  added_at INTEGER NOT NULL,
-  last_accessed_at INTEGER,
-  status TEXT DEFAULT 'reading', -- 'reading', 'completed', 'plan_to_read', 'on_hold', 'dropped'
-  favorite INTEGER DEFAULT 0,    -- Boolean for favorites
-  notes TEXT,                     -- User notes
-  UNIQUE(manga_id, extension_id)
-);
+### Library
 
-CREATE INDEX idx_library_status ON library(status);
-CREATE INDEX idx_library_favorite ON library(favorite);
-CREATE INDEX idx_library_last_accessed ON library(last_accessed_at DESC);
-```
+| Endpoint | Description |
+| -------- | ----------- |
+| `POST /api/library` | Add a manga to the library. Body accepts `mangaId`, `extensionId`, `status`, plus optional `personalRating`, `favorite`, `notes`, `startedAt`, `completedAt`. |
+| `PUT /api/library/:mangaId` | Update status, rating, favorite flag, or notes for an entry. |
+| `DELETE /api/library/:mangaId` | Remove a manga from the library. |
+| `GET /api/library/:mangaId` | Fetch a single entry. |
+| `GET /api/library` | List entries (supports `status` and `favorite` query params). |
+| `GET /api/library-enriched` | Returns entries joined with manga metadata and aggregated progress information. |
+| `GET /api/library-stats` | Summary counts grouped by status and favourites. |
+| `POST /api/library/tags` | Create a tag (`name`, optional `color`). |
+| `DELETE /api/library/tags/:tagId` | Delete a tag. |
+| `GET /api/library/:mangaId/tags` | List tags applied to an entry. |
+| `POST /api/library/:mangaId/tags/:tagId` | Attach a tag to an entry. |
+| `DELETE /api/library/:mangaId/tags/:tagId` | Remove a tag from an entry. |
 
-### API Endpoints
+### History
 
-```typescript
-// Add manga to library
-POST /api/library
-Body: { extensionId, mangaId, status?, favorite? }
-Response: { success: boolean, id: number }
+| Endpoint | Description |
+| -------- | ----------- |
+| `POST /api/history` | Append a history entry. Body includes `mangaId`, `actionType`, optional `chapterId`, `extensionId`, `metadata`. |
+| `GET /api/history` | Paged list of history entries (`limit`, `offset`, `actionType`, `mangaId`, `startDate`, `endDate`, `enriched` query params). |
+| `GET /api/history/stats` | Aggregate metrics (entries per action type, date ranges, etc.). |
+| `DELETE /api/history/:id` | Remove a single entry. |
+| `DELETE /api/history?before=<timestamp>` | Bulk delete entries before a timestamp (optional `actionType` filter). |
 
-// Get user's library
-GET /api/library?status=reading&sort=last_accessed&order=desc
-Response: {
-  manga: Array<{
-    id, extensionId, mangaId, status, favorite, addedAt, lastAccessedAt,
-    details: MangaSummary,  // From cache
-    progress?: { chapterId, currentPage, totalPages, lastReadAt },
-    offline?: { downloadedChapters: number, totalChapters: number }
-  }>
-}
+All endpoints return JSON DTOs defined in `src/lib/api/library.ts` and `src/lib/api/history.ts`.
 
-// Update library item
-PATCH /api/library/:mangaId
-Body: { status?, favorite?, notes? }
-Response: { success: boolean }
+---
 
-// Remove from library
-DELETE /api/library/:mangaId
-Response: { success: boolean }
+## Frontend Usage
 
-// Bulk operations
-POST /api/library/bulk
-Body: { action: 'add'|'remove'|'update', mangaIds: string[], updates?: {} }
-Response: { success: boolean, affected: number }
-```
+### Library
 
-### Auto-Population Logic
+- Zustand store: `src/store/library.ts`
+  - Persists entries in a `Map`, exposes filters (status, favourites, tags, search), sorting, and selection helpers.
+  - `loadLibrary()` hydrates data using the enriched endpoint, with additional metadata loaded via `loadStats()` and `loadTags()`.
+  - Actions log activity to history via `logHistoryEntry` (e.g., adding to library, toggling favourites).
+- UI:
+  - Page: `src/app/(app)/(public)/library/page.tsx`
+  - Components: `LibraryFilterBar`, `LibraryGrid`, `AddToLibraryButton`, tag management controls.
+  - Offline integration: when chapters are downloaded through the offline-storage manager, entries can be highlighted via store filters.
 
-The library should be automatically populated based on:
-1. **Reading Progress**: When a user reads a chapter, automatically add to library with status "reading"
-2. **Offline Downloads**: When a user downloads chapters, add to library with appropriate status
-3. **Manual Addition**: User explicitly adds via "Add to Library" button
+### History
 
-### Frontend Components
+- Zustand store: `src/store/history.ts`
+  - Tracks timeline entries, stats, filters, pagination, and view modes (timeline/list/grid).
+  - Exposes helpers to log events (`logEntry`), clear history, and fetch additional pages.
+- UI:
+  - Page: `src/app/(app)/(public)/history/page.tsx`
+  - Stats view: `src/app/(app)/(public)/history/stats/page.tsx`
+  - Components consume the enriched API to display manga details alongside events.
 
-#### Library Page (`src/app/(app)/library/page.tsx`)
-- **Filter Bar**: Filter by status, favorites, offline availability
-- **Sort Options**: Last accessed, title, date added, progress
-- **Grid/List View**: Toggle between compact and detailed views
-- **Quick Actions**: Mark as completed, change status, remove from library
-- **Bulk Selection**: Select multiple manga for bulk operations
+### Automatic Logging
 
-#### Library Card Component
-```typescript
-interface LibraryCardProps {
-  manga: LibraryManga;
-  view: 'grid' | 'list';
-  onStatusChange: (status: LibraryStatus) => void;
-  onFavoriteToggle: () => void;
-  onRemove: () => void;
-}
-```
+- `useReadingProgress` logs `"read"` actions when chapters are opened.
+- `useLibrary` logs `"library_add"`, `"favorite"`, and `"unfavorite"` events.
+- Additional domains (downloads, settings) can log via the shared API helper in `src/lib/api/history.ts`.
 
-Display:
-- Cover image
-- Title and alt titles
-- Current chapter / total chapters
-- Progress bar (% read)
-- Status badge
-- Favorite star
-- Offline indicator (if downloaded)
-- Last read timestamp
+---
 
-## History Feature
+## Future Improvements
 
-### Purpose
-History tracks all manga the user has viewed or interacted with, providing a chronological record of their activity.
+- **Bulk operations** — backend currently lacks bulk add/remove endpoints; client workarounds loop across selected entries.
+- **History filters** — expand UI to surface action-type chips and date pickers (API already supports the filters).
+- **Offline sync** — align offline storage events with history entries for richer context.
 
-### Database Schema
-
-#### New Table: `history`
-```sql
-CREATE TABLE history (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  manga_id TEXT NOT NULL,
-  extension_id TEXT NOT NULL,
-  visited_at INTEGER NOT NULL,
-  action TEXT NOT NULL,  -- 'viewed', 'read', 'searched', 'downloaded'
-  chapter_id TEXT,       -- If action was 'read'
-  page_number INTEGER,   -- If action was 'read'
-  UNIQUE(manga_id, extension_id, visited_at)
-);
-
-CREATE INDEX idx_history_visited_at ON history(visited_at DESC);
-CREATE INDEX idx_history_manga ON history(manga_id, extension_id);
-CREATE INDEX idx_history_action ON history(action);
-```
-
-### API Endpoints
-
-```typescript
-// Get history
-GET /api/history?limit=50&offset=0&action=read
-Response: {
-  history: Array<{
-    id, mangaId, extensionId, visitedAt, action, chapterId?, pageNumber?,
-    details: MangaSummary  // From cache or fetch
-  }>,
-  total: number,
-  hasMore: boolean
-}
-
-// Add to history
-POST /api/history
-Body: { extensionId, mangaId, action, chapterId?, pageNumber? }
-Response: { success: boolean, id: number }
-
-// Clear history
-DELETE /api/history?before=timestamp&action=viewed
-Response: { success: boolean, deleted: number }
-
-// Get history for specific manga
-GET /api/history/:mangaId
-Response: {
-  history: Array<{ visitedAt, action, chapterId?, pageNumber? }>
-}
-```
-
-### Auto-Tracking Logic
-
-History should automatically track:
-1. **Manga Views**: When user visits manga details page
-2. **Chapter Reads**: When user reads a chapter (every N pages or on exit)
-3. **Search Activity**: When user searches and clicks on results
-4. **Downloads**: When user downloads chapters
-
-### Frontend Components
-
-#### History Page (`src/app/(app)/history/page.tsx`)
-- **Timeline View**: Chronological list of activities
-- **Filter Options**: By action type (viewed, read, downloaded)
-- **Date Range Picker**: Filter by date range
-- **Quick Actions**: Re-read, add to library, clear entry
-- **Pagination**: Infinite scroll or page-based
-
-#### History Item Component
-```typescript
-interface HistoryItemProps {
-  entry: HistoryEntry;
-  onClear: (id: number) => void;
-  onAddToLibrary: () => void;
-}
-```
-
-Display:
-- Cover image (small)
-- Title
-- Action description ("Read Chapter 5", "Viewed", "Downloaded 3 chapters")
-- Timestamp (relative: "2 hours ago", "Yesterday")
-- Quick action buttons
-
-## Implementation Phases
-
-### Phase 1: Database & Backend (Priority: High)
-1. Create migration script for new tables
-2. Implement repository methods in `catalog-db`
-3. Create API endpoints in `catalog-server`
-4. Add auto-population hooks for reading progress and downloads
-5. Write unit tests for repository methods
-
-### Phase 2: Frontend - Library (Priority: High)
-1. Create Library page with grid/list views
-2. Implement filtering and sorting
-3. Create Library card component
-4. Add "Add to Library" button to manga details page
-5. Integrate with offline storage indicators
-6. Add bulk operations support
-
-### Phase 3: Frontend - History (Priority: Medium)
-1. Create History page with timeline view
-2. Implement filtering by action type and date
-3. Create History item component
-4. Add auto-tracking for manga views
-5. Add "Clear History" functionality
-
-### Phase 4: Polish & Integration (Priority: Medium)
-1. Add library stats to home page (total manga, chapters read, etc.)
-2. Create library widget for sidebar
-3. Add keyboard shortcuts for common actions
-4. Implement export/import functionality (JSON)
-5. Add search within library
-6. Performance optimization for large libraries
-
-## Database Migration Script
-
-```typescript
-// packages/catalog-db/src/migrations/003_library_and_history.ts
-export function up(db: Database) {
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS library (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      manga_id TEXT NOT NULL,
-      extension_id TEXT NOT NULL,
-      added_at INTEGER NOT NULL,
-      last_accessed_at INTEGER,
-      status TEXT DEFAULT 'reading',
-      favorite INTEGER DEFAULT 0,
-      notes TEXT,
-      UNIQUE(manga_id, extension_id)
-    );
-
-    CREATE INDEX IF NOT EXISTS idx_library_status ON library(status);
-    CREATE INDEX IF NOT EXISTS idx_library_favorite ON library(favorite);
-    CREATE INDEX IF NOT EXISTS idx_library_last_accessed ON library(last_accessed_at DESC);
-
-    CREATE TABLE IF NOT EXISTS history (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      manga_id TEXT NOT NULL,
-      extension_id TEXT NOT NULL,
-      visited_at INTEGER NOT NULL,
-      action TEXT NOT NULL,
-      chapter_id TEXT,
-      page_number INTEGER,
-      UNIQUE(manga_id, extension_id, visited_at)
-    );
-
-    CREATE INDEX IF NOT EXISTS idx_history_visited_at ON history(visited_at DESC);
-    CREATE INDEX IF NOT EXISTS idx_history_manga ON history(manga_id, extension_id);
-    CREATE INDEX IF NOT EXISTS idx_history_action ON history(action);
-  `);
-}
-
-export function down(db: Database) {
-  db.exec(`
-    DROP TABLE IF EXISTS library;
-    DROP TABLE IF EXISTS history;
-  `);
-}
-```
-
-## Integration with Existing Features
-
-### Reading Progress Integration
-- When `saveReadingProgress()` is called, automatically add/update library entry
-- Update `last_accessed_at` timestamp
-- If user completes a manga (read all chapters), suggest changing status to "completed"
-
-### Offline Storage Integration
-- When manga is downloaded, add to library if not already present
-- Show offline indicator on library cards
-- Filter library by "Downloaded" status
-- Sync library status with offline downloads
-
-### Continue Reading Integration
-- Home page "Continue Reading" widget should pull from library items with status "reading"
-- Sort by `last_accessed_at` to show most recently read first
-- Show progress percentage based on chapters read vs total chapters
-
-## Future Enhancements
-
-1. **Collections**: Group manga into custom collections (e.g., "Action", "To Binge", "Favorites")
-2. **Reading Goals**: Set goals for chapters/manga to read per week/month
-3. **Statistics**: Detailed reading statistics (chapters read per day, favorite genres, etc.)
-4. **Social Features**: Share library with friends, see what others are reading
-5. **Recommendations**: Based on library content and reading history
-6. **Cloud Sync**: Sync library and history across devices
-7. **Backup/Restore**: Export and import library data
-
-## Notes
-
-- Library and History should be opt-in features with privacy controls
-- Consider GDPR compliance for history tracking
-- Implement data retention policies (auto-delete history older than X months)
-- Add user preferences for auto-population behavior
-- Ensure proper indexing for performance with large datasets (10,000+ entries)
+Keep this document in sync with the API and store implementations whenever behaviour changes.

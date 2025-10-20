@@ -52,18 +52,33 @@ export interface ChapterPagesChunkResult {
 }
 
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const SLUG_CACHE = new Map<string, string>();
+const MAX_CACHE_SIZE = 1000;
 
 function looksLikeSlug(value: string): boolean {
   return SLUG_PATTERN.test(value.trim());
 }
 
 function normalizeSlug(value: string): string {
-  return value
+  // Check cache first
+  if (SLUG_CACHE.has(value)) {
+    return SLUG_CACHE.get(value)!;
+  }
+
+  // Perform expensive normalization
+  const normalized = value
     .normalize("NFKD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
+
+  // Cache result if under limit
+  if (SLUG_CACHE.size < MAX_CACHE_SIZE) {
+    SLUG_CACHE.set(value, normalized);
+  }
+
+  return normalized;
 }
 
 export class CatalogService {
@@ -161,8 +176,14 @@ export class CatalogService {
   ): Promise<ChapterPagesSyncResult> {
     const mangaId = await this.resolveMangaId(extensionId, mangaIdOrSlug);
 
-    if (mangaId === mangaIdOrSlug && looksLikeSlug(mangaIdOrSlug) && this.repository) {
-      throw new Error(`Manga slug "${mangaIdOrSlug}" could not be resolved to an ID.`);
+    if (
+      mangaId === mangaIdOrSlug &&
+      looksLikeSlug(mangaIdOrSlug) &&
+      this.repository
+    ) {
+      throw new Error(
+        `Manga slug "${mangaIdOrSlug}" could not be resolved to an ID.`,
+      );
     }
 
     const pages = await this.host.invokeChapterPages(extensionId, {
@@ -184,8 +205,14 @@ export class CatalogService {
   ): Promise<ChapterPagesChunkResult> {
     const mangaId = await this.resolveMangaId(extensionId, mangaIdOrSlug);
 
-    if (mangaId === mangaIdOrSlug && looksLikeSlug(mangaIdOrSlug) && this.repository) {
-      throw new Error(`Manga slug "${mangaIdOrSlug}" could not be resolved to an ID.`);
+    if (
+      mangaId === mangaIdOrSlug &&
+      looksLikeSlug(mangaIdOrSlug) &&
+      this.repository
+    ) {
+      throw new Error(
+        `Manga slug "${mangaIdOrSlug}" could not be resolved to an ID.`,
+      );
     }
 
     const chunkData = await this.host.invokeChapterPagesChunk(extensionId, {
@@ -216,9 +243,7 @@ export class CatalogService {
     let chaptersFetched = 0;
     let chapters: ChapterSummary[] | undefined = details.chapters;
     const shouldRefreshChapters =
-      options.forceChapterRefresh ||
-      !chapters ||
-      chapters.length === 0;
+      options.forceChapterRefresh || !chapters || chapters.length === 0;
 
     if (shouldRefreshChapters) {
       chapters = await this.host.invokeChapterList(extensionId, { mangaId });
@@ -251,7 +276,10 @@ export class CatalogService {
 
     const slugCandidate = trimmed.toLowerCase();
 
-    const repoMatch = this.repository?.getMangaBySlug(extensionId, slugCandidate);
+    const repoMatch = this.repository?.getMangaBySlug(
+      extensionId,
+      slugCandidate,
+    );
     if (repoMatch?.id) {
       return repoMatch.id;
     }

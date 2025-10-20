@@ -101,7 +101,12 @@ export function Breadcrumb() {
 
       if (segment.isLast || !segment.href) {
         return (
-          <Text key={key} fw={500} size="sm" aria-current={segment.isLast ? "page" : undefined}>
+          <Text
+            key={key}
+            fw={500}
+            size="sm"
+            aria-current={segment.isLast ? "page" : undefined}
+          >
             {segment.label}
           </Text>
         );

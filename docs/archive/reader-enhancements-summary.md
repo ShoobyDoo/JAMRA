@@ -3,14 +3,18 @@
 ## Changes Implemented
 
 ### 1. Vertical Scroll Mode - Gap Fix ✅
+
 **Issue**: Vertical mode (webtoon/manhwa) had a 16px gap between pages by default, breaking the continuous reading experience.
 
 **Fix**: Changed default `gapSize` from `16` to `0`
+
 - **File**: `src/store/reader-settings.ts`
 - **Result**: Pages now flow seamlessly with no breaks (user can still adjust in settings)
 
 ### 2. Scroll Speed Range Extended ✅
+
 **Change**: Increased scroll speed range and adjusted defaults
+
 - **Range**: 1-10 → **1-50**
 - **Default**: 5 → **20** (closer to native mouse scroll speed)
 - **Files**:
@@ -18,38 +22,47 @@
   - `src/components/reader/reader-settings-panel.tsx` - Updated slider max value
 
 ### 3. Auto-Hide Delay Adjustment ✅
+
 **Change**: Reduced default auto-hide delay for better UX
+
 - **Previous**: 3000ms (3 seconds)
 - **New**: 2000ms (2 seconds)
 - **File**: `src/store/reader-settings.ts`
 - **Benefit**: Controls hide more quickly when not needed, less intrusive
 
 ### 4. Animation Enhancements ✅
+
 Added smooth animations to reader UI elements:
 
 #### Settings Panel
+
 - **Backdrop**: Fade-in animation with opacity transition (200ms)
 - **Panel**: Slide-in from right animation (300ms)
 - **Classes**: `animate-in fade-in` (backdrop), `animate-in slide-in-from-right` (panel)
 
 #### Reader Controls
+
 - **Top Bar**: Smooth slide down/up with ease-out timing (300ms)
 - **Bottom Bar**: Smooth slide up/down with ease-out timing (300ms)
 - **Easing**: Changed from default to `ease-out` for natural deceleration
 
 **Files Modified**:
+
 - `src/components/reader/reader-settings-panel.tsx`
 - `src/components/reader/reader-controls.tsx`
 
 ### 5. Progress Bar Fix ✅
+
 **Issue**: Progress calculation was incorrect - at page 1 of 5, it showed 20% fill, extending way past the current page marker.
 
 **Concept**: Progress bar should visualize as `[--|--|--|--|--]` where:
+
 - Each `|` represents a page boundary
 - The slider dot is at the current page position
 - The fill shows BEHIND the dot (completed pages)
 
 **Fix**: Changed progress calculation
+
 ```typescript
 // Before (incorrect)
 const progress = ((currentPage + 1) / totalPages) * 100;
@@ -65,6 +78,7 @@ const progress = totalPages > 1 ? (currentPage / (totalPages - 1)) * 100 : 0;
 **File**: `src/components/reader/reader-controls.tsx`
 
 **Result**:
+
 - Page 1 (first page): 0% fill - dot at start, no fill behind
 - Page 2: 25% fill - dot at first quarter mark
 - Page 3: 50% fill - dot at middle
@@ -84,12 +98,12 @@ const progress = totalPages > 1 ? (currentPage / (totalPages - 1)) * 100 : 0;
 
 ## Animation Specs
 
-| Element | Animation | Duration | Easing |
-|---------|-----------|----------|--------|
-| Settings Backdrop | Fade in | 200ms | default |
-| Settings Panel | Slide from right | 300ms | default |
-| Top Controls | Slide down/up | 300ms | ease-out |
-| Bottom Controls | Slide up/down | 300ms | ease-out |
+| Element           | Animation        | Duration | Easing   |
+| ----------------- | ---------------- | -------- | -------- |
+| Settings Backdrop | Fade in          | 200ms    | default  |
+| Settings Panel    | Slide from right | 300ms    | default  |
+| Top Controls      | Slide down/up    | 300ms    | ease-out |
+| Bottom Controls   | Slide up/down    | 300ms    | ease-out |
 
 ## Build Status
 

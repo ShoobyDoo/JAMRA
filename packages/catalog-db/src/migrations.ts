@@ -208,9 +208,7 @@ const MIGRATIONS: Migration[] = [
     id: 7,
     up: (db) => {
       // Add series_name column to manga table for WeebCentral caching
-      const columns = db
-        .prepare(`PRAGMA table_info(manga)`)
-        .all() as Array<{
+      const columns = db.prepare(`PRAGMA table_info(manga)`).all() as Array<{
         name: string;
       }>;
       const existing = new Set(columns.map((column) => column.name));
@@ -229,9 +227,7 @@ const MIGRATIONS: Migration[] = [
   {
     id: 8,
     up: (db) => {
-      const columns = db
-        .prepare(`PRAGMA table_info(manga)`)
-        .all() as Array<{
+      const columns = db.prepare(`PRAGMA table_info(manga)`).all() as Array<{
         name: string;
       }>;
       const existing = new Set(columns.map((column) => column.name));
@@ -264,9 +260,7 @@ const MIGRATIONS: Migration[] = [
   {
     id: 9,
     up: (db) => {
-      const columns = db
-        .prepare(`PRAGMA table_info(manga)`)
-        .all() as Array<{
+      const columns = db.prepare(`PRAGMA table_info(manga)`).all() as Array<{
         name: string;
       }>;
       const existing = new Set(columns.map((column) => column.name));
@@ -301,6 +295,83 @@ const MIGRATIONS: Migration[] = [
           value TEXT NOT NULL,
           updated_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000)
         );
+      `);
+    },
+  },
+  {
+    id: 10,
+    up: (db) => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS library_entries (
+          manga_id TEXT PRIMARY KEY,
+          extension_id TEXT NOT NULL,
+          status TEXT NOT NULL CHECK(status IN ('reading', 'plan_to_read', 'completed', 'on_hold', 'dropped')),
+          personal_rating REAL CHECK(personal_rating IS NULL OR (personal_rating >= 0 AND personal_rating <= 10)),
+          favorite INTEGER NOT NULL DEFAULT 0,
+          notes TEXT,
+          added_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000),
+          updated_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000),
+          started_at INTEGER,
+          completed_at INTEGER,
+          FOREIGN KEY (manga_id) REFERENCES manga(id) ON DELETE CASCADE,
+          FOREIGN KEY (extension_id) REFERENCES extensions(id) ON DELETE CASCADE
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_library_status
+          ON library_entries(status);
+        CREATE INDEX IF NOT EXISTS idx_library_favorite
+          ON library_entries(favorite) WHERE favorite = 1;
+        CREATE INDEX IF NOT EXISTS idx_library_added_at
+          ON library_entries(added_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_library_updated_at
+          ON library_entries(updated_at DESC);
+
+        CREATE TABLE IF NOT EXISTS library_tags (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          name TEXT UNIQUE NOT NULL,
+          color TEXT,
+          created_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000)
+        );
+
+        CREATE TABLE IF NOT EXISTS library_entry_tags (
+          manga_id TEXT NOT NULL,
+          tag_id INTEGER NOT NULL,
+          PRIMARY KEY (manga_id, tag_id),
+          FOREIGN KEY (manga_id) REFERENCES library_entries(manga_id) ON DELETE CASCADE,
+          FOREIGN KEY (tag_id) REFERENCES library_tags(id) ON DELETE CASCADE
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_library_entry_tags_manga
+          ON library_entry_tags(manga_id);
+        CREATE INDEX IF NOT EXISTS idx_library_entry_tags_tag
+          ON library_entry_tags(tag_id);
+      `);
+    },
+  },
+  {
+    id: 11,
+    up: (db) => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS history_entries (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          manga_id TEXT NOT NULL,
+          chapter_id TEXT,
+          action_type TEXT NOT NULL,
+          timestamp INTEGER NOT NULL,
+          extension_id TEXT,
+          metadata TEXT,
+          FOREIGN KEY (manga_id) REFERENCES manga(id) ON DELETE CASCADE,
+          FOREIGN KEY (chapter_id) REFERENCES chapters(id) ON DELETE SET NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_history_timestamp
+          ON history_entries(timestamp DESC);
+
+        CREATE INDEX IF NOT EXISTS idx_history_manga
+          ON history_entries(manga_id, timestamp DESC);
+
+        CREATE INDEX IF NOT EXISTS idx_history_action_type
+          ON history_entries(action_type, timestamp DESC);
       `);
     },
   },

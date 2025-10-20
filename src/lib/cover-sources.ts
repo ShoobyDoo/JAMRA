@@ -20,7 +20,9 @@ function uniqueUrls(urls: Array<string | undefined>): string[] {
   return ordered;
 }
 
-export function resolveCoverSources(entity: CoverSourceEntity): ResolvedCoverSources {
+export function resolveCoverSources(
+  entity: CoverSourceEntity,
+): ResolvedCoverSources {
   const orderedFallbacks = uniqueUrls([
     entity.cachedCover?.sourceUrl,
     entity.coverUrl,

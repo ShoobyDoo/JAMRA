@@ -1,26 +1,27 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  ActionIcon,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEvent,
+} from "react";
+import {
   Alert,
   Avatar,
-  Badge,
   Button,
   Card,
-  Divider,
   Group,
   Loader,
   Modal,
-  SegmentedControl,
   Stack,
   Switch,
   Tabs,
   Text,
   Textarea,
-  TextInput,
   Title,
-  Tooltip,
 } from "@mantine/core";
 import { useDebouncedValue } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
@@ -40,27 +41,17 @@ import {
   updateExtensionSettings,
 } from "@/lib/api";
 import { compareVersions } from "@jamra/extension-registry";
+import { logger } from "@/lib/logger";
+import { AlertTriangle } from "lucide-react";
+import { InstallFromFileCard } from "./install-from-file-card";
 import {
-  AlertTriangle,
-  ArrowDownToLine,
-  ArrowDown,
-  ArrowUp,
-  RefreshCcw,
-  ChevronDown,
-  ChevronUp,
-  Copy,
-  Check,
-} from "lucide-react";
-
-const TRUST_WARNING = "Only install extensions that you trust.";
-
-function resolveIcon(icon?: string | null): string | undefined {
-  const trimmed = icon?.trim();
-  if (!trimmed) return undefined;
-  return trimmed;
-}
-
-type StatusFilter = "all" | "enabled" | "disabled";
+  ExtensionsToolbar,
+  StatusFilter,
+} from "./extensions-toolbar";
+import { ExtensionCard } from "./extension-card";
+import { ExtensionsMarketplace } from "./extensions-marketplace";
+import { resolveIcon } from "./utils";
+import { TRUST_WARNING } from "./constants";
 type ExtensionTab = "installed" | "marketplace";
 
 interface SettingsModalState {
@@ -144,7 +135,12 @@ export function ExtensionsManager({
         autoClose: 2000,
       });
     } catch (err) {
-      console.error('Failed to copy:', err);
+      logger.error("Failed to copy value to clipboard", {
+        component: "ExtensionsManager",
+        action: "copy-to-clipboard",
+        fieldId,
+        error: err instanceof Error ? err : new Error(String(err)),
+      });
       notifications.show({
         title: "Failed to copy",
         message: err instanceof Error ? err.message : "Unknown error",
@@ -251,8 +247,10 @@ export function ExtensionsManager({
     try {
       const extension = await installExtension({
         filePath: installPath.trim(),
-        enabled: autoEnable,
       });
+      if (autoEnable && extension.id) {
+        await enableExtension(extension.id);
+      }
       updateExtensionState(extension);
       setInstallPath("");
       setAutoEnable(true);
@@ -423,8 +421,13 @@ export function ExtensionsManager({
           extensionId: extension.id,
           version: latest.version,
         },
-        enabled: extension.enabled,
       });
+      // Maintain the enabled state
+      if (extension.enabled && !updated.enabled) {
+        await enableExtension(updated.id);
+      } else if (!extension.enabled && updated.enabled) {
+        await disableExtension(updated.id);
+      }
       updateExtensionState(updated);
       void refreshExtensions(true);
       notifications.show({
@@ -509,6 +512,30 @@ export function ExtensionsManager({
     };
   }, [extensions]);
 
+  const handleToggleExtension = useCallback(
+    (extensionId: string, event: MouseEvent<HTMLDivElement>) => {
+      const target = event.target as HTMLElement;
+      if (
+        target.closest("button") ||
+        target.closest("a") ||
+        target.closest('[role="button"]')
+      ) {
+        return;
+      }
+
+      setExpandedExtensionIds((prev) => {
+        const next = new Set(prev);
+        if (next.has(extensionId)) {
+          next.delete(extensionId);
+        } else {
+          next.add(extensionId);
+        }
+        return next;
+      });
+    },
+    [],
+  );
+
   const openMarketplaceInstall = (extension: MarketplaceExtensionSummary) => {
     if (!extension.latestVersion) {
       setMarketplaceInstallError(
@@ -539,8 +566,10 @@ export function ExtensionsManager({
           extensionId: installCandidate.extension.id,
           version: installCandidate.version.version,
         },
-        enabled: marketplaceAutoEnable,
       });
+      if (marketplaceAutoEnable && extension.id) {
+        await enableExtension(extension.id);
+      }
       updateExtensionState(extension);
       setActiveTab("installed");
       void refreshExtensions(true);
@@ -560,77 +589,6 @@ export function ExtensionsManager({
     }
   };
 
-  const renderUpdateAlert = (extension: ManagedExtension) => {
-    if (!extension.source?.registryId) {
-      return (
-        <Alert color="gray" title="Updates">
-          <Text size="sm">
-            Updates are not managed for manually installed extensions.
-          </Text>
-        </Alert>
-      );
-    }
-
-    const latest = extension.updateState?.latest;
-    if (!latest) return null;
-
-    const isNewer = compareVersions(latest.version, extension.version) > 0;
-    const isAcknowledged =
-      extension.updateState?.acknowledgedVersion === latest.version;
-
-    if (!isNewer && isAcknowledged) {
-      return null;
-    }
-
-    const awaitingAction = isNewer && !isAcknowledged;
-
-    return (
-      <Alert
-        color={awaitingAction ? "violet" : "blue"}
-        title={awaitingAction ? "Update available" : "Latest version"}
-      >
-        <Stack gap={6}>
-          <Text size="sm">
-            Latest version: <strong>{latest.version}</strong>
-            {!awaitingAction && (
-              <span className="text-dimmed"> (currently installed)</span>
-            )}
-          </Text>
-          {latest.releaseNotes ? (
-            <Text
-              component="pre"
-              className="whitespace-pre-wrap text-xs"
-              c="dimmed"
-            >
-              {latest.releaseNotes}
-            </Text>
-          ) : null}
-          {awaitingAction && (
-            <Group gap="sm">
-              <Button
-                size="xs"
-                color="violet"
-                loading={busyExtensionId === extension.id}
-                onClick={() => void handleApplyUpdate(extension)}
-                leftSection={<ArrowDownToLine size={14} />}
-              >
-                Install update
-              </Button>
-              <Button
-                size="xs"
-                variant="subtle"
-                onClick={() => void handleAcknowledgeUpdate(extension)}
-                disabled={busyExtensionId === extension.id}
-              >
-                Mark as read
-              </Button>
-            </Group>
-          )}
-        </Stack>
-      </Alert>
-    );
-  };
-
   return (
     <Stack gap="lg">
       <Tabs
@@ -644,100 +602,42 @@ export function ExtensionsManager({
 
         <Tabs.Panel value="installed" pt="md">
           <Stack gap="lg">
-            <Card withBorder p="lg">
-              <Stack gap="sm">
-              <Title order={3}>Install from file</Title>
-              <Text size="sm" c="dimmed">
-                Provide the absolute path to the compiled extension entry file.
-                The API will copy it into the JAMRA data directory.
-              </Text>
-              <TextInput
-                label="Extension entry path"
-                placeholder="/path/to/extension/dist/index.js"
-                value={installPath}
-                onChange={(event) => setInstallPath(event.currentTarget.value)}
-              />
-              <Group gap="md" align="center">
-                <Switch
-                  label="Enable immediately after installation"
-                  checked={autoEnable}
-                  onChange={(event) =>
-                    setAutoEnable(event.currentTarget.checked)
-                  }
-                />
-                <Button
-                  loading={installing}
-                  onClick={() => void handleInstallFromPath()}
-                >
-                  Install
-                </Button>
-              </Group>
-              {installError ? <Alert color="red">{installError}</Alert> : null}
-              </Stack>
-            </Card>
+            <InstallFromFileCard
+              installPath={installPath}
+              autoEnable={autoEnable}
+              isInstalling={installing}
+              error={installError}
+              onPathChange={(value) => setInstallPath(value)}
+              onToggleAutoEnable={(value) => setAutoEnable(value)}
+              onInstall={() => void handleInstallFromPath()}
+            />
 
             <Card withBorder p="lg">
               <Stack gap="sm">
                 <div>
                   <Title order={3}>Installed Extensions</Title>
                   <Text size="sm" c="dimmed">
-                    {statusSummary.total === 0
-                      ? "No extensions installed yet."
-                      : `${statusSummary.enabled} enabled · ${statusSummary.disabled} disabled`}
+                    Manage extensions installed from files or the marketplace.
                   </Text>
                 </div>
-                <Group gap="md" align="center" wrap="nowrap">
-                  <TextInput
-                    placeholder="Search by name or author"
-                    value={search}
-                    onChange={(event) => setSearch(event.currentTarget.value)}
-                    className="flex-1"
-                  />
-                  <Group gap="xs" align="center" wrap="nowrap">
-                    <SegmentedControl
-                      value={statusFilter}
-                      onChange={(value) => setStatusFilter(value as StatusFilter)}
-                      data={[
-                        { label: "All", value: "all" },
-                        { label: "Enabled", value: "enabled" },
-                        { label: "Disabled", value: "disabled" },
-                      ]}
-                    />
-                    <SegmentedControl
-                      value={sort}
-                      onChange={(value) => setSort(value as typeof sort)}
-                      data={[
-                        { label: "Name", value: "name" },
-                        { label: "Installed", value: "installedAt" },
-                        { label: "Author", value: "author" },
-                        { label: "Language", value: "language" },
-                      ]}
-                    />
-                    <Tooltip label={order === "asc" ? "Ascending" : "Descending"}>
-                      <ActionIcon
-                        variant="light"
-                        size="input-sm"
-                        onClick={() => setOrder(order === "asc" ? "desc" : "asc")}
-                      >
-                        {order === "asc" ? (
-                          <ArrowUp size={16} />
-                        ) : (
-                          <ArrowDown size={16} />
-                        )}
-                      </ActionIcon>
-                    </Tooltip>
-                    <Tooltip label="Refresh">
-                      <ActionIcon
-                        variant="light"
-                        size="input-sm"
-                        onClick={() => void refreshExtensions()}
-                      >
-                        <RefreshCcw size={16} />
-                      </ActionIcon>
-                    </Tooltip>
-                  </Group>
-                </Group>
+
+                <ExtensionsToolbar
+                  search={search}
+                  statusFilter={statusFilter}
+                  sort={sort}
+                  order={order}
+                  statusSummary={statusSummary}
+                  onSearchChange={(value) => setSearch(value)}
+                  onStatusFilterChange={(value) => setStatusFilter(value)}
+                  onSortChange={(value) => setSort(value)}
+                  onToggleOrder={() =>
+                    setOrder(order === "asc" ? "desc" : "asc")
+                  }
+                  onRefresh={() => void refreshExtensions()}
+                />
+
                 {error ? <Alert color="red">{error}</Alert> : null}
+
                 {loading ? (
                   <Group justify="center" py="xl">
                     <Loader />
@@ -746,287 +646,26 @@ export function ExtensionsManager({
                   <Text c="dimmed">No extensions match the current filters.</Text>
                 ) : (
                   <Stack gap="sm">
-                    {extensions.map((extension) => {
-                    const hasErrors = extension.errors.length > 0;
-                    const latest = extension.updateState?.latest;
-                    const supportsUpdates = Boolean(
-                      extension.source?.registryId,
-                    );
-                    const updateBadge =
-                      supportsUpdates &&
-                      latest &&
-                      compareVersions(latest.version, extension.version) > 0;
-                    const sourceLabel =
-                      extension.source?.registryId ?? "Manual install";
-                    const lastChecked = extension.updateState?.lastCheckedAt
-                      ? new Date(
-                          extension.updateState.lastCheckedAt,
-                        ).toLocaleString()
-                      : undefined;
-                    const iconSrc = resolveIcon(
-                      extension.icon ?? extension.manifest.icon,
-                    );
-                    const isExpanded = expandedExtensionIds.has(extension.id);
-
-                    const toggleExpanded = (e: React.MouseEvent) => {
-                      // Don't toggle if clicking on a button or interactive element
-                      const target = e.target as HTMLElement;
-                      if (
-                        target.closest('button') ||
-                        target.closest('a') ||
-                        target.closest('[role="button"]')
-                      ) {
-                        return;
-                      }
-
-                      setExpandedExtensionIds((prev) => {
-                        const next = new Set(prev);
-                        if (next.has(extension.id)) {
-                          next.delete(extension.id);
-                        } else {
-                          next.add(extension.id);
-                        }
-                        return next;
-                      });
-                    };
-
-                    const description = extension.description ?? "No description provided.";
-                    const truncatedDescription = description.length > 80
-                      ? `${description.slice(0, 80)}...`
-                      : description;
-
-                    return (
-                      <Card
+                    {extensions.map((extension) => (
+                      <ExtensionCard
                         key={extension.id}
-                        withBorder
-                        padding="md"
-                        radius="md"
-                        className="extension-card-expandable"
-                      >
-                        <Stack gap="sm">
-                          <Group
-                            justify="space-between"
-                            align="flex-start"
-                            gap="md"
-                            wrap="nowrap"
-                            className="cursor-pointer -m-3 p-3 rounded-md"
-                            onClick={toggleExpanded}
-                          >
-                            <Group gap="sm" align="flex-start" wrap="nowrap" className="flex-1 min-w-0">
-                              <Avatar
-                                src={iconSrc}
-                                alt={`${extension.name} icon`}
-                                name={extension.name}
-                                radius="md"
-                                size={48}
-                                color={iconSrc ? undefined : "gray"}
-                                variant={iconSrc ? undefined : "filled"}
-                                className="shrink-0"
-                              />
-                              <Stack gap={4} className="flex-1 min-w-0">
-                                <Group gap="xs" align="center" wrap="wrap">
-                                  <Title order={4} className="text-base">
-                                    {extension.name}
-                                  </Title>
-                                  <Badge size="xs" color="gray" variant="light">
-                                    v{extension.version}
-                                  </Badge>
-                                  {extension.enabled ? (
-                                    <Badge size="xs" color="green">Enabled</Badge>
-                                  ) : (
-                                    <Badge size="xs" color="yellow">Disabled</Badge>
-                                  )}
-                                  {updateBadge ? (
-                                    <Badge size="xs" color="violet" variant="filled">
-                                      Update
-                                    </Badge>
-                                  ) : null}
-                                </Group>
-                                <Text size="xs" c="dimmed" className="line-clamp-1">
-                                  {isExpanded ? description : truncatedDescription}
-                                </Text>
-                                {!isExpanded && (
-                                  <Text size="xs">
-                                    by <span className="font-medium">{extension.author.name}</span>
-                                  </Text>
-                                )}
-                              </Stack>
-                            </Group>
-
-                            <Group gap="xs" align="center" className="shrink-0">
-                              {extension.enabled ? (
-                                <Button
-                                  size="xs"
-                                  color="yellow"
-                                  variant="light"
-                                  loading={busyExtensionId === extension.id}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    void handleDisable(extension);
-                                  }}
-                                >
-                                  Disable
-                                </Button>
-                              ) : (
-                                <Button
-                                  size="xs"
-                                  color="green"
-                                  variant="light"
-                                  loading={busyExtensionId === extension.id}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    void handleEnable(extension);
-                                  }}
-                                >
-                                  Enable
-                                </Button>
-                              )}
-                              <div className="cursor-pointer">
-                                {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                              </div>
-                            </Group>
-                          </Group>
-
-                          {isExpanded && (
-                            <>
-                              <Divider />
-                              <Stack gap={6}>
-                                <Text size="xs">
-                                  Author: <span className="font-medium">{extension.author.name}</span>
-                                </Text>
-                                <Text size="xs" c="dimmed">
-                                  Languages: {extension.languageCodes.join(", ") || "—"}
-                                </Text>
-                                <Text size="xs" c="dimmed">
-                                  Source: {sourceLabel}
-                                  {extension.source?.version ? ` · v${extension.source.version}` : ""}
-                                </Text>
-
-                                <div>
-                                  <Text size="xs" c="dimmed" mb={4}>Path</Text>
-                                  <Group gap="xs" align="center" wrap="nowrap">
-                                    <Text size="xs" c="dimmed" className="flex-1 break-all font-mono">
-                                      {extension.entryPath ?? "Unknown"}
-                                    </Text>
-                                    <Tooltip label={copiedField === `path-${extension.id}` ? "Copied!" : "Copy path"}>
-                                      <ActionIcon
-                                        size="xs"
-                                        variant="subtle"
-                                        color="gray"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          void copyToClipboard(extension.entryPath ?? "Unknown", `path-${extension.id}`);
-                                        }}
-                                      >
-                                        {copiedField === `path-${extension.id}` ? <Check size={12} /> : <Copy size={12} />}
-                                      </ActionIcon>
-                                    </Tooltip>
-                                  </Group>
-                                </div>
-
-                                <div>
-                                  <Text size="xs" c="dimmed" mb={4}>Extension ID</Text>
-                                  <Group gap="xs" align="center" wrap="nowrap">
-                                    <Text size="xs" c="dimmed" className="flex-1 font-mono">
-                                      {extension.id}
-                                    </Text>
-                                    <Tooltip label={copiedField === `id-${extension.id}` ? "Copied!" : "Copy ID"}>
-                                      <ActionIcon
-                                        size="xs"
-                                        variant="subtle"
-                                        color="gray"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          void copyToClipboard(extension.id, `id-${extension.id}`);
-                                        }}
-                                      >
-                                        {copiedField === `id-${extension.id}` ? <Check size={12} /> : <Copy size={12} />}
-                                      </ActionIcon>
-                                    </Tooltip>
-                                  </Group>
-                                </div>
-
-                                <Group gap="xs" wrap="wrap">
-                                  <Badge size="sm" color="blue" variant="light">
-                                    Installed {new Date(extension.installedAt).toLocaleString()}
-                                  </Badge>
-                                  {extension.loaded ? (
-                                    <Badge size="sm" color="green" variant="light">
-                                      Loaded
-                                    </Badge>
-                                  ) : (
-                                    <Badge size="sm" color="gray" variant="light">
-                                      Not loaded
-                                    </Badge>
-                                  )}
-                                  {lastChecked ? (
-                                    <Badge size="sm" color="gray" variant="outline">
-                                      Last checked {lastChecked}
-                                    </Badge>
-                                  ) : null}
-                                </Group>
-                              </Stack>
-
-                              <Divider />
-
-                              <Group gap="xs" wrap="wrap">
-                                <Button
-                                  size="xs"
-                                  variant="light"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    openSettingsModal(extension);
-                                  }}
-                                >
-                                  Settings
-                                </Button>
-                                {supportsUpdates ? (
-                                  <Button
-                                    size="xs"
-                                    variant="light"
-                                    leftSection={<RefreshCcw size={14} />}
-                                    loading={busyExtensionId === extension.id}
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      void handleCheckUpdates(extension);
-                                    }}
-                                  >
-                                    Check updates
-                                  </Button>
-                                ) : null}
-                                <Button
-                                  size="xs"
-                                  color="red"
-                                  variant="outline"
-                                  loading={busyExtensionId === extension.id}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    requestUninstall(extension);
-                                  }}
-                                >
-                                  Uninstall
-                                </Button>
-                              </Group>
-
-                              {renderUpdateAlert(extension)}
-
-                              {hasErrors ? (
-                                <Alert color="red" title="Issues detected">
-                                  <Stack gap={4}>
-                                    {extension.errors.map((message) => (
-                                      <Text key={message} size="sm">
-                                        {message}
-                                      </Text>
-                                    ))}
-                                  </Stack>
-                                </Alert>
-                              ) : null}
-                            </>
-                          )}
-                        </Stack>
-                      </Card>
-                    );
-                    })}
+                        extension={extension}
+                        isExpanded={expandedExtensionIds.has(extension.id)}
+                        busyExtensionId={busyExtensionId}
+                        copiedField={copiedField}
+                        onToggle={(event) =>
+                          handleToggleExtension(extension.id, event as MouseEvent<HTMLDivElement>)
+                        }
+                        onEnable={handleEnable}
+                        onDisable={handleDisable}
+                        onCheckUpdates={handleCheckUpdates}
+                        onApplyUpdate={handleApplyUpdate}
+                        onAcknowledgeUpdate={handleAcknowledgeUpdate}
+                        onOpenSettings={openSettingsModal}
+                        onRequestUninstall={requestUninstall}
+                        onCopy={copyToClipboard}
+                      />
+                    ))}
                   </Stack>
                 )}
               </Stack>
@@ -1035,131 +674,13 @@ export function ExtensionsManager({
         </Tabs.Panel>
 
         <Tabs.Panel value="marketplace" pt="md">
-          <Stack gap="lg">
-            <Card withBorder p="lg">
-              <Stack gap="sm">
-              <Group justify="space-between" align="center">
-                <div>
-                  <Title order={3}>Marketplace</Title>
-                  <Text size="sm" c="dimmed">
-                    Browse curated registries and install vetted extension
-                    builds.
-                  </Text>
-                </div>
-                <Group gap="xs">
-                  <Tooltip label="Refresh">
-                    <ActionIcon
-                      variant="light"
-                      onClick={() => void refreshMarketplace()}
-                      loading={marketplaceLoading}
-                    >
-                      <RefreshCcw size={16} />
-                    </ActionIcon>
-                  </Tooltip>
-                </Group>
-              </Group>
-              {marketplaceError ? (
-                <Alert color="red">{marketplaceError}</Alert>
-              ) : null}
-              {marketplaceLoading && !marketplace ? (
-                <Group justify="center" py="lg">
-                  <Loader />
-                </Group>
-              ) : marketplace && marketplace.extensions.length > 0 ? (
-                <Stack gap="md">
-                  {marketplace.extensions.map((extension) => {
-                    const latest = extension.latestVersion;
-                    const iconSrc = resolveIcon(extension.icon);
-                    return (
-                      <Card
-                        key={`${extension.registryId}:${extension.id}`}
-                        withBorder
-                        padding="lg"
-                        radius="md"
-                      >
-                        <Stack gap="sm">
-                          <Group justify="space-between" align="flex-start">
-                            <div className="flex-1">
-                              <Group gap="sm" align="flex-start" wrap="nowrap">
-                                <Avatar
-                                  src={iconSrc}
-                                  alt={`${extension.name} icon`}
-                                  name={extension.name}
-                                  radius="md"
-                                  size={56}
-                                  color={iconSrc ? undefined : "gray"}
-                                  variant={iconSrc ? undefined : "filled"}
-                                  className="shrink-0"
-                                />
-                                <Stack gap={6} className="flex-1">
-                                  <Group
-                                    gap="sm"
-                                    align="center"
-                                    wrap="wrap"
-                                  >
-                                    <Title order={4}>{extension.name}</Title>
-                                    {latest ? (
-                                      <Badge color="gray" variant="light">
-                                        v{latest.version}
-                                      </Badge>
-                                    ) : null}
-                                    <Badge color="blue" variant="outline">
-                                      {extension.registryLabel}
-                                    </Badge>
-                                  </Group>
-                                  <Text size="sm" c="dimmed">
-                                    {extension.summary}
-                                  </Text>
-                                  <Text size="sm">
-                                    Author:{" "}
-                                    <span className="font-medium">
-                                      {extension.author.name}
-                                    </span>
-                                  </Text>
-                                  <Text size="xs" c="dimmed">
-                                    Tags:{" "}
-                                    {extension.tags.length > 0
-                                      ? extension.tags.join(", ")
-                                      : "—"}
-                                  </Text>
-                                  {latest?.releaseNotes ? (
-                                    <Text size="xs" c="dimmed">
-                                      Latest release notes:{" "}
-                                      {latest.releaseNotes.length > 160
-                                        ? `${latest.releaseNotes.slice(0, 157)}...`
-                                        : latest.releaseNotes}
-                                    </Text>
-                                  ) : null}
-                                </Stack>
-                              </Group>
-                            </div>
-                            <Stack gap="xs" align="flex-end">
-                              <Button
-                                size="xs"
-                                leftSection={<ArrowDownToLine size={14} />}
-                                onClick={() =>
-                                  openMarketplaceInstall(extension)
-                                }
-                                loading={marketplaceBusyId === extension.id}
-                                disabled={!latest}
-                              >
-                                Install
-                              </Button>
-                            </Stack>
-                          </Group>
-                        </Stack>
-                      </Card>
-                    );
-                  })}
-                </Stack>
-              ) : (
-                <Text c="dimmed">
-                  No extensions were published in the configured registries.
-                </Text>
-              )}
-              </Stack>
-            </Card>
-          </Stack>
+          <ExtensionsMarketplace
+            marketplace={marketplace}
+            loading={marketplaceLoading}
+            error={marketplaceError}
+            onRefresh={() => void refreshMarketplace()}
+            onInstall={openMarketplaceInstall}
+          />
         </Tabs.Panel>
       </Tabs>
 
@@ -1167,7 +688,9 @@ export function ExtensionsManager({
         opened={settingsModal !== null}
         onClose={closeSettingsModal}
         title={
-          settingsModal ? `Settings • ${settingsModal.extension.name}` : ""
+          settingsModal
+            ? `Configure ${settingsModal.extension.name}`
+            : "Extension settings"
         }
         size="lg"
         centered

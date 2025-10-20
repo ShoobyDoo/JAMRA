@@ -4,6 +4,7 @@ import { Badge, Button } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { Download, Check } from "lucide-react";
 import { ApiError } from "@/lib/api";
+import { logger } from "@/lib/logger";
 import { useOfflineMangaContext } from "./offline-manga-context";
 
 export function OfflineDownloadControls() {
@@ -43,7 +44,13 @@ export function OfflineDownloadControls() {
         autoClose: 3000,
       });
     } catch (error) {
-      console.error("Failed to queue manga download:", error);
+      logger.error("Failed to queue manga downloads", {
+        component: "OfflineDownloadControls",
+        action: "queue-manga",
+        mangaId: offline.mangaId,
+        chapterCount: targets.length,
+        error: error instanceof Error ? error : new Error(String(error)),
+      });
       const message =
         error instanceof ApiError
           ? error.message
@@ -74,7 +81,12 @@ export function OfflineDownloadControls() {
         </Badge>
 
         {hasActiveDownloads && (
-          <Badge variant="light" color="blue" size="lg" className="animate-pulse">
+          <Badge
+            variant="light"
+            color="blue"
+            size="lg"
+            className="animate-pulse"
+          >
             {offline.queueItems.length} downloading
           </Badge>
         )}
@@ -88,7 +100,9 @@ export function OfflineDownloadControls() {
           loading={offline.queueingManga || hasActiveDownloads}
           onClick={handleDownloadMissing}
         >
-          {downloadedCount === 0 ? "Download All" : `Download ${remainingChapters} More`}
+          {downloadedCount === 0
+            ? "Download All"
+            : `Download ${remainingChapters} More`}
         </Button>
       )}
     </div>

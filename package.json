@@ -8,9 +8,10 @@
   "main": "electron/dist/main.cjs",
   "engines": {
     "node": ">=24",
-    "pnpm": ">=8"
+    "pnpm": ">=10"
   },
   "scripts": {
+    "format": "prettier --write .",
     "run": "tsx scripts/run.ts",
     "dev": "pnpm run run bootstrap web",
     "build": "pnpm run run build all",
@@ -30,21 +31,26 @@
     "dist:win": "pnpm build && electron-builder --win",
     "dist:linux": "pnpm build && electron-builder --linux AppImage --linux deb && node scripts/package-rpm.mjs",
     "rpm:package": "node scripts/package-rpm.mjs",
-    "dist:all": "pnpm build && electron-builder -mwl && node scripts/package-rpm.mjs"
+    "dist:all": "pnpm build && electron-builder -mwl && node scripts/package-rpm.mjs",
+    "analyze": "NEXT_BUNDLE_ANALYZE=1 pnpm build"
   },
   "dependencies": {
     "@mantine/core": "8.3.3",
     "@mantine/hooks": "8.3.3",
     "@mantine/modals": "^8.3.3",
     "@mantine/notifications": "^8.3.3",
+    "clsx": "^2.1.1",
+    "express": "^5.1.0",
     "lucide-react": "^0.544.0",
-    "next": "15.5.4",
+    "next": "15.5.6",
     "react": "19.2.0",
     "react-dom": "19.2.0",
+    "tailwind-merge": "^2.5.3",
     "zustand": "^5.0.8"
   },
   "devDependencies": {
     "@electron/rebuild": "^4.0.1",
+    "@next/bundle-analyzer": "^15.2.0",
     "@eslint/eslintrc": "^3",
     "@jamra/catalog-db": "workspace:*",
     "@jamra/catalog-server": "workspace:*",
@@ -54,7 +60,7 @@
     "@tailwindcss/postcss": "^4.1.14",
     "@types/node": "^24",
     "@types/react": "^19.2.0",
-    "@types/react-dom": "^19.2.0",
+    "@types/react-dom": "^19.2.2",
     "concurrently": "^9.2.1",
     "cross-env": "^10.1.0",
     "electron": "^38.2.0",
