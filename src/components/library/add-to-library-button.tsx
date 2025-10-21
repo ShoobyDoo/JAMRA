@@ -114,7 +114,7 @@ export function AddToLibraryButton({
   };
 
   const currentStatus = STATUS_OPTIONS.find(
-    (s) => s.value === libraryEntry?.status,
+    (s) => s.value === libraryEntry?.status
   );
 
   return (
@@ -134,7 +134,7 @@ export function AddToLibraryButton({
             }
           >
             {libraryEntry
-              ? currentStatus?.label ?? "In Library"
+              ? (currentStatus?.label ?? "In Library")
               : "Add to Library"}
           </Button>
         </Menu.Target>
@@ -151,7 +151,9 @@ export function AddToLibraryButton({
                 ) : null
               }
               bg={
-                libraryEntry?.status === option.value ? "var(--mantine-color-default-hover)" : undefined
+                libraryEntry?.status === option.value
+                  ? "var(--mantine-color-default-hover)"
+                  : undefined
               }
             >
               {option.label}

@@ -8,55 +8,62 @@
 @custom-variant hover (&:hover);
 
 /* Override Mantine's @media (hover: hover) queries for Linux Chromium compatibility
- * Mantine uses @media (hover: hover) which breaks on Linux, so we duplicate the hover
- * styles outside the media query to ensure they work on all platforms
+ * Linux Chromium/Electron incorrectly reports hover: none even with a mouse.
+ * Mantine's styles are in @media (hover: hover) which don't apply on Linux.
+ * We duplicate hover styles in @media (hover: none) to fix this.
  */
 @media (hover: none) {
-  /* Mantine Button hover styles */
-  button:hover:where(:not([data-loading], :disabled, [data-disabled])),
-  a:hover:where(:not([data-loading], :disabled, [data-disabled])) {
-    background-color: var(--button-hover, var(--mantine-color-default-hover));
+  /* Mantine Button/ActionIcon hover - use both variable chains with fallback */
+  button[data-variant]:hover:where(:not([data-loading], :disabled, [data-disabled])),
+  a[data-variant]:hover:where(:not([data-loading], :disabled, [data-disabled])) {
+    background-color: var(--button-hover, var(--ai-hover, var(--mantine-primary-color-filled-hover)));
+    color: var(--button-hover-color, var(--ai-hover-color, var(--button-color, var(--ai-color))));
   }
 
-  /* Mantine ActionIcon hover styles */
-  [data-action-icon]:hover:where(
-      :not([data-loading], :disabled, [data-disabled])
-    ) {
-    background-color: var(--ai-hover, var(--mantine-color-default-hover));
+  /* Mantine NavLink hover - match Mantine's exact colors (NavLinks render as <a> tags) */
+  :where([data-mantine-color-scheme='light']) a:where(:not([data-variant])):hover:where(:not([data-disabled])) {
+    background-color: var(--mantine-color-gray-0);
   }
 
-  /* Mantine NavLink hover styles */
-  [data-nav-link]:hover:where(
-      :not([data-combobox-selected], [data-nav-link-disabled])
-    ) {
-    background-color: var(--nl-hover, var(--mantine-color-default-hover));
+  :where([data-mantine-color-scheme='dark']) a:where(:not([data-variant])):hover:where(:not([data-disabled])) {
+    background-color: var(--mantine-color-dark-6);
   }
 
-  /* Mantine Combobox/Select option hover styles */
-  [data-combobox-option]:hover:where(
-      :not([data-combobox-option-disabled], [data-disabled])
-    ) {
-    background-color: var(--combobox-hover, var(--mantine-color-default-hover));
+  /* Mantine NavLink active hover - use component's variable */
+  a:where([data-active]):hover:where(:not([data-variant], [data-disabled])) {
+    background-color: var(--nl-hover);
   }
 
-  /* Mantine UnstyledButton hover styles */
-  [data-unstyled-button]:hover:where(
-      :not([data-loading], :disabled, [data-disabled])
-    ) {
-    background-color: var(--button-hover, transparent);
+  /* Mantine UnstyledButton hover (sidebar buttons, etc. - render as button elements) */
+  :where([data-mantine-color-scheme='light']) button:where(:not([data-variant])):hover:where(:not([role="menuitem"], [data-combobox-option], [data-disabled])) {
+    background-color: var(--mantine-color-gray-0);
   }
 
-  /* Mantine Anchor (link) hover styles */
+  :where([data-mantine-color-scheme='dark']) button:where(:not([data-variant])):hover:where(:not([role="menuitem"], [data-combobox-option], [data-disabled])) {
+    background-color: var(--mantine-color-dark-6);
+  }
+
+  /* Mantine Combobox/Select option hover */
+  :where([data-mantine-color-scheme='light']) [data-combobox-option]:hover:where(:not([data-combobox-selected], [data-combobox-disabled])) {
+    background-color: var(--mantine-color-gray-0);
+  }
+
+  :where([data-mantine-color-scheme='dark']) [data-combobox-option]:hover:where(:not([data-combobox-selected], [data-combobox-disabled])) {
+    background-color: var(--mantine-color-dark-7);
+  }
+
+  /* Mantine Menu Item hover - use component's own variable with fallback */
+  :where([data-mantine-color-scheme='light']) [role="menuitem"]:hover:where(:not([data-disabled])) {
+    background-color: var(--menu-item-hover, var(--mantine-color-gray-0));
+  }
+
+  :where([data-mantine-color-scheme='dark']) [role="menuitem"]:hover:where(:not([data-disabled])) {
+    background-color: var(--menu-item-hover, var(--mantine-color-dark-4));
+  }
+
+  /* Mantine Anchor (link) hover */
   a[data-mantine-component="Anchor"]:hover {
     text-decoration: underline;
-  }
-
-  /* Mantine Menu Item hover styles */
-  [data-menu-item]:hover:where(:not([data-menu-item-disabled])) {
-    background-color: var(
-      --menu-item-hover,
-      var(--mantine-color-default-hover)
-    );
   }
 }
 
@@ -110,14 +117,9 @@
     @apply bg-background text-foreground font-sans antialiased;
   }
 
-  button,
-  [data-button] {
-    --button-hover: var(--accent);
-  }
-
-  [data-action-icon] {
-    --ai-hover: var(--accent);
-  }
+  /* Don't set --button-hover or --ai-hover globally
+   * Let Mantine's variant-specific colors work naturally
+   */
 
   [data-combobox-option] {
     --combobox-hover: var(--accent);

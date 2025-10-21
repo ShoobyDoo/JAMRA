@@ -2,20 +2,59 @@
 
 Last reviewed: February 2025
 
-This guide describes the shipped behaviour for the Library and History surfaces, covering persistence, API contracts, and client-side usage.
+This guide describes the shipped behaviour for the Library, History, and
+Reading Progress surfaces, covering persistence, API contracts, and client usage.
 
 ---
 
 ## Overview
 
-- **Library** lets users bookmark manga, track status (reading/completed/etc.), favourite titles, and organise entries with tags. It powers the Library page at `/library`.
-- **History** records notable events (reads, favourites, library changes, downloads) to fuel the timeline at `/history` and related statistics.
+- **Library** lets users bookmark manga, track status
+  (reading/completed/etc.), favourite titles, and organise entries with tags. It
+  powers the Library page at `/library`.
+- **History** records notable events (reads, favourites, library changes,
+  downloads) to fuel the timeline at `/history` and related statistics.
+- **Reading progress** syncs in-chapter state to the database so users can pick
+  up where they left off across sessions and devices.
 
-Both features build on the catalog database (`packages/catalog-db`), are exposed through REST endpoints in `packages/catalog-server`, and surfaced via Zustand stores in `src/store`.
+All three domains build on the catalog database (`packages/catalog-db`), are
+exposed through REST endpoints in `packages/catalog-server`, and surface via
+typed helpers in `src/lib/api/` with Zustand stores under `src/store`.
 
 ---
 
-## Persistence Model
+## Reading Progress
+
+### Persistence
+
+- `reading_progress` table (migration #6) stores `(manga_id, chapter_id)` as the
+  composite key alongside `current_page`, `total_pages`, `scroll_position`
+  (reserved for vertical mode), and `last_read_at` timestamps.
+- Indexed on `last_read_at DESC` so the Continue Reading surface can fetch the
+  most recent entries efficiently.
+
+### API
+
+- `POST /api/reading-progress` – idempotent upsert used on every page change.
+- `GET /api/reading-progress/:mangaId/:chapterId` – fetch a single record.
+- `GET /api/reading-progress` – list all records (used for migration tasks).
+- `GET /api/reading-progress/enriched?limit=<n>` – latest entry per manga with
+  hydrated metadata for UI cards.
+
+Types live in `src/lib/api/reading-progress.ts`.
+
+### Client usage
+
+- `src/store/reading-progress.ts` keeps an in-memory cache backed by local
+  storage; setters fire-and-forget API calls so rendering stays snappy.
+- `useReaderProgress` initialises the store by loading API state, keeps local
+  state in sync, and updates history entries when chapters are opened.
+- Continue-reading UI pulls from the enriched endpoint and augments it with
+  chapter metadata for quick navigation.
+
+---
+
+## Library & History persistence
 
 | Table | Purpose | Key Columns |
 | ----- | ------- | ----------- |
@@ -26,7 +65,7 @@ Both features build on the catalog database (`packages/catalog-db`), are exposed
 
 ---
 
-## API Surface
+## API surface
 
 ### Library
 
@@ -59,7 +98,7 @@ All endpoints return JSON DTOs defined in `src/lib/api/library.ts` and `src/lib/
 
 ---
 
-## Frontend Usage
+## Frontend usage
 
 ### Library
 
@@ -90,7 +129,7 @@ All endpoints return JSON DTOs defined in `src/lib/api/library.ts` and `src/lib/
 
 ---
 
-## Future Improvements
+## Future improvements
 
 - **Bulk operations** — backend currently lacks bulk add/remove endpoints; client workarounds loop across selected entries.
 - **History filters** — expand UI to surface action-type chips and date pickers (API already supports the filters).

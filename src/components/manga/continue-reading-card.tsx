@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo } from "react";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, BookOpen } from "lucide-react";
 import type { MangaDetails } from "@/lib/api";
 import { slugify } from "@/lib/slug";
 import { withChapterSlugs } from "@/lib/chapter-slug";
@@ -10,6 +10,7 @@ import { formatChapterTitle, sortChaptersAsc } from "@/lib/chapter-meta";
 import { AutoRefreshImage } from "@/components/ui/auto-refresh-image";
 import { resolveCoverSources } from "@/lib/cover-sources";
 import { formatTimeAgo } from "@/lib/time";
+import { ActionIcon } from "@mantine/core";
 
 interface ContinueReadingCardProps {
   manga: MangaDetails | null;
@@ -118,7 +119,7 @@ export function ContinueReadingCard({
   return (
     <Link
       href={`/read/${encodeURIComponent(destination)}/chapter/${encodeURIComponent(currentChapter?.slug ?? currentChapterId)}?${pageQuery}`}
-      className="group relative overflow-hidden rounded-lg border border-border bg-card shadow-sm transition hover:shadow-md"
+      className="group relative overflow-hidden rounded-lg border border-border bg-card shadow-sm transition hover:shadow-md block"
     >
       <div className="flex gap-4 p-4">
         {/* Cover Image */}
@@ -205,6 +206,25 @@ export function ContinueReadingCard({
               </div>
             )}
           </div>
+        </div>
+
+        {/* Details button - stops propagation to go to manga details instead */}
+        <div className="flex items-start relative z-10">
+          <Link
+            href={`/manga/${encodeURIComponent(destination)}`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <ActionIcon
+              variant="light"
+              color="blue"
+              size="lg"
+              title="View manga details"
+              aria-label="View manga details"
+              className="hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors"
+            >
+              <BookOpen className="h-5 w-5" />
+            </ActionIcon>
+          </Link>
         </div>
       </div>
     </Link>

@@ -50,7 +50,7 @@ export function ContinueReadingButton({
       }))
       .filter(
         (entry): entry is { chapter: ChapterWithSlug; value: number } =>
-          entry.value !== null,
+          entry.value !== null
       )
       .sort((a, b) => a.value - b.value);
 
@@ -75,12 +75,12 @@ export function ContinueReadingButton({
 
         // Find the most recently read chapter
         const mostRecent = mangaProgress.reduce((prev, current) =>
-          current.lastReadAt > prev.lastReadAt ? current : prev,
+          current.lastReadAt > prev.lastReadAt ? current : prev
         );
 
         // Find the corresponding chapter
         const chapter = sortedChapters.find(
-          (ch) => ch.id === mostRecent.chapterId,
+          (ch) => ch.id === mostRecent.chapterId
         );
         if (chapter) {
           setLastReadChapter({ chapter, progress: mostRecent });
@@ -122,8 +122,7 @@ export function ContinueReadingButton({
           leftSection={<BookOpen size={20} />}
           variant="filled"
           h="auto"
-          px="lg"
-          py="md"
+          p="xs"
           classNames={buttonClassNames}
         >
           <span className="font-semibold">Start Reading</span>
@@ -136,7 +135,7 @@ export function ContinueReadingButton({
   const { chapter, progress } = lastReadChapter;
   const isComplete = progress.currentPage >= progress.totalPages - 1;
   const progressPercent = Math.round(
-    (progress.currentPage / progress.totalPages) * 100,
+    (progress.currentPage / progress.totalPages) * 100
   );
 
   const pageQuery = new URLSearchParams({
@@ -154,8 +153,7 @@ export function ContinueReadingButton({
         leftSection={<BookOpen size={20} />}
         variant="filled"
         h="auto"
-        px="lg"
-        py="md"
+        p="xs"
         classNames={buttonClassNames}
       >
         <span className="font-semibold">

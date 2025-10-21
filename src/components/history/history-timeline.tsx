@@ -1,15 +1,13 @@
 "use client";
 
-import Link from "next/link";
+import { useState } from "react";
 import { Clock, BookOpen, Heart, Star, Trash2 } from "lucide-react";
+import { Modal } from "@mantine/core";
 import type { EnrichedHistoryEntry } from "@/lib/api";
-import type { HistoryViewMode } from "@/store/history";
 import { AutoRefreshImage } from "@/components/ui/auto-refresh-image";
-import { cn } from "@/lib/utils";
 
 interface HistoryTimelineProps {
   entries: Map<string, EnrichedHistoryEntry[]>;
-  viewMode: HistoryViewMode;
 }
 
 function getActionIcon(actionType: string) {
@@ -54,17 +52,28 @@ function formatTime(timestamp: number): string {
   });
 }
 
-function HistoryEntryItem({ entry }: { entry: EnrichedHistoryEntry }) {
-  const href = entry.manga?.slug
-    ? `/manga/${entry.manga.slug}`
-    : entry.mangaId
-      ? `/manga/${entry.mangaId}`
-      : "#";
+function formatFullDate(timestamp: number): string {
+  const date = new Date(timestamp);
+  return date.toLocaleString("en-US", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
 
+interface HistoryEntryItemProps {
+  entry: EnrichedHistoryEntry;
+  onShowDetails: () => void;
+}
+
+function HistoryEntryItem({ entry, onShowDetails }: HistoryEntryItemProps) {
   return (
-    <Link
-      href={href}
-      className="flex items-start gap-4 rounded-lg border bg-card p-4 transition-colors hover:bg-accent"
+    <button
+      onClick={onShowDetails}
+      className="w-full flex items-start gap-4 rounded-lg border bg-card p-4 transition-colors hover:bg-accent text-left"
     >
       {/* Cover Image */}
       {entry.manga?.coverUrl && (
@@ -93,80 +102,141 @@ function HistoryEntryItem({ entry }: { entry: EnrichedHistoryEntry }) {
           </div>
         </div>
       </div>
-    </Link>
+    </button>
   );
 }
 
-function HistoryEntryGrid({ entry }: { entry: EnrichedHistoryEntry }) {
-  const href = entry.manga?.slug
+interface HistoryDetailsModalProps {
+  entry: EnrichedHistoryEntry;
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+function HistoryDetailsModal({
+  entry,
+  isOpen,
+  onClose,
+}: HistoryDetailsModalProps) {
+  const mangaHref = entry.manga?.slug
     ? `/manga/${entry.manga.slug}`
     : entry.mangaId
       ? `/manga/${entry.mangaId}`
-      : "#";
+      : null;
 
   return (
-    <Link
-      href={href}
-      className="group relative flex flex-col overflow-hidden rounded-lg border bg-card transition-colors hover:bg-accent"
-    >
-      {entry.manga?.coverUrl && (
-        <div className="relative aspect-[2/3] w-full overflow-hidden bg-muted">
-          <AutoRefreshImage
-            src={entry.manga.coverUrl}
-            alt={entry.manga.title}
-            className="h-full w-full object-cover transition-transform group-hover:scale-105"
-            width={200}
-            height={300}
-          />
-          <div className="absolute top-2 right-2 rounded-full bg-background/80 p-1.5 backdrop-blur-sm">
-            {getActionIcon(entry.actionType)}
+    <Modal opened={isOpen} onClose={onClose} size="lg" title="History Details">
+      <div className="space-y-4">
+        {/* Cover and Title */}
+        <div className="flex items-start gap-4">
+          {entry.manga?.coverUrl && (
+            <div className="relative h-32 w-24 flex-shrink-0 overflow-hidden rounded">
+              <AutoRefreshImage
+                src={entry.manga.coverUrl}
+                alt={entry.manga.title}
+                className="h-full w-full object-cover"
+                width={96}
+                height={128}
+              />
+            </div>
+          )}
+          <div className="flex-1 min-w-0">
+            <h3 className="text-lg font-semibold">
+              {entry.manga?.title ?? "Unknown Manga"}
+            </h3>
+            {entry.chapter && (
+              <p className="text-sm text-muted-foreground mt-1">
+                Chapter {entry.chapter.chapterNumber ?? entry.chapter.title}
+              </p>
+            )}
+            {mangaHref && (
+              <a
+                href={mangaHref}
+                className="text-sm text-primary hover:underline mt-2 inline-block"
+              >
+                View Manga
+              </a>
+            )}
           </div>
         </div>
-      )}
-      <div className="p-3">
-        <p className="text-sm font-medium line-clamp-2">
-          {entry.manga?.title ?? "Unknown"}
-        </p>
-        <p className="text-xs text-muted-foreground mt-1">
-          {formatTime(entry.timestamp)}
-        </p>
+
+        {/* Details */}
+        <div className="space-y-3 border-t pt-4">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-muted-foreground">
+              Action:
+            </span>
+            <div className="flex items-center gap-2">
+              {getActionIcon(entry.actionType)}
+              <span className="text-sm capitalize">
+                {entry.actionType.replace("_", " ")}
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-muted-foreground">
+              Date:
+            </span>
+            <span className="text-sm">{formatFullDate(entry.timestamp)}</span>
+          </div>
+
+          {entry.extensionId && (
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-muted-foreground">
+                Extension:
+              </span>
+              <span className="text-sm">{entry.extensionId}</span>
+            </div>
+          )}
+
+          {entry.metadata && Object.keys(entry.metadata).length > 0 && (
+            <div>
+              <span className="text-sm font-medium text-muted-foreground">
+                Metadata:
+              </span>
+              <pre className="text-xs bg-muted p-2 rounded mt-1 overflow-auto">
+                {JSON.stringify(entry.metadata, null, 2)}
+              </pre>
+            </div>
+          )}
+        </div>
       </div>
-    </Link>
+    </Modal>
   );
 }
 
-export function HistoryTimeline({ entries, viewMode }: HistoryTimelineProps) {
-  if (viewMode === "grid") {
-    return (
+export function HistoryTimeline({ entries }: HistoryTimelineProps) {
+  const [selectedEntry, setSelectedEntry] =
+    useState<EnrichedHistoryEntry | null>(null);
+
+  return (
+    <>
       <div className="space-y-6">
         {Array.from(entries.entries()).map(([dateLabel, dateEntries]) => (
           <div key={dateLabel}>
-            <h2 className="text-lg font-semibold mb-3">{dateLabel}</h2>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+            <h2 className="text-lg font-semibold mb-3 sticky top-0 bg-background/95 backdrop-blur-sm z-10 py-2">
+              {dateLabel}
+            </h2>
+            <div className="space-y-2">
               {dateEntries.map((entry) => (
-                <HistoryEntryGrid key={entry.id} entry={entry} />
+                <HistoryEntryItem
+                  key={entry.id}
+                  entry={entry}
+                  onShowDetails={() => setSelectedEntry(entry)}
+                />
               ))}
             </div>
           </div>
         ))}
       </div>
-    );
-  }
 
-  return (
-    <div className="space-y-6">
-      {Array.from(entries.entries()).map(([dateLabel, dateEntries]) => (
-        <div key={dateLabel}>
-          <h2 className="text-lg font-semibold mb-3 sticky top-0 bg-background/95 backdrop-blur-sm z-10 py-2">
-            {dateLabel}
-          </h2>
-          <div className={cn("space-y-2", viewMode === "list" && "space-y-1")}>
-            {dateEntries.map((entry) => (
-              <HistoryEntryItem key={entry.id} entry={entry} />
-            ))}
-          </div>
-        </div>
-      ))}
-    </div>
+      {selectedEntry && (
+        <HistoryDetailsModal
+          entry={selectedEntry}
+          isOpen={!!selectedEntry}
+          onClose={() => setSelectedEntry(null)}
+        />
+      )}
+    </>
   );
 }

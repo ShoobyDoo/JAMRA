@@ -20,7 +20,6 @@ export interface HistoryFilters {
 }
 
 export type HistorySortOption = "newest" | "oldest" | "manga";
-export type HistoryViewMode = "timeline" | "list" | "grid";
 
 export interface HistoryState {
   // Data
@@ -36,7 +35,6 @@ export interface HistoryState {
   // UI State
   filters: HistoryFilters;
   sortBy: HistorySortOption;
-  viewMode: HistoryViewMode;
   isLoading: boolean;
   error: string | null;
 
@@ -68,7 +66,6 @@ export interface HistoryState {
   setFilters: (filters: Partial<HistoryFilters>) => void;
   clearFilters: () => void;
   setSortBy: (sortBy: HistorySortOption) => void;
-  setViewMode: (mode: HistoryViewMode) => void;
 
   // Computed getters
   getGroupedByDate: () => Map<string, EnrichedHistoryEntry[]>;
@@ -85,7 +82,6 @@ export const useHistory = create<HistoryState>((set, get) => ({
   hasMore: true,
   filters: {},
   sortBy: "newest",
-  viewMode: "timeline",
   isLoading: false,
   error: null,
 
@@ -253,10 +249,6 @@ export const useHistory = create<HistoryState>((set, get) => ({
       }
     });
     set({ entries });
-  },
-
-  setViewMode: (mode) => {
-    set({ viewMode: mode });
   },
 
   // Computed getters

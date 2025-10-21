@@ -34,11 +34,11 @@ All compound workflows live behind `scripts/run.ts`; `pnpm dev` already spins up
 
 ## Documentation
 
-- **Day-to-day reference:** [`docs/development.md`](docs/development.md)
-- Extension pipeline: [`docs/extension-pipeline.md`](docs/extension-pipeline.md)
-- Architecture notes: `docs/architecture/`
-- Reader specifics: [`docs/manga-reader.md`](docs/manga-reader.md)
-- Library/History details: [`docs/features/library-and-history.md`](docs/features/library-and-history.md)
+- [`docs/README.md`](docs/README.md) — documentation map and quick entry points.
+- [`docs/development.md`](docs/development.md) — setup, workflows, and coding standards.
+- [`docs/operations.md`](docs/operations.md) — build, packaging, and native module guidance.
+- [`docs/manga-reader.md`](docs/manga-reader.md) — reader behaviour and roadmap.
+- [`docs/features/library-and-history.md`](docs/features/library-and-history.md) — persistence for library, history, and reading progress.
 
 ## Repository Layout
 

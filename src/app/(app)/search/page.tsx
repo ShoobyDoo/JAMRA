@@ -189,6 +189,7 @@ function SearchPageContent() {
               value={sort}
               onChange={(value) => setSort(value || "Popularity")}
               clearable={false}
+              checkIconPosition="right"
             />
 
             <MultiSelect
@@ -198,6 +199,7 @@ function SearchPageContent() {
               onChange={setStatus}
               placeholder="Any status"
               clearable
+              checkIconPosition="right"
             />
 
             <MultiSelect
@@ -207,6 +209,7 @@ function SearchPageContent() {
               onChange={setType}
               placeholder="Any type"
               clearable
+              checkIconPosition="right"
             />
 
             <MultiSelect
@@ -217,6 +220,7 @@ function SearchPageContent() {
               placeholder="Select genres"
               searchable
               clearable
+              checkIconPosition="right"
             />
 
             <MultiSelect
@@ -227,6 +231,7 @@ function SearchPageContent() {
               placeholder="Exclude genres"
               searchable
               clearable
+              checkIconPosition="right"
             />
           </div>
         </div>

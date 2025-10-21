@@ -98,6 +98,7 @@ export function LibraryFilterBar({
             placeholder="Sort by"
             data={SORT_OPTIONS}
             className="w-[180px]"
+            checkIconPosition="right"
           />
 
           <ActionIcon variant="outline" size="lg" onClick={toggleSortOrder}>

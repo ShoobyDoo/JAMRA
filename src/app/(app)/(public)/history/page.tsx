@@ -16,7 +16,6 @@ export default function HistoryPage() {
     stats,
     filters,
     sortBy,
-    viewMode,
     isLoading,
     error,
     hasMore,
@@ -25,7 +24,6 @@ export default function HistoryPage() {
     loadMore,
     setFilters,
     setSortBy,
-    setViewMode,
     getGroupedByDate,
     clearAllHistory,
   } = useHistory();
@@ -156,8 +154,6 @@ export default function HistoryPage() {
         onSearchChange={handleSearchChange}
         sortBy={sortBy}
         onSortChange={setSortBy}
-        viewMode={viewMode}
-        onViewModeChange={setViewMode}
         totalCount={entries.length}
       />
 
@@ -188,7 +184,7 @@ export default function HistoryPage() {
         </div>
       ) : (
         <>
-          <HistoryTimeline entries={groupedEntries} viewMode={viewMode} />
+          <HistoryTimeline entries={groupedEntries} />
 
           {hasMore && (
             <div className="flex justify-center pt-4">

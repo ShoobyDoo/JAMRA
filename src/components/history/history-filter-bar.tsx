@@ -1,15 +1,9 @@
 "use client";
 
-import {
-  Search,
-  SlidersHorizontal,
-  Grid2X2,
-  List,
-  LayoutGrid,
-} from "lucide-react";
-import { TextInput, Select, ActionIcon, Group } from "@mantine/core";
+import { Search, SlidersHorizontal } from "lucide-react";
+import { TextInput, Select, Group } from "@mantine/core";
 import type { HistoryActionType } from "@/lib/api";
-import type { HistorySortOption, HistoryViewMode } from "@/store/history";
+import type { HistorySortOption } from "@/store/history";
 
 interface HistoryFilterBarProps {
   actionType?: HistoryActionType;
@@ -20,8 +14,6 @@ interface HistoryFilterBarProps {
   onSearchChange: (query: string) => void;
   sortBy: HistorySortOption;
   onSortChange: (sort: HistorySortOption) => void;
-  viewMode: HistoryViewMode;
-  onViewModeChange: (mode: HistoryViewMode) => void;
   totalCount: number;
 }
 
@@ -34,8 +26,6 @@ export function HistoryFilterBar({
   onSearchChange,
   sortBy,
   onSortChange,
-  viewMode,
-  onViewModeChange,
   totalCount,
 }: HistoryFilterBarProps) {
   const handleQuickDateRange = (range: string | null) => {
@@ -90,6 +80,7 @@ export function HistoryFilterBar({
             { value: "favorite", label: "Favorited" },
           ]}
           className="w-full sm:w-[180px]"
+          checkIconPosition="right"
         />
 
         {/* Date Range Filter */}
@@ -112,11 +103,12 @@ export function HistoryFilterBar({
             { value: "month", label: "Last 30 Days" },
           ]}
           className="w-full sm:w-[180px]"
+          checkIconPosition="right"
         />
       </div>
 
-      {/* Sort and View Controls */}
-      <div className="flex items-center justify-between">
+      {/* Sort Controls */}
+      <div className="flex items-center">
         <Group gap="xs">
           <SlidersHorizontal className="h-4 w-4 text-muted-foreground" />
           <Select
@@ -129,36 +121,12 @@ export function HistoryFilterBar({
               { value: "manga", label: "By Manga" },
             ]}
             className="w-[180px]"
+            checkIconPosition="right"
           />
 
           <span className="text-sm text-muted-foreground ml-2">
             {totalCount} {totalCount === 1 ? "entry" : "entries"}
           </span>
-        </Group>
-
-        {/* View Mode Toggle */}
-        <Group gap={4} className="rounded-lg border p-1">
-          <ActionIcon
-            variant={viewMode === "timeline" ? "filled" : "subtle"}
-            size="lg"
-            onClick={() => onViewModeChange("timeline")}
-          >
-            <List className="h-4 w-4" />
-          </ActionIcon>
-          <ActionIcon
-            variant={viewMode === "list" ? "filled" : "subtle"}
-            size="lg"
-            onClick={() => onViewModeChange("list")}
-          >
-            <Grid2X2 className="h-4 w-4" />
-          </ActionIcon>
-          <ActionIcon
-            variant={viewMode === "grid" ? "filled" : "subtle"}
-            size="lg"
-            onClick={() => onViewModeChange("grid")}
-          >
-            <LayoutGrid className="h-4 w-4" />
-          </ActionIcon>
         </Group>
       </div>
     </div>

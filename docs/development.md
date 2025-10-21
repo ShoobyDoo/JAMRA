@@ -1,120 +1,94 @@
 # JAMRA Development Guide
 
-Authoritative reference for setting up the workspace, running the app, and following house rules while touching the codebase.
+Authoritative setup and workflow reference for contributors. Pair this guide
+with the doc map in [`docs/README.md`](./README.md) when you need deeper context.
 
----
+## Environment
 
-## Environment & Tooling
-
-- **Node.js 24.x** — required across web, API, and Electron.
-- **pnpm 10+** — the repo relies on pnpm workspaces; other package managers are unsupported.
-- **C/C++ toolchain** — only needed when rebuilding native `better-sqlite3` bindings (see _SQLite bindings_ below).
-- Recommended extras: `jq` for build scripts, Chrome/Edge for web smoke tests.
-
-Verify prerequisites:
+- **Node.js 24.x** (required for web, API, and Electron targets)
+- **pnpm 10+** (workspace manager; npm/yarn are unsupported)
+- **C/C++ build tools** (only for rebuilding native `better-sqlite3` bindings)
+- Nice to have: `jq` for scripts, Chrome/Edge for smoke tests
 
 ```bash
 node -v
 pnpm -v
 ```
 
----
-
-## Workspace Setup
+## Install & First Run
 
 ```bash
-pnpm install       # bootstrap monorepo, runs postinstall to fix native deps
-pnpm dev           # starts API + Next.js together (http://localhost:3000)
+pnpm install   # bootstraps packages, fixes native bindings
+pnpm dev       # catalog server + Next.js at http://localhost:3000
 ```
 
-The `pnpm dev` script wraps `pnpm run run bootstrap web`, which builds backend packages, boots the catalog server on port `4545`, and runs Next.js dev mode via Turbopack. No extra processes are required for standard web development.
+`pnpm dev` delegates to the run harness, which builds backend packages, starts
+the API (port `4545`), and launches Next.js in dev mode. No extra terminals
+needed for standard UI work.
 
-### Core Commands
+## Everyday Commands
 
-| Workflow              | Command |
-| --------------------- | ------- |
-| Lint & typecheck      | `pnpm lint` |
-| Unit tests            | `pnpm test` |
-| Build backend only    | `pnpm backend:build` |
-| Full production build | `pnpm build` |
-| Serve production app  | `pnpm start` |
-| Bundle analysis       | `pnpm analyze` (sets `NEXT_BUNDLE_ANALYZE=1`) |
+| Workflow | Command | When to use |
+| --- | --- | --- |
+| Lint & types | `pnpm lint` | Run before pushing to keep CI green. |
+| Unit tests | `pnpm test` | Executes suites under `test/`. |
+| Backend rebuild | `pnpm backend:build` | Rebuild packages after touching shared logic. |
+| Production build | `pnpm build` | Prepares optimized bundles for deployment. |
+| Serve prod bundle | `pnpm start` | Runs the build output locally. |
+| Bundle analysis | `pnpm analyze` | Opens `analyze/` reports when tuning bundles. |
 
-All scripts funnel through `scripts/run.ts`, which handles dependency ordering, concurrency, and catalog-server rebuilds.
+More operational detail—including packaging and native module notes—lives in
+[`docs/operations.md`](./operations.md).
 
----
-
-## Desktop/Electron Workflows
+## Desktop/Electron
 
 ```bash
-pnpm desktop:dev      # rebuild native deps, then launch Electron shell
-pnpm desktop:refresh  # rerun native rebuild + extension packaging without starting Electron
-pnpm dist             # build production artifacts for the current platform
+pnpm desktop:dev      # refresh native deps + launch shell
+pnpm desktop:refresh  # same prep without starting Electron
+pnpm dist             # package for the current platform
 ```
 
-The Electron shell wraps the catalog server and Next.js build, exposing the same API endpoints for browser debugging while the desktop window is open.
+The desktop runner bundles the same API as the web app, so browser devtools may
+connect while the Electron window is open.
 
----
+## SQLite & Native Modules
 
-## SQLite Bindings
-
-`@jamra/catalog-db` depends on `better-sqlite3`. The postinstall hook prepares bindings for both Node 24 and Electron 38. When you change Node versions or tweak Electron headers, rebuild with:
-
-```bash
-pnpm sqlite:refresh              # rebuild for active Node version
-pnpm sqlite:refresh --electron   # rebuild for Node + Electron
-```
-
-The helper script supports `nvm`, `mise/rtx`, `fnm`, and `volta`. If no manager is detected, set `NODE_VERSION_MANAGER=none` and ensure your shell already runs the desired `node`.
-
-Temporary fallback:
-
-```bash
-JAMRA_DISABLE_SQLITE=1 pnpm extension:demo
-```
-
-This switches the catalog to in-memory storage for quick smoke tests.
-
----
-
-## Extension Pipeline
-
-```bash
-pnpm --filter @jamra/extension-sdk build
-pnpm --filter @jamra/extension-host build
-pnpm --filter @jamra/example-extension build
-pnpm extension:demo              # invokes scripts/run-example-extension.mjs
-```
-
-These commands exercise the extension SDK/host bridge and verify catalog ingestion without launching the UI.
-
----
+- Postinstall scripts rebuild `better-sqlite3` for Node 24 and Electron 38.
+- Run `pnpm sqlite:refresh [--electron]` if you change Node versions or bump
+  Electron headers.
+- Set `JAMRA_DISABLE_SQLITE=1` for quick in-memory runs; unset once toolchains
+  are ready and rebuild to restore persistence.
+- Troubleshooting tips are collected in [`docs/operations.md`](./operations.md).
 
 ## Coding Standards
 
-- TypeScript strict mode everywhere. Declare component props and Zustand slices explicitly.
-- Use the `@/` alias for imports under `src/`; avoid deep relative paths.
-- Naming conventions: PascalCase for components, camelCase for variables/functions, kebab-case only when mirroring route segments.
-- Tailwind utilities rely on tokens defined in `tailwind.config.ts`; extract repeated combinations into `src/components/ui`.
-- Zustand: consume slices via selectors (`useStore((state) => state.slice)`) to avoid unnecessary re-renders. See `docs/zustand-selectors.md`.
-
----
+- TypeScript strict mode everywhere; define component props and Zustand slices
+  explicitly.
+- Use the `@/` alias when importing from `src/`; avoid deep relative paths.
+- PascalCase components, camelCase functions/variables, kebab-case only when
+  mirroring route segments.
+- Tailwind utilities should come from tokens in `tailwind.config.ts`; move
+  shared combinations into `src/components/ui`.
+- Prefer selector-based store access—see `docs/zustand-selectors.md`.
 
 ## Testing & QA
 
-- `pnpm test` runs the lightweight suite in `test/`; add new `.test.ts`/`.test.tsx` files alongside features.
-- Manual smoke tests:
-  1. `pnpm dev` — verify catalog browsing, manga detail pages, reader navigation.
-  2. `pnpm desktop:dev` — confirm Electron shell launches and routes render correctly.
-  3. Exercise notifications (extension enable/disable, cache clearing) to verify Mantine toasts.
-- Document manual steps in PR descriptions until a full E2E harness lands.
-
----
+- `pnpm test` runs the unit suites. Co-locate new tests beside the source they
+  exercise.
+- Manual smoke checks:
+  - `pnpm dev` – browse catalog, open manga detail pages, confirm reader
+    navigation.
+  - `pnpm desktop:dev` – ensure Electron starts and routes render.
+  - Trigger notifications (enabling extensions, clearing cache) to verify toast
+    flows.
+- Document bespoke manual steps in PRs until an automated E2E harness ships.
 
 ## Useful References
 
-- Architecture: `docs/architecture/manga-slugs.md`, `docs/architecture/offline-storage.md`
-- Reader implementation details: `docs/manga-reader.md` (see consolidation notes)
-- Backend packages: `packages/catalog-service`, `packages/catalog-server`, `packages/offline-storage`
+- Architecture: `docs/architecture/manga-slugs.md`,
+  `docs/architecture/offline-storage.md`
+- Reader specifics: `docs/manga-reader.md`
+- Operations & release: `docs/operations.md`
+- Native bindings: `docs/operations.md#sqlite--native-bindings`
 
-Keep this guide authoritative—update it whenever setup steps or workflows change.
+Keep this guide authoritative—update it whenever workflows change.
