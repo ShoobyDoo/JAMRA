@@ -14,12 +14,12 @@ export function HydrationBoundary({ children }: { children: React.ReactNode }) {
   const settingsHydrated = useSettingsStore((state) => state._hasHydrated);
   const imageCacheSynced = useSettingsStore((state) => state.imageCacheSynced);
   const applyServerImageCacheSettings = useSettingsStore(
-    (state) => state.applyServerImageCacheSettings,
+    (state) => state.applyServerImageCacheSettings
   );
 
   const storesHydrated = useMemo(
     () => uiHydrated && settingsHydrated,
-    [uiHydrated, settingsHydrated],
+    [uiHydrated, settingsHydrated]
   );
 
   useEffect(() => {

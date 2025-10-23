@@ -161,6 +161,20 @@ export async function getOfflineMangaMetadata(
   return response?.manga ?? null;
 }
 
+export async function validateOfflineMangaMetadata(
+  extensionId: string,
+  mangaId: string,
+): Promise<{ valid: boolean; rebuilt: boolean }> {
+  const params = new URLSearchParams({ extensionId });
+  return request<{ valid: boolean; rebuilt: boolean }>(
+    `/offline/manga/${encodeURIComponent(mangaId)}/validate?${params.toString()}`,
+    {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+    },
+  );
+}
+
 export async function getOfflineQueue(): Promise<OfflineQueuedDownload[]> {
   const response = await request<OfflineQueueResponse>("/offline/queue");
   return response.queue;

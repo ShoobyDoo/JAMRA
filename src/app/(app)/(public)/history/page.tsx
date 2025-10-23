@@ -9,6 +9,7 @@ import { Download, MoreVertical, Trash2, BarChart3 } from "lucide-react";
 import type { HistoryActionType } from "@/lib/api";
 import { exportHistory, type ExportFormat } from "@/lib/history-export";
 import Link from "next/link";
+import { useDebouncedValue } from "@mantine/hooks";
 
 export default function HistoryPage() {
   const {
@@ -29,6 +30,8 @@ export default function HistoryPage() {
   } = useHistory();
 
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [searchQuery, setSearchQuery] = useState(filters.searchQuery ?? "");
+  const [debouncedSearch] = useDebouncedValue(searchQuery, 300);
 
   useEffect(() => {
     loadHistory(false);
@@ -59,8 +62,22 @@ export default function HistoryPage() {
     setFilters({ startDate, endDate });
   };
 
+  useEffect(() => {
+    setSearchQuery(filters.searchQuery ?? "");
+  }, [filters.searchQuery]);
+
+  useEffect(() => {
+    const normalized = debouncedSearch.trim();
+    const applied = normalized.length > 0 ? normalized : undefined;
+    const current = filters.searchQuery?.trim();
+    if ((current ?? undefined) === applied) {
+      return;
+    }
+    setFilters({ searchQuery: applied });
+  }, [debouncedSearch, filters.searchQuery, setFilters]);
+
   const handleSearchChange = (query: string) => {
-    setFilters({ searchQuery: query || undefined });
+    setSearchQuery(query);
   };
 
   const groupedEntries = getGroupedByDate();
@@ -150,7 +167,7 @@ export default function HistoryPage() {
             : undefined
         }
         onDateRangeChange={handleDateRangeChange}
-        searchQuery={filters.searchQuery ?? ""}
+        searchQuery={searchQuery}
         onSearchChange={handleSearchChange}
         sortBy={sortBy}
         onSortChange={setSortBy}

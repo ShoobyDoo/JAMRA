@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo } from "react";
 import { AlertCircle, BookOpen } from "lucide-react";
+import { Tooltip } from "@mantine/core";
 import type { MangaDetails } from "@/lib/api";
 import { slugify } from "@/lib/slug";
 import { withChapterSlugs } from "@/lib/chapter-slug";
@@ -10,7 +11,6 @@ import { formatChapterTitle, sortChaptersAsc } from "@/lib/chapter-meta";
 import { AutoRefreshImage } from "@/components/ui/auto-refresh-image";
 import { resolveCoverSources } from "@/lib/cover-sources";
 import { formatTimeAgo } from "@/lib/time";
-import { ActionIcon } from "@mantine/core";
 
 interface ContinueReadingCardProps {
   manga: MangaDetails | null;
@@ -22,6 +22,7 @@ interface ContinueReadingCardProps {
   error?: string | null;
   extensionId?: string;
   priority?: boolean;
+  viewMode?: "card" | "list";
 }
 
 export function ContinueReadingCard({
@@ -34,17 +35,18 @@ export function ContinueReadingCard({
   error,
   extensionId,
   priority = false,
+  viewMode = "card",
 }: ContinueReadingCardProps) {
   // Format last read time
   const timeAgo = formatTimeAgo(lastReadAt);
 
   const chaptersWithSlugs = useMemo(
     () => withChapterSlugs(manga?.chapters ?? []),
-    [manga?.chapters],
+    [manga?.chapters]
   );
   const sortedChaptersAsc = useMemo(
     () => sortChaptersAsc(chaptersWithSlugs),
-    [chaptersWithSlugs],
+    [chaptersWithSlugs]
   );
 
   // Error state - show unavailable manga
@@ -92,17 +94,15 @@ export function ContinueReadingCard({
 
   // Find the current chapter info
   const currentChapter = chaptersWithSlugs.find(
-    (ch) => ch.id === currentChapterId,
+    (ch) => ch.id === currentChapterId
   );
 
   // Calculate chapter progress
   const totalChapters = sortedChaptersAsc.length;
   const currentChapterIndex = sortedChaptersAsc.findIndex(
-    (ch) => ch.id === currentChapterId,
+    (ch) => ch.id === currentChapterId
   );
   const readChapters = currentChapterIndex >= 0 ? currentChapterIndex + 1 : 0; // +1 because we're currently reading this chapter
-  const chapterProgress =
-    totalChapters > 0 ? (readChapters / totalChapters) * 100 : 0;
 
   // Calculate page progress percentage
   const pageProgress =
@@ -116,117 +116,166 @@ export function ContinueReadingCard({
     page: String(currentPage),
   }).toString();
 
-  return (
-    <Link
-      href={`/read/${encodeURIComponent(destination)}/chapter/${encodeURIComponent(currentChapter?.slug ?? currentChapterId)}?${pageQuery}`}
-      className="group relative overflow-hidden rounded-lg border border-border bg-card shadow-sm transition hover:shadow-md block"
-    >
-      <div className="flex gap-4 p-4">
-        {/* Cover Image */}
-        <div className="relative h-32 w-24 flex-shrink-0 overflow-hidden rounded-md bg-muted">
-          {coverPrimary ? (
-            <AutoRefreshImage
-              src={coverPrimary}
-              fallbackUrls={coverFallbacks}
-              alt={manga.title}
-              fill
-              className="object-cover transition group-hover:scale-105"
-              sizes="96px"
-              mangaId={mangaId}
-              extensionId={extensionId}
-              priority={priority}
-            />
-          ) : (
-            <div className="flex h-full items-center justify-center text-muted-foreground">
-              <svg
-                className="h-8 w-8"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
-                />
-              </svg>
-            </div>
-          )}
-        </div>
-
-        {/* Content */}
-        <div className="flex min-w-0 flex-1 flex-col justify-between">
-          {/* Title & Info */}
-          <div className="space-y-1">
-            <h3 className="truncate font-semibold text-foreground group-hover:text-primary">
-              {manga.title}
-            </h3>
-            <p className="text-sm text-muted-foreground">
-              {currentChapter
-                ? formatChapterTitle(currentChapter)
-                : `Chapter ${currentChapterId}`}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              Page {currentPage + 1} of {totalPages} • {timeAgo}
-            </p>
+  // List view - compact horizontal layout
+  if (viewMode === "list") {
+    return (
+      <div className="group relative overflow-hidden rounded-lg border border-border bg-card shadow-sm transition-all hover:shadow-md hover:border-primary/30">
+        <Link
+          href={`/read/${encodeURIComponent(destination)}/chapter/${encodeURIComponent(currentChapter?.slug ?? currentChapterId)}?${pageQuery}`}
+          className="flex items-start gap-2.5 p-2.5"
+        >
+          {/* Cover Image */}
+          <div className="relative h-20 w-14 flex-shrink-0 overflow-hidden rounded bg-muted">
+            {coverPrimary ? (
+              <AutoRefreshImage
+                src={coverPrimary}
+                fallbackUrls={coverFallbacks}
+                alt={manga.title}
+                fill
+                className="object-cover"
+                sizes="56px"
+                mangaId={mangaId}
+                extensionId={extensionId}
+                priority={priority}
+              />
+            ) : (
+              <div className="flex h-full items-center justify-center text-muted-foreground">
+                <BookOpen className="h-5 w-5" />
+              </div>
+            )}
           </div>
 
-          {/* Progress Bars */}
-          <div className="space-y-2">
-            {/* Page Progress */}
-            <div className="space-y-1">
-              <div className="flex justify-between text-xs text-muted-foreground">
-                <span>Page Progress</span>
-                <span>{Math.round(pageProgress)}%</span>
+          {/* Content */}
+          <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+            <div>
+              <h3 className="font-semibold text-sm leading-tight line-clamp-1 group-hover:text-primary transition-colors">
+                {manga.title}
+              </h3>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {currentChapter
+                  ? formatChapterTitle(currentChapter)
+                  : `Chapter ${currentChapterId}`}
+              </p>
+            </div>
+
+            <div className="space-y-0.5">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-muted-foreground">
+                  Page {currentPage + 1}/{totalPages}
+                </span>
+                <span className="font-medium">{Math.round(pageProgress)}%</span>
               </div>
               <div className="h-1.5 overflow-hidden rounded-full bg-muted">
                 <div
-                  className="h-full bg-primary transition-all"
+                  className="h-full bg-gradient-to-r from-primary to-blue-500 transition-all"
                   style={{ width: `${pageProgress}%` }}
                 />
               </div>
             </div>
 
-            {/* Chapter Progress */}
-            {totalChapters > 0 && (
-              <div className="space-y-1">
-                <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>Chapter Progress</span>
-                  <span>
-                    {readChapters} / {totalChapters} chapters
-                  </span>
-                </div>
-                <div className="h-1.5 overflow-hidden rounded-full bg-muted">
-                  <div
-                    className="h-full bg-blue-500 transition-all"
-                    style={{ width: `${chapterProgress}%` }}
-                  />
-                </div>
+            <p className="text-xs text-muted-foreground">{timeAgo}</p>
+          </div>
+        </Link>
+
+        {/* Details button - absolute positioned */}
+        <Tooltip label="View manga details" position="left" withArrow>
+          <Link
+            href={`/manga/${encodeURIComponent(destination)}`}
+            className="absolute top-2 right-2 z-10 flex items-center gap-1 px-2 py-1 rounded bg-background/95 backdrop-blur-sm border border-border hover:bg-primary/10 hover:border-primary/50 hover:text-primary transition-all shadow-sm text-xs font-medium"
+          >
+            <BookOpen className="h-3 w-3" />
+            <span className="sr-only">Details</span>
+          </Link>
+        </Tooltip>
+      </div>
+    );
+  }
+
+  // Card view - better responsive design
+  return (
+    <div className="group relative overflow-hidden rounded-lg border border-border bg-card shadow-sm transition-all hover:shadow-md hover:border-primary/30">
+      <Link
+        href={`/read/${encodeURIComponent(destination)}/chapter/${encodeURIComponent(currentChapter?.slug ?? currentChapterId)}?${pageQuery}`}
+        className="block p-2.5"
+      >
+        <div className="flex gap-2.5">
+          {/* Cover Image */}
+          <div className="relative h-32 w-24 flex-shrink-0 overflow-hidden rounded bg-muted">
+            {coverPrimary ? (
+              <AutoRefreshImage
+                src={coverPrimary}
+                fallbackUrls={coverFallbacks}
+                alt={manga.title}
+                fill
+                className="object-cover transition-transform duration-300 group-hover:scale-105"
+                sizes="96px"
+                mangaId={mangaId}
+                extensionId={extensionId}
+                priority={priority}
+              />
+            ) : (
+              <div className="flex h-full items-center justify-center text-muted-foreground">
+                <BookOpen className="h-8 w-8" />
               </div>
             )}
           </div>
-        </div>
 
-        {/* Details button - stops propagation to go to manga details instead */}
-        <div className="flex items-start relative z-10">
+          {/* Content */}
+          <div className="flex min-w-0 flex-1 flex-col justify-between gap-1.5">
+            {/* Title & Chapter */}
+            <div>
+              <h3 className="font-bold text-base leading-tight line-clamp-2 group-hover:text-primary transition-colors">
+                {manga.title}
+              </h3>
+              <p className="text-sm text-muted-foreground mt-0.5 line-clamp-1">
+                {currentChapter
+                  ? formatChapterTitle(currentChapter)
+                  : `Chapter ${currentChapterId}`}
+              </p>
+            </div>
+
+            {/* Progress */}
+            <div className="space-y-1">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-muted-foreground">
+                  Page {currentPage + 1} of {totalPages}
+                </span>
+                <div className="flex items-center gap-1.5">
+                  <span className="font-medium">
+                    {Math.round(pageProgress)}%
+                  </span>
+                  {totalChapters > 0 && (
+                    <span className="text-muted-foreground">
+                      ({readChapters}/{totalChapters})
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div className="h-1.5 overflow-hidden rounded-full bg-muted/50">
+                <div
+                  className="h-full bg-gradient-to-r from-primary to-blue-500 transition-all duration-300"
+                  style={{ width: `${pageProgress}%` }}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">{timeAgo}</p>
+            </div>
+          </div>
+        </div>
+      </Link>
+
+      {/* Details Button - Top right corner */}
+      <div className="absolute top-2 right-2 z-10">
+        <Tooltip label="View manga details" position="left" withArrow>
           <Link
             href={`/manga/${encodeURIComponent(destination)}`}
             onClick={(e) => e.stopPropagation()}
+            className="flex items-center gap-1 px-2 py-1 rounded bg-background/95 backdrop-blur-sm border border-border hover:bg-primary/10 hover:border-primary/50 hover:text-primary transition-all shadow-sm text-xs font-medium"
           >
-            <ActionIcon
-              variant="light"
-              color="blue"
-              size="lg"
-              title="View manga details"
-              aria-label="View manga details"
-              className="hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors"
-            >
-              <BookOpen className="h-5 w-5" />
-            </ActionIcon>
+            <BookOpen className="h-3 w-3" />
+            <span className="sr-only">Details</span>
           </Link>
-        </div>
+        </Tooltip>
       </div>
-    </Link>
+    </div>
   );
 }

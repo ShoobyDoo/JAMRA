@@ -279,7 +279,7 @@ export default function SettingsPage() {
                 step={10}
                 marks={[
                   { value: MIN_SIDEBAR_WIDTH, label: `${MIN_SIDEBAR_WIDTH}px` },
-                  { value: 260, label: "Default" },
+                  { value: 220, label: "Default" },
                   { value: MAX_SIDEBAR_WIDTH, label: `${MAX_SIDEBAR_WIDTH}px` },
                 ]}
                 className="flex-1"
@@ -290,7 +290,7 @@ export default function SettingsPage() {
               <Button
                 size="xs"
                 variant="light"
-                onClick={() => setSidebarWidth(260)}
+                onClick={() => setSidebarWidth(220)}
               >
                 Reset
               </Button>

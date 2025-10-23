@@ -10,9 +10,11 @@ import { useReaderControls } from "@/hooks/use-reader-controls";
 import { ReaderControls } from "./reader-controls";
 import { ReaderSettingsPanel } from "./reader-settings-panel";
 import { HotZoneIndicator } from "./hot-zone-indicator";
+import { HotZoneHintOverlay } from "./hot-zone-hint-overlay";
 import { ReaderViewport } from "./reader-viewport";
 import { logger } from "@/lib/logger";
 import { usePerformanceMonitor } from "@/hooks/use-performance-monitor";
+import { useReaderHints } from "@/store/reader-hints";
 
 type FullscreenCapableDocument = Document & {
   webkitExitFullscreen?: () => void | Promise<void>;
@@ -133,12 +135,30 @@ export function MangaReader({
     autoAdvanceChapter,
     initialPageCount,
     pageChunkSize,
+    showHotzoneHints,
   } = useReaderSettings();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const router = useRouter();
+  const hasShownSessionHint = useReaderHints(
+    (state) => state.hasShownSessionHint,
+  );
+  const markSessionHintShown = useReaderHints(
+    (state) => state.markSessionHintShown,
+  );
+
+  const [shouldRenderHint, setShouldRenderHint] = useState(false);
+  const [hintVisible, setHintVisible] = useState(false);
+  const hintTimersRef = useRef<number[]>([]);
+  const hasShownHintRef = useRef(hasShownSessionHint);
+
+  const clearHintTimers = useCallback(() => {
+    hintTimersRef.current.forEach((id) => window.clearTimeout(id));
+    hintTimersRef.current = [];
+  }, []);
 
   // Smart control bar visibility management
   const readerControls = useReaderControls({ mode: readingMode });
+  const { pinControls, unpinControls } = readerControls;
   usePerformanceMonitor("MangaReader", {
     detail: { mangaId, chapterId, readingMode },
   });
@@ -157,6 +177,43 @@ export function MangaReader({
     chunkSize: pageChunkSize,
     enableImagePreload: true,
   });
+
+  useEffect(() => {
+    if (hasShownSessionHint) {
+      hasShownHintRef.current = true;
+    }
+  }, [hasShownSessionHint]);
+
+  useEffect(() => {
+    if (!showHotzoneHints || hasShownHintRef.current) {
+      return;
+    }
+
+    hasShownHintRef.current = true;
+    markSessionHintShown();
+    setShouldRenderHint(true);
+
+    const showTimer = window.setTimeout(() => setHintVisible(true), 50);
+    const hideTimer = window.setTimeout(() => setHintVisible(false), 2200);
+    const cleanupTimer = window.setTimeout(
+      () => setShouldRenderHint(false),
+      2700,
+    );
+
+    hintTimersRef.current = [showTimer, hideTimer, cleanupTimer];
+
+    return () => {
+      clearHintTimers();
+    };
+  }, [showHotzoneHints, markSessionHintShown, clearHintTimers]);
+
+  useEffect(() => {
+    if (!showHotzoneHints) {
+      clearHintTimers();
+      setHintVisible(false);
+      setShouldRenderHint(false);
+    }
+  }, [showHotzoneHints, clearHintTimers]);
 
   // Manage reading progress
   const {
@@ -400,6 +457,13 @@ export function MangaReader({
         onRetry={retryLoading}
       />
 
+      {shouldRenderHint && (
+        <HotZoneHintOverlay
+          readingMode={readingMode}
+          visible={hintVisible}
+        />
+      )}
+
       {/* Hot zone indicator - shown across all reading modes */}
       <HotZoneIndicator zone={readerControls.currentHotZone} />
 
@@ -420,6 +484,8 @@ export function MangaReader({
         onToggleZenMode={handleToggleZenMode}
         onPageSelect={handlePageSelect}
         showControls={readerControls.showControls}
+        onControlsPointerEnter={pinControls}
+        onControlsPointerLeave={unpinControls}
       />
 
       <ReaderSettingsPanel

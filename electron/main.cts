@@ -58,7 +58,7 @@ async function createWindow(): Promise<void> {
   const win = new BrowserWindow({
     width: 1280,
     height: 800,
-    minWidth: 1080,
+    minWidth: 1200,
     minHeight: 720,
     webPreferences: {
       contextIsolation: true,

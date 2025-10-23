@@ -77,12 +77,39 @@ export class WeebCentralScraper {
         `[WeebCentral] HTTP Response: ${response.status} ${response.statusText}`,
       );
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error(
+          `[WeebCentral] HTTP ${response.status} error response (first 500 chars):`,
+          errorText.substring(0, 500),
+        );
+
+        // Check for rate limiting or temporary errors
+        if (response.status === 429 || response.status === 503) {
+          throw new Error(`Server temporarily unavailable (${response.status}): Please try again later`);
+        }
+
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
-      return response.text();
+      const text = await response.text();
+
+      // Validate that we got actual HTML, not an error page
+      if (!text.includes('<html') && !text.includes('<img')) {
+        console.error(`[WeebCentral] Invalid response (first 500 chars):`, text.substring(0, 500));
+        throw new Error('Invalid response from server - possible rate limiting or maintenance');
+      }
+
+      return text;
     });
 
     console.log(`[WeebCentral] HTML fetched, length: ${html.length}`);
+
+    // Log first part of HTML to debug parsing issues
+    if (html.length < 2000 || !html.includes("<img")) {
+      console.warn(
+        `[WeebCentral] Suspicious HTML response (first 1000 chars):`,
+        html.substring(0, 1000),
+      );
+    }
 
     const $ = cheerio.load(html);
     const images: ChapterPages["pages"] = [];

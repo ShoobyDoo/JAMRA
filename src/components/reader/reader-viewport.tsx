@@ -91,7 +91,10 @@ export const ReaderViewport = forwardRef<HTMLDivElement, ReaderViewportProps>(
     };
 
     return (
-      <div ref={ref} className="relative flex-1 overflow-hidden">
+      <div
+        ref={ref}
+        className="reader-viewport relative flex-1 overflow-hidden"
+      >
         {renderReadingMode()}
 
         {isPagesLoading && loadingProgress < 100 && (

@@ -59,7 +59,32 @@ export async function readJSON<T>(filePath: string): Promise<T> {
 export async function writeJSON<T>(filePath: string, data: T): Promise<void> {
   await ensureDir(path.dirname(filePath));
   const json = JSON.stringify(data, null, 2);
-  await fs.writeFile(filePath, json, "utf-8");
+  const baseName = path.basename(filePath);
+  const tempPath = path.join(
+    path.dirname(filePath),
+    `${baseName}.${process.pid}.${Date.now()}.tmp`,
+  );
+
+  await fs.writeFile(tempPath, json, "utf-8");
+
+  try {
+    await fs.rename(tempPath, filePath);
+  } catch (error) {
+    const err = error as NodeJS.ErrnoException;
+    if (err.code === "EEXIST" || err.code === "EPERM") {
+      try {
+        await fs.unlink(filePath);
+        await fs.rename(tempPath, filePath);
+        return;
+      } catch {}
+    }
+    try {
+      await fs.unlink(tempPath);
+    } catch {
+      // Ignore cleanup errors; original error is more important.
+    }
+    throw error;
+  }
 }
 
 /**

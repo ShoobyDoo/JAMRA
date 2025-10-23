@@ -206,10 +206,11 @@ export function VerticalMode({
   return (
     <div
       ref={containerRef}
-      className={`h-full w-full overflow-y-auto ${backgroundColors[backgroundColor]} relative`}
+      className={`relative h-full w-full overflow-y-auto touch-pan-y ${backgroundColors[backgroundColor]}`}
       style={{
         scrollBehavior: "auto",
-        overscrollBehavior: "auto",
+        overscrollBehavior: "contain",
+        WebkitOverflowScrolling: "touch",
       }}
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}

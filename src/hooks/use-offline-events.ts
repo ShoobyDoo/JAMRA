@@ -5,18 +5,21 @@ import { logger } from "@/lib/logger";
 
 export interface OfflineDownloadEvent {
   type:
+    | "download-queued"
     | "download-started"
     | "download-progress"
     | "download-completed"
     | "download-failed"
     | "chapter-deleted"
-    | "manga-deleted";
+    | "manga-deleted"
+    | "new-chapters-available";
   queueId?: number;
   mangaId?: string;
   chapterId?: string;
   progressCurrent?: number;
   progressTotal?: number;
   error?: string;
+  newChapterCount?: number;
 }
 
 export interface UseOfflineEventsOptions {
@@ -33,9 +36,10 @@ export function useOfflineEvents(options: UseOfflineEventsOptions = {}) {
   const reconnectTimeoutRef = useRef<number | null>(null);
   const reconnectAttemptsRef = useRef(0);
   const offlineStorageDisabledRef = useRef(false);
+  const lastSuccessfulCheckRef = useRef<number>(0);
 
   useEffect(() => {
-    if (!enabled || offlineStorageDisabledRef.current) {
+    if (!enabled) {
       return;
     }
 
@@ -61,11 +65,24 @@ export function useOfflineEvents(options: UseOfflineEventsOptions = {}) {
           if (cancelled) return;
 
           if (checkResponse.status === 503 || checkResponse.status === 404) {
-            // Offline storage is not available - don't try to connect
-            offlineStorageDisabledRef.current = true;
+            // Offline storage is not available - schedule retry
+            logger.warn(
+              "Offline storage not available, will retry in 10 seconds",
+              {
+                component: "useOfflineEvents",
+                action: "check-availability",
+              },
+            );
+            reconnectTimeoutRef.current = window.setTimeout(() => {
+              connect();
+            }, 10000); // Retry after 10 seconds
             setConnected(false);
             return;
           }
+
+          // Storage is available - reset the disabled flag and record success
+          offlineStorageDisabledRef.current = false;
+          lastSuccessfulCheckRef.current = Date.now();
         } catch {
           if (cancelled) return;
           // Network error - will retry
@@ -76,6 +93,10 @@ export function useOfflineEvents(options: UseOfflineEventsOptions = {}) {
               action: "check-availability",
             },
           );
+          reconnectTimeoutRef.current = window.setTimeout(() => {
+            connect();
+          }, 5000); // Retry after 5 seconds
+          return;
         }
 
         const eventSource = new EventSource(
@@ -89,7 +110,14 @@ export function useOfflineEvents(options: UseOfflineEventsOptions = {}) {
             action: "connected",
           });
           setConnected(true);
-          reconnectAttemptsRef.current = 0;
+          reconnectAttemptsRef.current = 0; // Reset retry counter on successful connection
+          offlineStorageDisabledRef.current = false; // Ensure disabled flag is cleared
+        });
+
+        eventSource.addEventListener("download-queued", (e) => {
+          const event = JSON.parse(e.data) as OfflineDownloadEvent;
+          setLastEvent(event);
+          onEvent?.(event);
         });
 
         eventSource.addEventListener("download-started", (e) => {
@@ -128,6 +156,12 @@ export function useOfflineEvents(options: UseOfflineEventsOptions = {}) {
           onEvent?.(event);
         });
 
+        eventSource.addEventListener("new-chapters-available", (e) => {
+          const event = JSON.parse(e.data) as OfflineDownloadEvent;
+          setLastEvent(event);
+          onEvent?.(event);
+        });
+
         eventSource.addEventListener("heartbeat", () => {
           // Heartbeat received - connection is alive
         });
@@ -141,40 +175,50 @@ export function useOfflineEvents(options: UseOfflineEventsOptions = {}) {
             eventSourceRef.current = null;
           }
 
-          // Only retry a few times before giving up
-          if (reconnectAttemptsRef.current >= 3) {
-            logger.warn(
-              "Offline events connection failed after maximum retries",
-              {
-                component: "useOfflineEvents",
-                action: "max-retries",
-                attempts: reconnectAttemptsRef.current,
-              },
-            );
-            offlineStorageDisabledRef.current = true;
-            return;
-          }
-
-          // Attempt to reconnect with exponential backoff
-          const delay = Math.min(
+          // Keep retrying indefinitely with exponential backoff
+          // After 3 failed attempts, use a longer retry interval
+          const maxAttempts = 3;
+          const shortDelay = Math.min(
             reconnectDelay * Math.pow(2, reconnectAttemptsRef.current),
-            30000,
+            10000, // Max 10 seconds for initial retries
           );
+          const longDelay = 30000; // 30 seconds for subsequent retries
+
+          const delay = reconnectAttemptsRef.current >= maxAttempts
+            ? longDelay
+            : shortDelay;
+
           reconnectAttemptsRef.current++;
+
+          logger.warn(
+            `Offline events connection lost, reconnecting in ${delay / 1000}s`,
+            {
+              component: "useOfflineEvents",
+              action: "reconnecting",
+              attempts: reconnectAttemptsRef.current,
+              delay,
+            },
+          );
 
           reconnectTimeoutRef.current = window.setTimeout(() => {
             connect();
           }, delay);
         };
-      } catch {
+      } catch (error) {
         logger.warn(
-          "Failed to establish offline events SSE connection",
+          "Failed to establish offline events SSE connection, will retry",
           {
             component: "useOfflineEvents",
             action: "connect-failure",
+            error: error instanceof Error ? error : new Error(String(error)),
           },
         );
         setConnected(false);
+
+        // Retry after a delay
+        reconnectTimeoutRef.current = window.setTimeout(() => {
+          connect();
+        }, 5000);
       }
     };
 

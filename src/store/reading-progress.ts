@@ -7,6 +7,8 @@ import {
 } from "@/lib/api";
 import { logger } from "@/lib/logger";
 
+const SAVE_DEBOUNCE_MS = 400;
+
 export interface ReadingProgress {
   mangaId: string;
   chapterId: string;
@@ -53,8 +55,69 @@ export interface ReadingProgressState {
 }
 
 export const useReadingProgress = create<ReadingProgressState>()(
-  persist(
-    (set, get) => ({
+  persist((set, get) => {
+    const pendingSaves = new Map<string, ReturnType<typeof setTimeout>>();
+
+    const scheduleSave = (
+      mangaId: string,
+      chapterId: string,
+      page: number,
+      totalPages: number,
+    ) => {
+      const key = `${mangaId}:${chapterId}`;
+      const existing = pendingSaves.get(key);
+      if (existing !== undefined) {
+        clearTimeout(existing);
+      }
+
+      const timeoutId = setTimeout(() => {
+        pendingSaves.delete(key);
+        void saveProgressAPI(mangaId, chapterId, page, totalPages).catch(
+          (error) => {
+            logger.error("Failed to save reading progress", {
+              component: "useReadingProgress",
+              action: "save-progress",
+              mangaId,
+              chapterId,
+              page,
+              totalPages,
+              error: error instanceof Error ? error : new Error(String(error)),
+            });
+          },
+        );
+      }, SAVE_DEBOUNCE_MS);
+
+      pendingSaves.set(key, timeoutId);
+    };
+
+    const flushPendingSaves = () => {
+      pendingSaves.forEach((timeoutId, key) => {
+        clearTimeout(timeoutId);
+        pendingSaves.delete(key);
+
+        const snapshot = get().progress[key];
+        if (!snapshot) return;
+
+        void saveProgressAPI(
+          snapshot.mangaId,
+          snapshot.chapterId,
+          snapshot.currentPage,
+          snapshot.totalPages,
+        ).catch((error) => {
+          logger.error("Failed to flush queued reading progress", {
+            component: "useReadingProgress",
+            action: "flush-progress",
+            mangaId: snapshot.mangaId,
+            chapterId: snapshot.chapterId,
+            page: snapshot.currentPage,
+            totalPages: snapshot.totalPages,
+            error: error instanceof Error ? error : new Error(String(error)),
+          });
+        });
+      });
+    };
+
+    return {
       progress: {},
       currentMangaId: null,
       currentChapterId: null,
@@ -72,7 +135,6 @@ export const useReadingProgress = create<ReadingProgressState>()(
           lastReadAt: Date.now(),
         };
 
-        // Update local state
         set((state) => ({
           progress: {
             ...state.progress,
@@ -80,16 +142,7 @@ export const useReadingProgress = create<ReadingProgressState>()(
           },
         }));
 
-        // Save to API (fire and forget - don't block UI)
-        saveProgressAPI(mangaId, chapterId, page, total).catch((error) => {
-          logger.error("Failed to save reading progress", {
-            component: "useReadingProgress",
-            action: "save-progress",
-            mangaId,
-            chapterId,
-            error: error instanceof Error ? error : new Error(String(error)),
-          });
-        });
+        scheduleSave(mangaId, chapterId, page, total);
       },
 
       loadProgressFromAPI: async (mangaId, chapterId) => {
@@ -123,13 +176,13 @@ export const useReadingProgress = create<ReadingProgressState>()(
       },
 
       setCurrentChapter: async (mangaId, chapterId, totalPages) => {
-        // Try to load from API first
+        flushPendingSaves();
+
         const apiProgress = await get().loadProgressFromAPI(mangaId, chapterId);
 
         let startPage = 0;
 
         if (apiProgress) {
-          // Use API progress if valid
           if (
             apiProgress.currentPage >= 0 &&
             apiProgress.currentPage < totalPages
@@ -137,7 +190,6 @@ export const useReadingProgress = create<ReadingProgressState>()(
             startPage = apiProgress.currentPage;
           }
         } else {
-          // Fall back to localStorage
           const existingProgress = get().getProgress(mangaId, chapterId);
           if (existingProgress?.currentPage !== undefined) {
             const savedPage = existingProgress.currentPage;
@@ -155,8 +207,7 @@ export const useReadingProgress = create<ReadingProgressState>()(
           preloadedImages: new Set(),
         });
 
-        // Log to history (fire and forget)
-        logHistoryEntry({
+        void logHistoryEntry({
           mangaId,
           chapterId,
           actionType: "read",
@@ -170,8 +221,7 @@ export const useReadingProgress = create<ReadingProgressState>()(
             action: "log-history",
             mangaId,
             chapterId,
-            error:
-              error instanceof Error ? error : new Error(String(error)),
+            error: error instanceof Error ? error : new Error(String(error)),
           });
         });
       },
@@ -179,7 +229,6 @@ export const useReadingProgress = create<ReadingProgressState>()(
       setCurrentPage: (page) => {
         const { currentMangaId, currentChapterId, totalPages } = get();
 
-        // Validate page is within bounds
         if (page < 0 || page >= totalPages) {
           logger.warn("Clamping out-of-bounds page selection", {
             component: "useReadingProgress",
@@ -190,7 +239,6 @@ export const useReadingProgress = create<ReadingProgressState>()(
           page = Math.max(0, Math.min(page, totalPages - 1));
         }
 
-        // Atomic update to prevent flashing
         if (currentMangaId && currentChapterId) {
           const key = `${currentMangaId}:${currentChapterId}`;
           const progressData = {
@@ -209,24 +257,7 @@ export const useReadingProgress = create<ReadingProgressState>()(
             },
           }));
 
-          // Save to API
-          saveProgressAPI(
-            currentMangaId,
-            currentChapterId,
-            page,
-            totalPages,
-          ).catch((error) => {
-            logger.error("Failed to save progress while updating current page", {
-              component: "useReadingProgress",
-              action: "save-progress",
-              mangaId: currentMangaId,
-              chapterId: currentChapterId,
-              page,
-              totalPages,
-              error:
-                error instanceof Error ? error : new Error(String(error)),
-            });
-          });
+          scheduleSave(currentMangaId, currentChapterId, page, totalPages);
         } else {
           set({ currentPage: page });
         }
@@ -256,14 +287,22 @@ export const useReadingProgress = create<ReadingProgressState>()(
             },
           },
         }));
+
+        const snapshot = get().progress[key];
+        if (snapshot) {
+          scheduleSave(
+            snapshot.mangaId,
+            snapshot.chapterId,
+            snapshot.currentPage,
+            snapshot.totalPages,
+          );
+        }
       },
+    };
+  }, {
+    name: "reader-progress-storage",
+    partialize: (state) => ({
+      progress: state.progress,
     }),
-    {
-      name: "reading-progress-storage",
-      partialize: (state) => ({
-        // Only persist progress, not session state
-        progress: state.progress,
-      }),
-    },
-  ),
+  }),
 );

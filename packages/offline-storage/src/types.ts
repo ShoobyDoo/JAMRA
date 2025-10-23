@@ -335,6 +335,12 @@ export interface DownloadHistoryItem {
  */
 export type OfflineStorageEvent =
   | {
+      type: "download-queued";
+      queueId: number;
+      mangaId: string;
+      chapterId?: string;
+    }
+  | {
       type: "download-started";
       queueId: number;
       mangaId: string;
@@ -369,6 +375,11 @@ export type OfflineStorageEvent =
     }
   | { type: "chapter-deleted"; mangaId: string; chapterId: string }
   | { type: "manga-deleted"; mangaId: string }
+  | {
+      type: "new-chapters-available";
+      mangaId: string;
+      newChapterCount: number;
+    }
   | {
       type: "cleanup-performed";
       deletedBytes: number;

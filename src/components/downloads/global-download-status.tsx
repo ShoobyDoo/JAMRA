@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import {
   Box,
   Collapse,
@@ -11,8 +11,9 @@ import {
   Button,
   Popover,
   Badge,
+  Tooltip,
 } from "@mantine/core";
-import { ChevronDown, ChevronUp, Download, X, ArrowRight } from "lucide-react";
+import { ChevronDown, ChevronUp, Download, X, ArrowRight, WifiOff } from "lucide-react";
 import { useUIStore } from "@/store/ui";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -54,11 +55,33 @@ export function GlobalDownloadStatus() {
   const [expanded, setExpanded] = useState(false);
   const [popoverOpened, setPopoverOpened] = useState(false);
   const [downloads, setDownloads] = useState<OfflineQueuedDownload[]>([]);
+  const [sseConnected, setSseConnected] = useState(false);
+  const queueRefreshTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Calculate available width for content (sidebar width - padding)
   const contentWidth = sidebarCollapsed
     ? 0
     : Math.max(MIN_SIDEBAR_WIDTH, sidebarWidth) - 16; // 16px total horizontal padding
+
+  // Debounced queue refresh function
+  const refreshQueueDebounced = useCallback(() => {
+    if (queueRefreshTimeoutRef.current) {
+      clearTimeout(queueRefreshTimeoutRef.current);
+    }
+    queueRefreshTimeoutRef.current = setTimeout(() => {
+      getOfflineQueue()
+        .then((queue) => {
+          setDownloads(queue);
+        })
+        .catch((error) => {
+          logger.error("Failed to refresh queue", {
+            component: "GlobalDownloadStatus",
+            action: "refresh-queue-debounced",
+            error: error instanceof Error ? error : new Error(String(error)),
+          });
+        });
+    }, 500); // 500ms debounce
+  }, []);
 
   // Load initial queue
   useEffect(() => {
@@ -73,12 +96,24 @@ export function GlobalDownloadStatus() {
           error: error instanceof Error ? error : new Error(String(error)),
         });
       });
+
+    // Cleanup debounce timeout on unmount
+    return () => {
+      if (queueRefreshTimeoutRef.current) {
+        clearTimeout(queueRefreshTimeoutRef.current);
+      }
+    };
   }, []);
 
   // Listen for real-time updates
-  useOfflineEvents({
+  const { connected } = useOfflineEvents({
     onEvent: useCallback((event: OfflineDownloadEvent) => {
       switch (event.type) {
+        case "download-queued":
+          // New item added to queue - debounced refresh to avoid flooding during bulk operations
+          refreshQueueDebounced();
+          break;
+
         case "download-started":
           // Optimistically update status to downloading
           if (event.queueId !== undefined) {
@@ -134,8 +169,38 @@ export function GlobalDownloadStatus() {
           }
           break;
       }
-    }, []),
+    }, [refreshQueueDebounced]),
   });
+
+  // Update SSE connected state
+  useEffect(() => {
+    setSseConnected(connected);
+  }, [connected]);
+
+  // Fallback polling when SSE is disconnected - only if there are active downloads
+  useEffect(() => {
+    if (sseConnected || downloads.length === 0) {
+      return; // SSE is connected or no active downloads, no need to poll
+    }
+
+    const pollInterval = setInterval(() => {
+      getOfflineQueue()
+        .then((queue) => {
+          setDownloads(queue);
+        })
+        .catch((error) => {
+          logger.error("Failed to poll offline download queue", {
+            component: "GlobalDownloadStatus",
+            action: "poll-queue",
+            error: error instanceof Error ? error : new Error(String(error)),
+          });
+        });
+    }, 15000); // Poll every 15 seconds when SSE is disconnected and downloads are active
+
+    return () => {
+      clearInterval(pollInterval);
+    };
+  }, [sseConnected, downloads.length]);
 
   // Group downloads by manga
   const downloadsByManga: DownloadsByManga = downloads.reduce(
@@ -345,9 +410,16 @@ export function GlobalDownloadStatus() {
 
           <Popover.Dropdown p={0}>
             <Box className="border-b border-border p-3">
-              <Text size="sm" fw={500}>
-                Downloads ({downloads.length})
-              </Text>
+              <div className="flex items-center justify-between gap-2">
+                <Text size="sm" fw={500}>
+                  Downloads ({downloads.length})
+                </Text>
+                {!sseConnected && (
+                  <Tooltip label="Offline mode - updates may be delayed">
+                    <WifiOff size={14} className="text-amber-500" />
+                  </Tooltip>
+                )}
+              </div>
             </Box>
             {renderDownloadsContent(280)}
           </Popover.Dropdown>
@@ -369,6 +441,11 @@ export function GlobalDownloadStatus() {
         <Text size="sm" fw={500} className="flex-1 text-left">
           Downloads ({downloads.length})
         </Text>
+        {!sseConnected && (
+          <Tooltip label="Offline mode - updates may be delayed">
+            <WifiOff size={14} className="text-amber-500" />
+          </Tooltip>
+        )}
         {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
       </button>
 

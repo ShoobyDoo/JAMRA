@@ -5,6 +5,7 @@
  * Handles queueing downloads, querying offline content, and managing storage.
  */
 
+import * as path from "node:path";
 import type { CatalogService } from "@jamra/catalog-service";
 import type { ChapterSummary } from "@jamra/extension-sdk";
 import { OfflineRepository } from "./repository.js";
@@ -18,11 +19,15 @@ import {
   writeJSON,
   deleteDir,
   getDirSize,
+  fileExists,
+  ensureDir,
 } from "./utils/file-system.js";
 import type {
   OfflineMangaMetadata,
   OfflineChapterMetadata,
   OfflineChapterPages,
+  OfflineMangaRow,
+  OfflineChapterRow,
   DownloadMangaOptions,
   DownloadChapterOptions,
   QueuedDownload,
@@ -33,13 +38,23 @@ import type {
 } from "./types.js";
 
 export class OfflineStorageManager {
+  private readonly dataDir: string;
   private readonly eventListeners: Set<OfflineStorageEventListener> = new Set();
 
   constructor(
-    private readonly dataDir: string,
+    dataDir: string,
     private readonly repository: OfflineRepository,
     private readonly catalogService: CatalogService,
-  ) {}
+  ) {
+    if (path.basename(dataDir) === "offline") {
+      console.warn(
+        "[OfflineStorage] Received data directory suffixed with 'offline'. Adjusting to parent directory.",
+      );
+      this.dataDir = path.dirname(dataDir);
+    } else {
+      this.dataDir = dataDir;
+    }
+  }
 
   // ==========================================================================
   // Event Emitter
@@ -75,10 +90,31 @@ export class OfflineStorageManager {
   ): Promise<number> {
     // Check if already downloaded
     const offlineManga = this.repository.getManga(extensionId, mangaId);
+    console.log(`[OfflineStorage] queueChapterDownload check:`, {
+      extensionId,
+      mangaId,
+      chapterId,
+      offlineMangaFound: !!offlineManga,
+      offlineMangaId: offlineManga?.id,
+    });
+
     if (offlineManga) {
       const chapters = this.repository.getChaptersByManga(offlineManga.id);
       const existingChapter = chapters.find((c) => c.chapter_id === chapterId);
+      console.log(`[OfflineStorage] Chapter availability check:`, {
+        totalOfflineChapters: chapters.length,
+        chapterIdToCheck: chapterId,
+        existingChapterFound: !!existingChapter,
+        existingChapterId: existingChapter?.chapter_id,
+        existingChapterNumber: existingChapter?.chapter_number,
+      });
+
       if (existingChapter) {
+        console.warn(`[OfflineStorage] ⚠️  Chapter already downloaded - rejecting queue request:`, {
+          chapterId,
+          chapterNumber: existingChapter.chapter_number,
+          downloadedAt: new Date(existingChapter.downloaded_at).toISOString(),
+        });
         throw new Error("Chapter already downloaded");
       }
     }
@@ -113,6 +149,14 @@ export class OfflineStorageManager {
       progress_total: 0,
     });
 
+    // Emit event so UI can immediately show the queued item
+    this.emit({
+      type: "download-queued",
+      queueId,
+      mangaId,
+      chapterId,
+    });
+
     return queueId;
   }
 
@@ -124,39 +168,86 @@ export class OfflineStorageManager {
     mangaId: string,
     options: DownloadMangaOptions = {},
   ): Promise<number[]> {
-    // Get manga details with chapters
+    // Get manga details with chapters ONCE (not per-chapter!)
     const mangaDetails = await this.catalogService.syncManga(
       extensionId,
       mangaId,
     );
     const chapters = mangaDetails.details.chapters || [];
+    const mangaSlug = sanitizeSlug(
+      mangaDetails.details.slug || mangaDetails.details.title,
+    );
 
     // Filter chapters if specific ones are requested
     const chaptersToDownload = options.chapterIds
       ? chapters.filter((c) => options.chapterIds!.includes(c.id))
       : chapters;
 
-    // Queue each chapter
-    const queueIds: number[] = [];
-    for (const chapter of chaptersToDownload) {
-      try {
-        const queueId = await this.queueChapterDownload(
-          extensionId,
-          mangaId,
-          chapter.id,
-          { priority: options.priority },
-        );
-        queueIds.push(queueId);
-      } catch (error) {
-        // Skip if chapter already downloaded
-        if (
-          error instanceof Error &&
-          error.message.includes("already downloaded")
-        ) {
-          continue;
-        }
-        throw error;
+    // Check which chapters are already downloaded (do this BEFORE queuing)
+    const offlineManga = this.repository.getManga(extensionId, mangaId);
+    const alreadyDownloadedIds = new Set<string>();
+
+    if (offlineManga) {
+      const offlineChapters = this.repository.getChaptersByManga(offlineManga.id);
+      for (const chapter of offlineChapters) {
+        alreadyDownloadedIds.add(chapter.chapter_id);
       }
+    }
+
+    // Queue each chapter (batch operation)
+    const queueIds: number[] = [];
+    const queuedChapterIds: string[] = [];
+    const now = Date.now();
+
+    for (const chapter of chaptersToDownload) {
+      // Skip if already downloaded
+      if (alreadyDownloadedIds.has(chapter.id)) {
+        console.log(`[OfflineStorage] Skipping already downloaded chapter ${chapter.number || chapter.id}`);
+        continue;
+      }
+
+      try {
+        // Queue directly without re-fetching manga details
+        const queueId = this.repository.queueDownload({
+          extension_id: extensionId,
+          manga_id: mangaId,
+          manga_slug: mangaSlug,
+          manga_title: mangaDetails.details.title,
+          chapter_id: chapter.id,
+          chapter_number: chapter.number || null,
+          chapter_title: chapter.title || null,
+          status: "queued",
+          priority: options.priority ?? 0,
+          queued_at: now,
+          started_at: null,
+          completed_at: null,
+          error_message: null,
+          progress_current: 0,
+          progress_total: 0,
+        });
+
+        queueIds.push(queueId);
+        queuedChapterIds.push(chapter.id);
+      } catch (error) {
+        console.error(`Failed to queue chapter ${chapter.id}:`, error);
+        // Continue with other chapters even if one fails
+      }
+    }
+
+    console.log(`[OfflineStorage] Queued ${queueIds.length} chapters for download (skipped ${chaptersToDownload.length - queueIds.length} already downloaded)`);
+
+    // Emit single batched event instead of individual events per chapter
+    // This prevents overwhelming the frontend with hundreds of events
+    if (queueIds.length > 0) {
+      this.emit({
+        type: "download-queued",
+        queueId: queueIds[0], // First queue ID for backwards compatibility
+        mangaId,
+        chapterId: queuedChapterIds[0], // First chapter ID for backwards compatibility
+      });
+
+      // Log batch information for debugging
+      console.log(`[OfflineStorage] Emitted batch download-queued event (${queueIds.length} chapters)`);
     }
 
     return queueIds;
@@ -320,21 +411,12 @@ export class OfflineStorageManager {
     const result: OfflineMangaMetadata[] = [];
 
     for (const row of mangaRows) {
-      try {
-        const paths = buildMangaPaths(
-          this.dataDir,
-          row.extension_id,
-          row.manga_slug,
-        );
-        const metadata = await readJSON<OfflineMangaMetadata>(
-          paths.metadataFile,
-        );
+      const metadata = await this.ensureMangaMetadata(
+        row.extension_id,
+        row.manga_id,
+      );
+      if (metadata) {
         result.push(metadata);
-      } catch (error) {
-        console.error(
-          `Failed to read metadata for manga ${row.manga_id}:`,
-          error,
-        );
       }
     }
 
@@ -348,19 +430,7 @@ export class OfflineStorageManager {
     extensionId: string,
     mangaId: string,
   ): Promise<OfflineMangaMetadata | null> {
-    const offlineManga = this.repository.getManga(extensionId, mangaId);
-    if (!offlineManga) return null;
-
-    try {
-      const paths = buildMangaPaths(
-        this.dataDir,
-        extensionId,
-        offlineManga.manga_slug,
-      );
-      return await readJSON<OfflineMangaMetadata>(paths.metadataFile);
-    } catch {
-      return null;
-    }
+    return this.ensureMangaMetadata(extensionId, mangaId);
   }
 
   /**
@@ -370,8 +440,8 @@ export class OfflineStorageManager {
     extensionId: string,
     mangaId: string,
   ): Promise<OfflineChapterMetadata[]> {
-    const metadata = await this.getMangaMetadata(extensionId, mangaId);
-    return metadata?.chapters || [];
+    const metadata = await this.ensureMangaMetadata(extensionId, mangaId);
+    return metadata?.chapters ?? [];
   }
 
   /**
@@ -382,7 +452,7 @@ export class OfflineStorageManager {
     mangaId: string,
     chapterId: string,
   ): Promise<OfflineChapterPages | null> {
-    const metadata = await this.getMangaMetadata(extensionId, mangaId);
+    const metadata = await this.ensureMangaMetadata(extensionId, mangaId);
     if (!metadata) return null;
 
     const chapter = metadata.chapters.find((c) => c.chapterId === chapterId);
@@ -399,6 +469,158 @@ export class OfflineStorageManager {
     } catch {
       return null;
     }
+  }
+
+  /**
+   * Force rebuilds metadata for a specific manga from the database and filesystem.
+   */
+  async rebuildMangaMetadata(
+    extensionId: string,
+    mangaId: string,
+  ): Promise<OfflineMangaMetadata | null> {
+    return this.ensureMangaMetadata(extensionId, mangaId, { force: true });
+  }
+
+  /**
+   * Rebuilds metadata for all offline manga.
+   */
+  async rebuildAllMetadata(): Promise<void> {
+    const mangaRows = this.repository.getAllManga();
+    for (const row of mangaRows) {
+      await this.ensureMangaMetadata(row.extension_id, row.manga_id, {
+        force: true,
+      });
+    }
+  }
+
+  /**
+   * Validates that metadata chapter count matches database chapter count.
+   * Rebuilds from local data only if mismatch detected (no network call).
+   * Call this when user views manga details page.
+   */
+  async validateMangaChapterCount(
+    extensionId: string,
+    mangaId: string,
+  ): Promise<{ valid: boolean; rebuilt: boolean }> {
+    const metadata = await this.getMangaMetadata(extensionId, mangaId);
+    if (!metadata) return { valid: true, rebuilt: false };
+
+    const offlineManga = this.repository.getManga(extensionId, mangaId);
+    if (!offlineManga) return { valid: true, rebuilt: false };
+
+    const dbChapters = this.repository.getChaptersByManga(offlineManga.id);
+
+    // Check for mismatch
+    if (dbChapters.length !== metadata.chapters.length) {
+      console.log(
+        `[OfflineStorage] Chapter count mismatch for ${mangaId}: ` +
+          `metadata=${metadata.chapters.length}, db=${dbChapters.length}. Rebuilding...`,
+      );
+
+      // Rebuild from local data only (force=false means no catalog service call)
+      await this.ensureMangaMetadata(extensionId, mangaId, { force: false });
+
+      return { valid: false, rebuilt: true };
+    }
+
+    return { valid: true, rebuilt: false };
+  }
+
+  /**
+   * Background task that syncs stale metadata with catalog service.
+   * Discovers new chapters and updates metadata.
+   * Non-blocking - runs after server startup.
+   */
+  async startBackgroundMetadataSync(options: {
+    ttlMs: number;
+    concurrency?: number;
+    delayMs?: number;
+  }): Promise<void> {
+    const { ttlMs, concurrency = 2, delayMs = 1000 } = options;
+
+    console.log(
+      `[OfflineStorage] Starting background metadata sync (TTL: ${ttlMs / 1000 / 60 / 60 / 24} days)`,
+    );
+
+    const allManga = this.repository.getAllManga();
+    const staleManga: typeof allManga = [];
+
+    // Identify stale manga
+    for (const manga of allManga) {
+      const metadata = await this.getMangaMetadata(
+        manga.extension_id,
+        manga.manga_id,
+      );
+      if (!metadata) continue;
+
+      const age = Date.now() - metadata.lastUpdatedAt;
+      if (age > ttlMs) {
+        staleManga.push(manga);
+      }
+    }
+
+    console.log(
+      `[OfflineStorage] Found ${staleManga.length}/${allManga.length} manga with stale metadata`,
+    );
+
+    if (staleManga.length === 0) return;
+
+    // Process in batches with concurrency limit
+    for (let i = 0; i < staleManga.length; i += concurrency) {
+      const batch = staleManga.slice(i, i + concurrency);
+
+      await Promise.all(
+        batch.map(async (manga) => {
+          try {
+            // Fetch fresh catalog data (discovers new chapters)
+            const oldMetadata = await this.getMangaMetadata(
+              manga.extension_id,
+              manga.manga_id,
+            );
+
+            await this.ensureMangaMetadata(manga.extension_id, manga.manga_id, {
+              force: true, // Need catalog fetch for new chapters
+            });
+
+            const newMetadata = await this.getMangaMetadata(
+              manga.extension_id,
+              manga.manga_id,
+            );
+
+            // Log if new chapters discovered
+            if (newMetadata && oldMetadata) {
+              const oldCount = oldMetadata.chapters.length;
+              const newCount = newMetadata.chapters.length;
+
+              if (newCount > oldCount) {
+                console.log(
+                  `[OfflineStorage] Discovered ${newCount - oldCount} new chapters for ${manga.manga_slug}`,
+                );
+
+                // Emit event for UI notification
+                this.emit({
+                  type: "new-chapters-available",
+                  mangaId: manga.manga_id,
+                  newChapterCount: newCount - oldCount,
+                });
+              }
+            }
+          } catch (error) {
+            console.error(
+              `[OfflineStorage] Failed to sync metadata for ${manga.manga_slug}:`,
+              error,
+            );
+          }
+        }),
+      );
+
+      // Rate limit between batches
+      if (i + concurrency < staleManga.length) {
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+      }
+    }
+
+    console.log(`[OfflineStorage] Background metadata sync complete`);
   }
 
   /**
@@ -565,6 +787,32 @@ export class OfflineStorageManager {
     }
   }
 
+  /**
+   * Completely clears offline storage, including queue/history and filesystem
+   */
+  async nukeOfflineData(): Promise<void> {
+    // Delete all known manga directories (covers + chapters)
+    const allManga = this.repository.getAllManga();
+    for (const manga of allManga) {
+      const mangaPaths = buildMangaPaths(
+        this.dataDir,
+        manga.extension_id,
+        manga.manga_slug,
+      );
+      await deleteDir(mangaPaths.mangaDir);
+    }
+
+    // Remove any leftover empty directories under the offline root
+    const offlineRoot = path.join(this.dataDir, "offline");
+    await deleteDir(offlineRoot);
+
+    // Wipe database tables that track offline state
+    this.repository.clearAllOfflineData();
+
+    // Recreate the base offline directory so future downloads succeed
+    await ensureDir(offlineRoot);
+  }
+
   // ==========================================================================
   // Storage Management
   // ==========================================================================
@@ -608,6 +856,267 @@ export class OfflineStorageManager {
       byExtension,
       byManga,
     };
+  }
+
+  // ==========================================================================
+  // Metadata Maintenance
+  // ==========================================================================
+
+  private async ensureMangaMetadata(
+    extensionId: string,
+    mangaId: string,
+    options: { force?: boolean } = {},
+  ): Promise<OfflineMangaMetadata | null> {
+    const offlineManga = this.repository.getManga(extensionId, mangaId);
+    if (!offlineManga) {
+      return null;
+    }
+
+    const chapterRows = this.repository.getChaptersByManga(offlineManga.id);
+    const mangaPaths = buildMangaPaths(
+      this.dataDir,
+      extensionId,
+      offlineManga.manga_slug,
+    );
+
+    let existingMetadata: OfflineMangaMetadata | null = null;
+    try {
+      existingMetadata = await readJSON<OfflineMangaMetadata>(
+        mangaPaths.metadataFile,
+      );
+    } catch (error) {
+      if (!options.force) {
+        console.warn(
+          `[OfflineStorage] Metadata file missing or unreadable for manga ${mangaId}`,
+          error,
+        );
+      }
+    }
+
+    const metadataChapterIds = new Set(
+      existingMetadata?.chapters.map((chapter) => chapter.chapterId) ?? [],
+    );
+    const chapterRowIds = new Set(chapterRows.map((row) => row.chapter_id));
+
+    let needsRebuild =
+      options.force || !existingMetadata || metadataChapterIds.size !== chapterRowIds.size;
+
+    if (!needsRebuild) {
+      for (const id of chapterRowIds) {
+        if (!metadataChapterIds.has(id)) {
+          needsRebuild = true;
+          break;
+        }
+      }
+    }
+
+    if (!needsRebuild) {
+      return existingMetadata;
+    }
+
+    const mismatchReason = options.force
+      ? "forced"
+      : !existingMetadata
+        ? "metadata missing"
+        : `chapter mismatch (db=${chapterRows.length}, metadata=${metadataChapterIds.size})`;
+
+    const logFn = options.force ? console.info : console.warn;
+    logFn(
+      `[OfflineStorage] Rebuilding metadata for manga ${mangaId}: ${mismatchReason}.`,
+    );
+
+    const rebuilt = await this.buildMangaMetadata(
+      extensionId,
+      mangaId,
+      offlineManga,
+      chapterRows,
+      existingMetadata,
+    );
+
+    return rebuilt;
+  }
+
+  private async buildMangaMetadata(
+    extensionId: string,
+    mangaId: string,
+    offlineManga: OfflineMangaRow,
+    chapterRows: OfflineChapterRow[],
+    existingMetadata: OfflineMangaMetadata | null,
+  ): Promise<OfflineMangaMetadata> {
+    const mangaPaths = buildMangaPaths(
+      this.dataDir,
+      extensionId,
+      offlineManga.manga_slug,
+    );
+
+    type SyncResult = Awaited<ReturnType<CatalogService["syncManga"]>>;
+    let mangaDetails: SyncResult | null = null;
+
+    try {
+      mangaDetails = await this.catalogService.syncManga(
+        extensionId,
+        mangaId,
+      );
+    } catch (error) {
+      console.warn(
+        `[OfflineStorage] Unable to sync catalog details while rebuilding metadata for ${mangaId}`,
+        error,
+      );
+    }
+
+    const details = mangaDetails?.details;
+    const catalogChapters = details?.chapters
+      ? new Map(details.chapters.map((chapter) => [chapter.id, chapter]))
+      : new Map<string, ChapterSummary>();
+
+    const chapterMetadata: OfflineChapterMetadata[] = [];
+    for (const row of chapterRows) {
+      const chapterDetails = catalogChapters.get(row.chapter_id);
+      const metadata = await this.buildChapterMetadata(
+        extensionId,
+        offlineManga.manga_slug,
+        row,
+        chapterDetails,
+      );
+      chapterMetadata.push(metadata);
+    }
+
+    chapterMetadata.sort((a, b) => a.downloadedAt - b.downloadedAt);
+
+    const downloadedAt =
+      existingMetadata?.downloadedAt ??
+      Number(offlineManga.downloaded_at) ??
+      Date.now();
+
+    const metadata: OfflineMangaMetadata = {
+      version: 1,
+      downloadedAt,
+      lastUpdatedAt: Date.now(),
+      mangaId,
+      slug: offlineManga.manga_slug,
+      extensionId,
+      title: details?.title ?? existingMetadata?.title ?? mangaId,
+      description: details?.description ?? existingMetadata?.description,
+      coverUrl: details?.coverUrl ?? existingMetadata?.coverUrl,
+      coverPath: await this.resolveCoverPath(mangaPaths, existingMetadata),
+      authors: details?.authors ?? existingMetadata?.authors,
+      artists: details?.artists ?? existingMetadata?.artists,
+      genres: details?.genres ?? existingMetadata?.genres,
+      tags: details?.tags ?? existingMetadata?.tags,
+      rating: details?.rating ?? existingMetadata?.rating,
+      year: details?.year ?? existingMetadata?.year,
+      status: details?.status ?? existingMetadata?.status,
+      demographic: details?.demographic ?? existingMetadata?.demographic,
+      altTitles: details?.altTitles ?? existingMetadata?.altTitles,
+      chapters: chapterMetadata,
+    };
+
+    await writeJSON(mangaPaths.metadataFile, metadata);
+
+    const totalSizeBytes = await getDirSize(mangaPaths.mangaDir);
+    this.repository.updateMangaSize(extensionId, mangaId, totalSizeBytes);
+
+    return metadata;
+  }
+
+  private async buildChapterMetadata(
+    extensionId: string,
+    mangaSlug: string,
+    row: OfflineChapterRow,
+    chapterDetails?: ChapterSummary,
+  ): Promise<OfflineChapterMetadata> {
+    const chapterPaths = buildChapterPaths(
+      this.dataDir,
+      extensionId,
+      mangaSlug,
+      row.folder_name,
+    );
+
+    let chapterPages: OfflineChapterPages | null = null;
+    try {
+      chapterPages = await readJSON<OfflineChapterPages>(
+        chapterPaths.metadataFile,
+      );
+    } catch {
+      // Missing chapter metadata file is expected in some recovery paths.
+    }
+
+    const downloadedAt =
+      (chapterPages && typeof chapterPages.downloadedAt === "number"
+        ? chapterPages.downloadedAt
+        : Number(row.downloaded_at)) || Date.now();
+
+    const totalPages =
+      chapterPages?.pages && Array.isArray(chapterPages.pages)
+        ? chapterPages.pages.length
+        : row.total_pages;
+
+    let sizeBytes = row.size_bytes;
+    if (!sizeBytes || sizeBytes <= 0) {
+      sizeBytes = await getDirSize(chapterPaths.chapterDir);
+    }
+
+    const number = chapterDetails?.number ?? row.chapter_number ?? undefined;
+    const title = chapterDetails?.title ?? row.chapter_title ?? undefined;
+
+    const summary: ChapterSummary = {
+      id: row.chapter_id,
+      number,
+      title,
+    };
+
+    const slugSource =
+      number ??
+      title ??
+      row.chapter_number ??
+      row.chapter_title ??
+      row.chapter_id;
+    const slug = sanitizeSlug(String(slugSource ?? row.chapter_id));
+
+    return {
+      chapterId: row.chapter_id,
+      slug,
+      number,
+      title,
+      displayTitle: this.formatChapterTitle(summary),
+      volume: chapterDetails?.volume ?? undefined,
+      publishedAt: chapterDetails?.publishedAt ?? undefined,
+      languageCode: chapterDetails?.languageCode ?? undefined,
+      scanlators: chapterDetails?.scanlators ?? undefined,
+      folderName: row.folder_name,
+      totalPages,
+      downloadedAt,
+      sizeBytes,
+    };
+  }
+
+  private async resolveCoverPath(
+    mangaPaths: ReturnType<typeof buildMangaPaths>,
+    existingMetadata: OfflineMangaMetadata | null,
+  ): Promise<string> {
+    const existing = existingMetadata?.coverPath;
+    if (existing) {
+      const existingPath = path.join(mangaPaths.mangaDir, existing);
+      if (await fileExists(existingPath)) {
+        return existing;
+      }
+    }
+
+    const candidates = [
+      "cover.webp",
+      "cover.png",
+      "cover.jpeg",
+      "cover.jpg",
+    ];
+
+    for (const candidate of candidates) {
+      const candidatePath = path.join(mangaPaths.mangaDir, candidate);
+      if (await fileExists(candidatePath)) {
+        return candidate;
+      }
+    }
+
+    return existing ?? "cover.jpg";
   }
 
   // ==========================================================================

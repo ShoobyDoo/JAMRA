@@ -7,6 +7,7 @@ import { LibraryFilterBar } from "@/components/library/library-filter-bar";
 import type { LibraryStatus } from "@/lib/api";
 import type { LibrarySortOption } from "@/store/library";
 import { Skeleton } from "@mantine/core";
+import { useDebouncedValue } from "@mantine/hooks";
 
 export default function LibraryPage() {
   const {
@@ -22,7 +23,8 @@ export default function LibraryPage() {
     error,
   } = useLibrary();
 
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState(filters.searchQuery ?? "");
+  const [debouncedSearch] = useDebouncedValue(searchQuery, 300);
 
   useEffect(() => {
     loadLibrary();
@@ -37,9 +39,22 @@ export default function LibraryPage() {
     setFilters({ favorite: filters.favorite ? undefined : true });
   };
 
+  useEffect(() => {
+    setSearchQuery(filters.searchQuery ?? "");
+  }, [filters.searchQuery]);
+
+  useEffect(() => {
+    const normalized = debouncedSearch.trim();
+    const applied = normalized.length > 0 ? normalized : undefined;
+    const current = filters.searchQuery?.trim();
+    if ((current ?? undefined) === applied) {
+      return;
+    }
+    setFilters({ searchQuery: applied });
+  }, [debouncedSearch, filters.searchQuery, setFilters]);
+
   const handleSearchChange = (query: string) => {
     setSearchQuery(query);
-    setFilters({ searchQuery: query || undefined });
   };
 
   const handleSortChange = (

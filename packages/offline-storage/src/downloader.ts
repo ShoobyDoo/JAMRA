@@ -36,7 +36,11 @@ import type {
 export interface DownloadWorkerOptions {
   concurrency?: number; // Max concurrent page downloads (default: 3)
   pollingInterval?: number; // Queue polling interval in ms (default: 1000)
+  chapterConcurrency?: number; // Max concurrent chapter downloads
+  chapterDelayMs?: number; // Delay between chapter downloads in ms (default: 1000)
 }
+
+const DEFAULT_CHAPTER_CONCURRENCY = 3;
 
 export class DownloadWorker {
   private isRunning = false;
@@ -44,6 +48,9 @@ export class DownloadWorker {
   private readonly imageDownloader: ImageDownloader;
   private readonly concurrency: number;
   private readonly pollingInterval: number;
+  private readonly chapterConcurrency: number;
+  private readonly chapterDelayMs: number;
+  private lastChapterDownloadTime = 0;
   private readonly eventListeners: Set<OfflineStorageEventListener> = new Set();
 
   constructor(
@@ -55,6 +62,10 @@ export class DownloadWorker {
     this.imageDownloader = new ImageDownloader();
     this.concurrency = options.concurrency ?? 3;
     this.pollingInterval = options.pollingInterval ?? 1000;
+    const requestedChapterConcurrency =
+      options.chapterConcurrency ?? DEFAULT_CHAPTER_CONCURRENCY;
+    this.chapterConcurrency = Math.max(1, requestedChapterConcurrency);
+    this.chapterDelayMs = options.chapterDelayMs ?? 1000;
   }
 
   // ==========================================================================
@@ -76,6 +87,40 @@ export class DownloadWorker {
     }
   }
 
+  private async resetStaleDownloads(): Promise<void> {
+    const staleDownloads = this.repository.getAllQueueItems().filter(
+      (item: QueuedDownload) => item.status === "downloading",
+    );
+
+    if (staleDownloads.length > 0) {
+      console.log(
+        `[DownloadWorker] Found ${staleDownloads.length} stale downloads, resetting to queued`,
+      );
+
+      // Process in batches to avoid blocking the event loop
+      const BATCH_SIZE = 10;
+      for (let i = 0; i < staleDownloads.length; i += BATCH_SIZE) {
+        const batch = staleDownloads.slice(i, i + BATCH_SIZE);
+
+        for (const item of batch) {
+          this.repository.updateQueueStatus(item.id, "queued");
+          this.emit({
+            type: "download-queued",
+            queueId: item.id,
+            mangaId: item.mangaId,
+            chapterId: item.chapterId,
+          });
+        }
+
+        // Yield control back to event loop after each batch
+        // This allows the HTTP servers (catalog + Next.js) to respond to requests
+        if (i + BATCH_SIZE < staleDownloads.length) {
+          await new Promise((resolve) => setImmediate(resolve));
+        }
+      }
+    }
+  }
+
   // ==========================================================================
   // Worker Lifecycle
   // ==========================================================================
@@ -89,10 +134,30 @@ export class DownloadWorker {
     }
 
     this.isRunning = true;
-    console.log("Download worker started");
+    console.log("[DownloadWorker] Started - will reset stale downloads in background");
+
+    // Defer stale download reset to avoid blocking startup
+    // This runs completely in the background after the worker has started
+    void this.resetStaleDownloadsAsync();
 
     // Start processing queue in background
     void this.processQueue();
+  }
+
+  /**
+   * Resets stale downloads in the background without blocking startup
+   */
+  private async resetStaleDownloadsAsync(): Promise<void> {
+    console.log("[DownloadWorker] Resetting stale downloads in background...");
+    const resetStart = Date.now();
+
+    try {
+      await this.resetStaleDownloads();
+      const resetTime = Date.now() - resetStart;
+      console.log(`[DownloadWorker] Reset stale downloads completed in ${resetTime}ms`);
+    } catch (error) {
+      console.error("[DownloadWorker] Failed to reset stale downloads:", error);
+    }
   }
 
   /**
@@ -129,19 +194,29 @@ export class DownloadWorker {
   // ==========================================================================
 
   /**
-   * Main queue processing loop - starts up to 3 concurrent downloads
+   * Main queue processing loop - respects chapter concurrency and rate limiting
    */
   private async processQueue(): Promise<void> {
     while (this.isRunning) {
       try {
-        // Start new downloads up to concurrency limit
-        while (this.activeDownloads.size < this.concurrency && this.isRunning) {
+        // Start new downloads up to chapter concurrency limit
+        while (this.activeDownloads.size < this.chapterConcurrency && this.isRunning) {
           const item = this.repository.getNextQueuedDownload();
 
           if (!item) {
             // No more items in queue
             break;
           }
+
+          // Rate limiting: enforce delay between chapter downloads
+          const timeSinceLastDownload = Date.now() - this.lastChapterDownloadTime;
+          if (timeSinceLastDownload < this.chapterDelayMs) {
+            // Too soon, wait before starting next download
+            await this.sleep(this.chapterDelayMs - timeSinceLastDownload);
+          }
+
+          // Update last download time
+          this.lastChapterDownloadTime = Date.now();
 
           // Start download in background (non-blocking)
           void this.startDownloadAsync(item);
@@ -359,6 +434,9 @@ export class DownloadWorker {
           });
         },
       );
+
+      // Yield to event loop after each chapter to keep app responsive
+      await new Promise((resolve) => setImmediate(resolve));
     }
   }
 
@@ -510,6 +588,12 @@ export class DownloadWorker {
       );
 
       pageMetadata.push(...results);
+
+      // Yield to event loop every 5 pages to keep app responsive
+      // This allows UI interactions, API requests, and navigation to proceed
+      if ((i + this.concurrency) % 5 === 0 || i + this.concurrency >= downloads.length) {
+        await new Promise((resolve) => setImmediate(resolve));
+      }
     }
 
     // Save chapter metadata
@@ -583,7 +667,7 @@ export class DownloadWorker {
   }
 
   /**
-   * Handles download errors
+   * Handles download errors with retry logic
    */
   private async handleDownloadError(
     item: QueuedDownload,
@@ -596,6 +680,41 @@ export class DownloadWorker {
       errorMessage,
     );
 
+    // Check if error is retryable (rate limiting, temporary errors, network issues)
+    const isRetryable = errorMessage.includes('temporarily unavailable') ||
+                       errorMessage.includes('rate limit') ||
+                       errorMessage.includes('ECONNRESET') ||
+                       errorMessage.includes('ETIMEDOUT') ||
+                       errorMessage.includes('503') ||
+                       errorMessage.includes('429');
+
+    // Extract retry count from error message (format: "Retry X/Y")
+    const retryMatch = item.errorMessage?.match(/Retry (\d+)\/\d+/);
+    const retryCount = retryMatch ? parseInt(retryMatch[1], 10) : 0;
+    const maxRetries = 3;
+
+    if (isRetryable && retryCount < maxRetries) {
+      // Calculate exponential backoff delay: 5s, 15s, 45s
+      const delayMs = 5000 * Math.pow(3, retryCount);
+
+      console.log(
+        `[DownloadWorker] Will retry queue item ${item.id} after ${delayMs / 1000}s (attempt ${retryCount + 1}/${maxRetries})`,
+      );
+
+      // Reset to queued status with retry information in error message
+      this.repository.updateQueueStatus(
+        item.id,
+        "queued",
+        `Retry ${retryCount + 1}/${maxRetries}`,
+      );
+
+      // Wait before retrying
+      await this.sleep(delayMs);
+
+      return; // Will be picked up again by processQueue
+    }
+
+    // Max retries reached or non-retryable error - mark as failed
     this.repository.updateQueueStatus(item.id, "failed", errorMessage);
     this.emit({
       type: "download-failed",

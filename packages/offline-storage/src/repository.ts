@@ -648,6 +648,38 @@ export class OfflineRepository {
   }
 
   /**
+   * Clear all queued downloads
+   */
+  clearDownloadQueue(): void {
+    const stmt = this.db.prepare(`
+      DELETE FROM download_queue
+    `);
+    stmt.run();
+  }
+
+  /**
+   * Clear all stored offline manga and chapters
+   */
+  clearOfflineManga(): void {
+    const stmt = this.db.prepare(`
+      DELETE FROM offline_manga
+    `);
+    stmt.run();
+  }
+
+  /**
+   * Clear all offline data (manga, queue, history) in a single transaction
+   */
+  clearAllOfflineData(): void {
+    const transaction = this.db.transaction(() => {
+      this.clearDownloadQueue();
+      this.clearDownloadHistory();
+      this.clearOfflineManga();
+    });
+    transaction();
+  }
+
+  /**
    * Delete history items older than specified timestamp
    */
   deleteHistoryOlderThan(timestampMs: number): void {

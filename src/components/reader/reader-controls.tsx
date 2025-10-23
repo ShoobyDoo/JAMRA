@@ -12,7 +12,7 @@ import {
   X,
 } from "lucide-react";
 import { useReaderSettings } from "@/store/reader-settings";
-import { Select, Skeleton } from "@mantine/core";
+import { Select, Skeleton, Tooltip } from "@mantine/core";
 import { formatChapterTitle } from "@/lib/chapter-meta";
 import { useMediaQuery } from "@mantine/hooks";
 
@@ -38,6 +38,8 @@ interface ReaderControlsProps {
   onToggleZenMode: () => void;
   onPageSelect: (page: number) => void;
   showControls?: boolean;
+  onControlsPointerEnter?: () => void;
+  onControlsPointerLeave?: () => void;
 }
 
 export function ReaderControls({
@@ -57,6 +59,8 @@ export function ReaderControls({
   onToggleZenMode,
   onPageSelect,
   showControls: externalShowControls,
+  onControlsPointerEnter,
+  onControlsPointerLeave,
 }: ReaderControlsProps) {
   const router = useRouter();
   const { zenMode, readingMode } = useReaderSettings();
@@ -108,14 +112,20 @@ export function ReaderControls({
             ? "pointer-events-auto translate-y-0 opacity-100"
             : "pointer-events-none -translate-y-6 opacity-0"
         }`}
+        onMouseEnter={onControlsPointerEnter}
+        onMouseLeave={onControlsPointerLeave}
+        onPointerDown={onControlsPointerEnter}
+        onFocusCapture={onControlsPointerEnter}
+        onBlurCapture={onControlsPointerLeave}
       >
         <div className="flex w-full max-w-5xl items-center gap-3 rounded-2xl border border-border/60 bg-background/95 px-4 py-2 shadow-lg backdrop-blur">
           {/* Left: Back button + chapter selector */}
           <div className="flex flex-shrink-0 items-center gap-3">
             <button
               onClick={() => router.back()}
-              className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition hover:bg-accent"
+              className="reader-control-button flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition"
               aria-label="Go back"
+              data-reader-control
             >
               <ArrowLeft className="h-4 w-4" />
               <span className="hidden sm:inline">Back</span>
@@ -166,28 +176,32 @@ export function ReaderControls({
             </span>
             <button
               onClick={onToggleZenMode}
-              className="rounded-md p-2 transition hover:bg-accent"
+              className="reader-control-button rounded-md p-2 transition"
               aria-label="Toggle fullscreen"
+              data-reader-control
             >
               <Maximize className="h-4 w-4" />
             </button>
             <button
               onClick={onToggleSettings}
-              className="rounded-md p-2 transition hover:bg-accent"
+              className="reader-control-button rounded-md p-2 transition"
               aria-label="Settings"
+              data-reader-control
             >
               <Settings className="h-4 w-4" />
             </button>
-            <button
-              onClick={() =>
-                router.push(`/manga/${encodeURIComponent(mangaSlug)}`)
-              }
-              className="rounded-md p-2 transition hover:bg-accent hover:text-destructive"
-              aria-label="Exit reader"
-              title="Exit to manga details"
-            >
-              <X className="h-4 w-4" />
-            </button>
+            <Tooltip label="Exit to manga details" position="bottom" withArrow>
+              <button
+                onClick={() =>
+                  router.push(`/manga/${encodeURIComponent(mangaSlug)}`)
+                }
+                className="reader-control-button rounded-md p-2 transition hover:text-destructive"
+                aria-label="Exit reader"
+                data-reader-control
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </Tooltip>
           </div>
         </div>
       </div>
@@ -199,6 +213,11 @@ export function ReaderControls({
             ? "pointer-events-auto translate-y-0 opacity-100"
             : "pointer-events-none translate-y-6 opacity-0"
         }`}
+        onMouseEnter={onControlsPointerEnter}
+        onMouseLeave={onControlsPointerLeave}
+        onPointerDown={onControlsPointerEnter}
+        onFocusCapture={onControlsPointerEnter}
+        onBlurCapture={onControlsPointerLeave}
       >
         <div className="w-full max-w-5xl rounded-2xl border border-border/60 bg-background/95 px-4 py-3 shadow-lg backdrop-blur">
           {/* Progress bar */}
@@ -206,8 +225,9 @@ export function ReaderControls({
             <button
               onClick={onPrevPage}
               disabled={prevDisabled}
-              className="rounded-md p-1 transition hover:bg-accent disabled:opacity-30"
+              className="reader-control-button rounded-md p-1 transition disabled:opacity-30"
               aria-label="Previous page"
+              data-reader-control
             >
               <ChevronLeft className="h-5 w-5" />
             </button>
@@ -221,11 +241,12 @@ export function ReaderControls({
                   value={currentPage}
                   onChange={(e) => onPageSelect(Number(e.target.value))}
                   disabled={!hasTotalPages || isChunkPending}
-                  className="h-1 w-full cursor-pointer appearance-none rounded-full bg-secondary accent-primary disabled:cursor-not-allowed disabled:opacity-50"
+                  className="reader-control-slider h-1 w-full cursor-pointer appearance-none rounded-full bg-secondary accent-primary disabled:cursor-not-allowed disabled:opacity-50"
                   style={{
                     background: `linear-gradient(to right, var(--primary) 0%, var(--primary) ${progress}%, var(--secondary) ${progress}%, var(--secondary) 100%)`,
                   }}
                   aria-label="Page slider"
+                  data-reader-control
                 />
               </div>
               <div className="flex min-w-[100px] items-center justify-center gap-2 text-sm font-medium">
@@ -260,8 +281,9 @@ export function ReaderControls({
             <button
               onClick={onNextPage}
               disabled={nextDisabled}
-              className="rounded-md p-1 transition hover:bg-accent disabled:opacity-30"
+              className="reader-control-button rounded-md p-1 transition disabled:opacity-30"
               aria-label="Next page"
+              data-reader-control
             >
               <ChevronRight className="h-5 w-5" />
             </button>

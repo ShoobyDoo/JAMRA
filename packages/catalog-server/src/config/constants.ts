@@ -16,8 +16,11 @@ export const SERVER_CONFIG = {
  * Offline storage and download configuration
  */
 export const OFFLINE_CONFIG = {
-  /** Number of concurrent downloads */
-  DOWNLOAD_CONCURRENCY: 3,
+  /** Number of concurrent downloads (reduced to keep app responsive) */
+  DOWNLOAD_CONCURRENCY: 1,
+
+  /** Number of concurrent chapter downloads (reduced to prevent blocking event loop) */
+  CHAPTER_CONCURRENCY: 1,
 
   /** Download worker polling interval in milliseconds */
   DOWNLOAD_POLL_INTERVAL_MS: 1000,

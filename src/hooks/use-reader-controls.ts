@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 
 export type HotZone = "left" | "right" | "top" | "bottom" | "center" | null;
 export type ReadingMode = "paged-ltr" | "paged-rtl" | "dual-page" | "vertical";
@@ -10,6 +10,8 @@ interface UseReaderControlsOptions {
 export function useReaderControls({ mode }: UseReaderControlsOptions) {
   const [showControls, setShowControls] = useState(true);
   const [currentHotZone, setCurrentHotZone] = useState<HotZone>(null);
+  const controlsPinnedRef = useRef(false);
+  const unpinTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Calculate which hot zone a point is in
   const getHotZone = useCallback(
@@ -68,12 +70,40 @@ export function useReaderControls({ mode }: UseReaderControlsOptions) {
 
   // Hide controls (for page navigation, scrolling, etc.)
   const hideControls = useCallback(() => {
+    if (controlsPinnedRef.current) return;
     setShowControls(false);
   }, []);
 
   // Show controls (for hovering top/bottom edges)
   const showControlsHandler = useCallback(() => {
     setShowControls(true);
+  }, []);
+
+  const pinControls = useCallback(() => {
+    if (unpinTimeoutRef.current !== null) {
+      clearTimeout(unpinTimeoutRef.current);
+      unpinTimeoutRef.current = null;
+    }
+    controlsPinnedRef.current = true;
+    setShowControls(true);
+  }, []);
+
+  const unpinControls = useCallback(() => {
+    if (unpinTimeoutRef.current !== null) {
+      clearTimeout(unpinTimeoutRef.current);
+    }
+    unpinTimeoutRef.current = setTimeout(() => {
+      controlsPinnedRef.current = false;
+      unpinTimeoutRef.current = null;
+    }, 250);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (unpinTimeoutRef.current !== null) {
+        clearTimeout(unpinTimeoutRef.current);
+      }
+    };
   }, []);
 
   return {
@@ -85,5 +115,7 @@ export function useReaderControls({ mode }: UseReaderControlsOptions) {
     toggleControls,
     hideControls,
     showControlsHandler,
+    pinControls,
+    unpinControls,
   };
 }

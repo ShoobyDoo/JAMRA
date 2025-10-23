@@ -65,6 +65,15 @@
   a[data-mantine-component="Anchor"]:hover {
     text-decoration: underline;
   }
+
+  .reader-control-button[data-reader-control] {
+    background-color: transparent;
+  }
+
+  .reader-control-button[data-reader-control]:hover,
+  .reader-control-button[data-reader-control]:focus-visible {
+    background-color: rgba(148, 163, 184, 0.25);
+  }
 }
 
 @layer base {
@@ -158,6 +167,29 @@
 @layer utilities {
   .border-border {
     border-color: var(--border);
+  }
+
+  .reader-viewport {
+    scrollbar-width: none;
+  }
+
+  .reader-viewport::-webkit-scrollbar {
+    display: none;
+  }
+
+  .reader-control-button {
+    background-color: transparent;
+    transition: background-color 150ms ease, color 150ms ease;
+  }
+
+  .reader-control-button[data-reader-control]:hover,
+  .reader-control-button[data-reader-control]:focus-visible {
+    background-color: rgba(148, 163, 184, 0.25);
+  }
+
+  .reader-control-slider:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
   }
 
   .border-input {

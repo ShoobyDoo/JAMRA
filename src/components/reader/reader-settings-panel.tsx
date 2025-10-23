@@ -24,19 +24,15 @@ export function ReaderSettingsPanel({
     customWidth,
     gapSize,
     dualPageGap,
-    preloadCount,
-    autoHideControls,
-    autoHideDelay,
     autoAdvanceChapter,
+    showHotzoneHints,
     setReadingMode,
     setPageFit,
     setBackgroundColor,
     setCustomWidth,
     setGapSize,
     setDualPageGap,
-    setPreloadCount,
-    setAutoHideControls,
-    setAutoHideDelay,
+    setShowHotzoneHints,
     setAutoAdvanceChapter,
     resetToDefaults,
   } = useReaderSettings();
@@ -243,57 +239,6 @@ export function ReaderSettingsPanel({
             </div>
           )}
 
-          {/* Performance */}
-          <div className="space-y-3">
-            <label className="text-sm font-medium">
-              Preload Pages:{" "}
-              <span className="text-muted-foreground">{preloadCount}</span>
-            </label>
-            <input
-              type="range"
-              min="1"
-              max="10"
-              value={preloadCount}
-              onChange={(e) => setPreloadCount(Number(e.target.value))}
-              className="h-2 w-full cursor-pointer appearance-none rounded-full bg-secondary accent-primary"
-            />
-            <p className="text-xs text-muted-foreground">
-              Number of pages to preload ahead for smoother reading
-            </p>
-          </div>
-
-          {/* UI Preferences */}
-          <div className="space-y-3">
-            <label className="text-sm font-medium">UI Behavior</label>
-
-            <label className="flex cursor-pointer items-center justify-between rounded-lg border border-border p-3">
-              <span className="text-sm">Auto-hide controls</span>
-              <input
-                type="checkbox"
-                checked={autoHideControls}
-                onChange={(e) => setAutoHideControls(e.target.checked)}
-                className="h-4 w-4 rounded accent-primary"
-              />
-            </label>
-
-            {autoHideControls && (
-              <div className="space-y-2 pl-3">
-                <label className="text-xs text-muted-foreground">
-                  Hide delay: {autoHideDelay / 1000}s
-                </label>
-                <input
-                  type="range"
-                  min="500"
-                  max="10000"
-                  step="500"
-                  value={autoHideDelay}
-                  onChange={(e) => setAutoHideDelay(Number(e.target.value))}
-                  className="h-2 w-full cursor-pointer appearance-none rounded-full bg-secondary accent-primary"
-                />
-              </div>
-            )}
-          </div>
-
           {/* Chapter Navigation */}
           <div className="space-y-3">
             <label className="text-sm font-medium">Chapter Navigation</label>
@@ -309,6 +254,26 @@ export function ReaderSettingsPanel({
                 type="checkbox"
                 checked={autoAdvanceChapter}
                 onChange={(e) => setAutoAdvanceChapter(e.target.checked)}
+                className="h-4 w-4 rounded accent-primary"
+              />
+            </label>
+          </div>
+
+          {/* Guidance */}
+          <div className="space-y-3">
+            <label className="text-sm font-medium">Guidance</label>
+
+            <label className="flex cursor-pointer items-center justify-between rounded-lg border border-border p-3">
+              <div className="flex flex-col">
+                <span className="text-sm">Show hotzone hints on startup</span>
+                <span className="text-xs text-muted-foreground">
+                  Display directional overlays once each time the app launches
+                </span>
+              </div>
+              <input
+                type="checkbox"
+                checked={showHotzoneHints}
+                onChange={(e) => setShowHotzoneHints(e.target.checked)}
                 className="h-4 w-4 rounded accent-primary"
               />
             </label>

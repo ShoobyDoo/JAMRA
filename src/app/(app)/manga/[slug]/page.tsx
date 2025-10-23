@@ -180,12 +180,15 @@ export default async function MangaPage({ params }: MangaPageProps) {
       >
         <div className="space-y-3">
           <div className="flex items-start justify-between">
-            <div>
-              <h2 className="text-xl font-semibold">Chapters</h2>
-              <p className="text-sm text-muted-foreground">
-                {chapters.length} chapter{chapters.length === 1 ? "" : "s"}{" "}
-                available.
-              </p>
+            <div className="flex items-center gap-3">
+              <div>
+                <h2 className="text-xl font-semibold">Chapters</h2>
+                <p className="text-sm text-muted-foreground">
+                  {chapters.length} chapter{chapters.length === 1 ? "" : "s"}{" "}
+                  available.
+                </p>
+              </div>
+              <OfflineDownloadControls mode="badge-only" />
             </div>
             <ClearChaptersButton mangaId={mangaId} />
           </div>
@@ -195,7 +198,6 @@ export default async function MangaPage({ params }: MangaPageProps) {
             mangaId={mangaId}
             mangaSlug={canonicalSlug}
           />
-          <OfflineDownloadControls />
           <ChapterList
             chapters={chapters}
             mangaId={mangaId}

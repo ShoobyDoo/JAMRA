@@ -13,7 +13,7 @@ The reader ships four modes backed by a shared viewport (`src/components/reader/
 - **Paged LTR / RTL** — single page navigation with directional hot zones (`reading-modes/paged-mode.tsx`).
 - **Dual Page** — side-by-side spreads with previous/next chapter affordances (`reading-modes/dual-page-mode.tsx`).
 - **Vertical Scroll** — stacked layout for manhwa/webtoon style content (`reading-modes/vertical-mode.tsx`).
-- Mode selection, page fit, background colour, and preload settings live in the reader settings panel (`reader-settings-panel.tsx`) and persist via `useReaderSettings`.
+- Mode selection, page fit, and background colour live in the reader settings panel (`reader-settings-panel.tsx`) and persist via `useReaderSettings`.
 
 ### Navigation & Input
 
@@ -25,10 +25,11 @@ The reader ships four modes backed by a shared viewport (`src/components/reader/
 - **Pointer** — click hot zones to page, drag in paged modes for page turn animation.
 - **Touch** — `useTouchGestures` supports swipe left/right, double tap (toggle width/height), and long press (open settings).
 - **Auto advance** — when `autoAdvanceChapter` is enabled (default), invoking “next page” at the end of a chapter immediately routes to the next chapter if one exists.
+- **Startup guidance** — a hotzone hint overlay appears once per app launch (unless disabled in reader settings) to highlight navigation regions.
 
 ### State & Persistence
 
-- `useSequentialPageLoader` fetches the entire chapter payload via `getChapterPages` once, then progressively hydrates the in-memory array to keep the UI responsive. Image preload can be toggled via settings.
+- `useSequentialPageLoader` fetches the entire chapter payload via `getChapterPages` once, then progressively hydrates the in-memory array to keep the UI responsive while preloading images in the background.
 - Reading progress is managed by `useReadingProgress`, persisting both locally and through the `/api/reading-progress` endpoints. Chapter completion timestamps feed the “Continue Reading” home section.
 - History entries (read/favorite/library actions) are logged lazily through the API client.
 

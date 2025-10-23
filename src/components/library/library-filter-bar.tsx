@@ -1,7 +1,7 @@
 "use client";
 
 import { Search, Heart, SortAsc, SortDesc } from "lucide-react";
-import { TextInput, Button, Badge, Select, ActionIcon, Group } from "@mantine/core";
+import { TextInput, Button, Badge, Select, ActionIcon, Group, Tooltip } from "@mantine/core";
 import type { LibraryStatus } from "@/lib/api";
 import type { LibrarySortOption } from "@/store/library";
 
@@ -109,16 +109,17 @@ export function LibraryFilterBar({
             )}
           </ActionIcon>
 
-          <ActionIcon
-            variant={favoriteOnly ? "filled" : "outline"}
-            size="lg"
-            onClick={onFavoriteToggle}
-            title="Show favorites only"
-          >
-            <Heart
-              className={`h-4 w-4 ${favoriteOnly ? "fill-current" : ""}`}
-            />
-          </ActionIcon>
+          <Tooltip label="Show favorites only" position="bottom" withArrow>
+            <ActionIcon
+              variant={favoriteOnly ? "filled" : "outline"}
+              size="lg"
+              onClick={onFavoriteToggle}
+            >
+              <Heart
+                className={`h-4 w-4 ${favoriteOnly ? "fill-current" : ""}`}
+              />
+            </ActionIcon>
+          </Tooltip>
         </Group>
       </div>
     </div>

@@ -382,9 +382,9 @@ export async function startCatalogServer(
     : undefined;
 
   // Initialize offline storage system
-  const dataDir = database
-    ? path.join(path.dirname(database.path), "offline")
-    : path.join(process.cwd(), ".jamra-data", "offline");
+  const dataRoot = database
+    ? path.dirname(database.path)
+    : path.join(process.cwd(), ".jamra-data");
 
   let offlineStorageManager: OfflineStorageManager | undefined;
   let offlineRepository: OfflineRepository | undefined;
@@ -515,15 +515,19 @@ export async function startCatalogServer(
     try {
       offlineRepository = new OfflineRepository(database.db);
       offlineStorageManager = new OfflineStorageManager(
-        dataDir,
+        dataRoot,
         offlineRepository,
         service,
       );
-      downloadWorker = new DownloadWorker(dataDir, offlineRepository, service, {
+      downloadWorker = new DownloadWorker(dataRoot, offlineRepository, service, {
         concurrency: OFFLINE_CONFIG.DOWNLOAD_CONCURRENCY,
         pollingInterval: OFFLINE_CONFIG.DOWNLOAD_POLL_INTERVAL_MS,
+        chapterConcurrency: OFFLINE_CONFIG.CHAPTER_CONCURRENCY,
       });
-      await downloadWorker.start();
+      // Start download worker in background (non-blocking)
+      void downloadWorker.start().catch((error) => {
+        console.error("Failed to start download worker:", error);
+      });
       console.log("Offline storage system initialized");
     } catch (error) {
       console.warn("Failed to initialize offline storage system:", error);
@@ -2018,7 +2022,20 @@ export async function startCatalogServer(
         return;
       }
 
+      const workerWasRunning = downloadWorker?.isActive() ?? false;
+      if (workerWasRunning) {
+        await downloadWorker?.stop();
+      }
+
+      if (offlineStorageManager) {
+        await offlineStorageManager.nukeOfflineData();
+      }
+
       repository.nukeUserData();
+
+      if (workerWasRunning) {
+        await downloadWorker?.start();
+      }
 
       res.json({
         success: true,
@@ -2437,7 +2454,7 @@ export async function startCatalogServer(
 
   // Server-Sent Events endpoint for real-time download progress
   app.get("/api/offline/events", async (req, res) => {
-    if (!downloadWorker) {
+    if (!downloadWorker || !offlineStorageManager) {
       res.status(503).json({ error: "Offline storage not available" });
       return;
     }
@@ -2453,7 +2470,16 @@ export async function startCatalogServer(
     res.write(`data: ${JSON.stringify({ timestamp: Date.now() })}\n\n`);
 
     // Listen to download worker events
-    const unsubscribe = downloadWorker.on((event) => {
+    const unsubscribeWorker = downloadWorker.on((event) => {
+      try {
+        res.write(`event: ${event.type}\n`);
+        res.write(`data: ${JSON.stringify(event)}\n\n`);
+      } catch (error) {
+        console.error("Error writing SSE event:", error);
+      }
+    });
+
+    const unsubscribeManager = offlineStorageManager.on((event) => {
       try {
         res.write(`event: ${event.type}\n`);
         res.write(`data: ${JSON.stringify(event)}\n\n`);
@@ -2476,7 +2502,8 @@ export async function startCatalogServer(
     // Clean up on client disconnect
     req.on("close", () => {
       clearInterval(heartbeat);
-      unsubscribe();
+      unsubscribeWorker();
+      unsubscribeManager();
     });
   });
 
@@ -2534,6 +2561,33 @@ export async function startCatalogServer(
       res.json({ success: true });
     } catch (error) {
       handleError(res, error, "Failed to clear download history");
+    }
+  });
+
+  // Validate manga metadata chapter count
+  app.post("/api/offline/manga/:mangaId/validate", async (req, res) => {
+    try {
+      if (!offlineStorageManager) {
+        res.status(503).json({ error: "Offline storage not available" });
+        return;
+      }
+
+      const extensionId = getQueryParam(req, "extensionId");
+      if (!extensionId) {
+        res
+          .status(400)
+          .json({ error: "extensionId query parameter is required" });
+        return;
+      }
+
+      const result = await offlineStorageManager.validateMangaChapterCount(
+        extensionId,
+        req.params.mangaId,
+      );
+
+      res.json(result);
+    } catch (error) {
+      handleError(res, error, "Failed to validate manga metadata");
     }
   });
 
@@ -2595,6 +2649,17 @@ export async function startCatalogServer(
       resolve(listener);
     });
   });
+
+  // Start background metadata sync (non-blocking) after server is ready
+  if (offlineStorageManager) {
+    void offlineStorageManager.startBackgroundMetadataSync({
+      ttlMs: 7 * 24 * 60 * 60 * 1000, // 7 days
+      concurrency: 2, // Process 2 manga at a time
+      delayMs: 1000, // 1 second between syncs
+    }).catch((error) => {
+      console.error("Background metadata sync failed:", error);
+    });
+  }
 
   return {
     port,

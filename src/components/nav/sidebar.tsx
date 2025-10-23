@@ -119,7 +119,7 @@ export function Sidebar() {
                 "min-w-0 flex flex-col justify-center overflow-hidden transition-[max-width,opacity,margin] duration-300",
                 collapsed
                   ? "max-w-0 opacity-0 ml-0"
-                  : "ml-3 max-w-[200px] opacity-100",
+                  : "ml-3 max-w-[160px] opacity-100",
               )}
             >
               <Text fw={700} fz={16} lh={1.25} className="whitespace-nowrap">
@@ -128,7 +128,7 @@ export function Sidebar() {
               <Text
                 size="10px"
                 c="dimmed"
-                className="whitespace-nowrap leading-tight"
+                className="leading-tight break-words"
                 p={0}
               >
                 just another manga reader app

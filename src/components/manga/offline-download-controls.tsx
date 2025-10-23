@@ -7,7 +7,11 @@ import { ApiError } from "@/lib/api";
 import { logger } from "@/lib/logger";
 import { useOfflineMangaContext } from "./offline-manga-context";
 
-export function OfflineDownloadControls() {
+interface OfflineDownloadControlsProps {
+  mode?: "full" | "badge-only";
+}
+
+export function OfflineDownloadControls({ mode = "full" }: OfflineDownloadControlsProps) {
   const offline = useOfflineMangaContext();
 
   if (!offline || !offline.extensionId) {
@@ -68,6 +72,34 @@ export function OfflineDownloadControls() {
     return null;
   }
 
+  // Badge-only mode: just show the offline status badge
+  if (mode === "badge-only") {
+    return (
+      <div className="flex items-center gap-2">
+        <Badge
+          variant={allDownloaded ? "filled" : "light"}
+          color={allDownloaded ? "green" : "blue"}
+          leftSection={allDownloaded ? <Check size={12} /> : undefined}
+          size="lg"
+        >
+          {downloadedCount}/{totalChapters} offline
+        </Badge>
+
+        {hasActiveDownloads && (
+          <Badge
+            variant="light"
+            color="blue"
+            size="lg"
+            className="animate-pulse"
+          >
+            {offline.queueItems.length} downloading
+          </Badge>
+        )}
+      </div>
+    );
+  }
+
+  // Full mode: show badge and download button
   return (
     <div className="flex items-center gap-3">
       <div className="flex items-center gap-2">
@@ -108,3 +140,6 @@ export function OfflineDownloadControls() {
     </div>
   );
 }
+
+// Export the download handler for use in ChapterList
+export { useOfflineMangaContext };

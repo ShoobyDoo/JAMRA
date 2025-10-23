@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -19,6 +20,7 @@ import {
   getOfflineQueue,
   queueChapterDownload,
   queueMangaDownload,
+  validateOfflineMangaMetadata,
   type OfflineChapterMetadata,
   type OfflineMangaMetadata,
   type OfflineQueuedDownload,
@@ -94,6 +96,9 @@ export function OfflineMangaProvider({
     () => new Set(),
   );
   const [queueingManga, setQueueingManga] = useState(false);
+  const [sseConnected, setSseConnected] = useState(false);
+  const [prevQueueLength, setPrevQueueLength] = useState(0);
+  const queueRefreshTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const offlineChaptersMap = useMemo(() => {
     return new Map(
@@ -192,6 +197,24 @@ export function OfflineMangaProvider({
     }
   }, [extensionId, mangaId]);
 
+  // Debounced version of refreshQueue to avoid flooding during bulk operations
+  const refreshQueueDebounced = useCallback(() => {
+    if (queueRefreshTimeoutRef.current) {
+      clearTimeout(queueRefreshTimeoutRef.current);
+    }
+    queueRefreshTimeoutRef.current = setTimeout(() => {
+      refreshQueue().catch((error) => {
+        logger.error("Failed to refresh queue (debounced)", {
+          component: "OfflineMangaContext",
+          action: "refresh-queue-debounced",
+          mangaId,
+          extensionId,
+          error: error instanceof Error ? error : new Error(String(error)),
+        });
+      });
+    }, 500); // 500ms debounce
+  }, [refreshQueue, mangaId, extensionId]);
+
   useEffect(() => {
     if (!extensionId) {
       setOfflineAvailable(false);
@@ -208,6 +231,42 @@ export function OfflineMangaProvider({
       setLoading(true);
       try {
         await Promise.all([refreshOfflineChapters(), refreshQueue()]);
+
+        // Validate metadata chapter count to catch mismatches early
+        // This runs in background and doesn't block the UI
+        if (extensionId) {
+          validateOfflineMangaMetadata(extensionId, mangaId)
+            .then((result) => {
+              if (result.rebuilt) {
+                logger.info("Metadata was rebuilt due to chapter count mismatch", {
+                  component: "OfflineMangaContext",
+                  action: "validate-metadata",
+                  mangaId,
+                  extensionId,
+                });
+                // Refresh to show updated metadata
+                refreshOfflineChapters().catch((error) => {
+                  logger.error("Failed to refresh after metadata rebuild", {
+                    component: "OfflineMangaContext",
+                    action: "refresh-after-validation",
+                    mangaId,
+                    extensionId,
+                    error: error instanceof Error ? error : new Error(String(error)),
+                  });
+                });
+              }
+            })
+            .catch((error) => {
+              // Validation failure is not critical, just log it
+              logger.warn("Failed to validate metadata", {
+                component: "OfflineMangaContext",
+                action: "validate-metadata",
+                mangaId,
+                extensionId,
+                error: error instanceof Error ? error : new Error(String(error)),
+              });
+            });
+        }
       } catch (error) {
         if (!(error instanceof ApiError && error.status === 503)) {
           logger.error("Failed to load offline data", {
@@ -241,7 +300,7 @@ export function OfflineMangaProvider({
   }, [extensionId, mangaId, refreshOfflineChapters, refreshQueue]);
 
   // Use SSE for real-time updates instead of polling
-  useOfflineEvents({
+  const { connected } = useOfflineEvents({
     enabled: Boolean(extensionId),
     onEvent: useCallback(
       (event: OfflineDownloadEvent) => {
@@ -251,6 +310,11 @@ export function OfflineMangaProvider({
         }
 
         switch (event.type) {
+          case "download-queued":
+            // New item added to queue - debounced refresh to avoid flooding during bulk operations
+            refreshQueueDebounced();
+            break;
+
           case "download-started":
           case "download-progress":
             if (event.queueId !== undefined) {
@@ -289,29 +353,62 @@ export function OfflineMangaProvider({
 
           case "download-completed":
             if (event.queueId !== undefined) {
+              if (event.chapterId) {
+                addPendingChapter(event.chapterId);
+              }
+
               // Remove completed item from queue
               setQueueItems((prev) =>
                 prev.filter((item) => item.id !== event.queueId),
               );
 
               // Refresh offline chapters to show newly downloaded content
-              refreshOfflineChapters().catch((error) => {
-                if (!(error instanceof ApiError && error.status === 503)) {
-                  logger.error(
-                    "Failed to refresh offline chapters after download completed",
-                    {
-                      component: "OfflineMangaContext",
-                      action: "refresh-after-complete",
-                      mangaId,
-                      extensionId,
-                      queueId: event.queueId,
-                      error: error instanceof Error
-                        ? error
-                        : new Error(String(error)),
-                    },
-                  );
-                }
-              });
+              refreshOfflineChapters()
+                .catch((error) => {
+                  if (!(error instanceof ApiError && error.status === 503)) {
+                    logger.error(
+                      "Failed to refresh offline chapters after download completed",
+                      {
+                        component: "OfflineMangaContext",
+                        action: "refresh-after-complete",
+                        mangaId,
+                        extensionId,
+                        queueId: event.queueId,
+                        error: error instanceof Error
+                          ? error
+                          : new Error(String(error)),
+                      },
+                    );
+                  }
+                })
+                .finally(() => {
+                  if (event.chapterId) {
+                    removePendingChapter(event.chapterId);
+                  }
+                });
+            } else if (event.chapterId) {
+              addPendingChapter(event.chapterId);
+              refreshOfflineChapters()
+                .catch((error) => {
+                  if (!(error instanceof ApiError && error.status === 503)) {
+                    logger.error(
+                      "Failed to refresh offline chapters after download completed",
+                      {
+                        component: "OfflineMangaContext",
+                        action: "refresh-after-complete",
+                        mangaId,
+                        extensionId,
+                        queueId: event.queueId,
+                        error: error instanceof Error
+                          ? error
+                          : new Error(String(error)),
+                      },
+                    );
+                  }
+                })
+                .finally(() => {
+                  removePendingChapter(event.chapterId);
+                });
             }
             break;
 
@@ -369,9 +466,105 @@ export function OfflineMangaProvider({
             break;
         }
       },
-      [extensionId, mangaId, refreshQueue, refreshOfflineChapters],
+      [extensionId, mangaId, refreshQueue, refreshQueueDebounced, refreshOfflineChapters],
     ),
   });
+
+  // Update SSE connected state
+  useEffect(() => {
+    setSseConnected(connected);
+  }, [connected]);
+
+  // Detect when queue transitions to empty and do final refresh to catch any missed events
+  useEffect(() => {
+    const currentQueueLength = queueItems.length;
+
+    // If queue just became empty (was non-empty, now empty), do a final refresh
+    if (extensionId && prevQueueLength > 0 && currentQueueLength === 0) {
+      logger.info("Queue became empty, doing final refresh to catch any missed updates", {
+        component: "OfflineMangaContext",
+        action: "queue-empty-refresh",
+        mangaId,
+        extensionId,
+      });
+
+      Promise.all([refreshOfflineChapters(), refreshQueue()]).catch((error) => {
+        if (!(error instanceof ApiError && error.status === 503)) {
+          logger.error("Failed to do final refresh after queue emptied", {
+            component: "OfflineMangaContext",
+            action: "queue-empty-refresh",
+            mangaId,
+            extensionId,
+            error: error instanceof Error ? error : new Error(String(error)),
+          });
+        }
+      });
+    }
+
+    setPrevQueueLength(currentQueueLength);
+  }, [extensionId, mangaId, queueItems.length, prevQueueLength, refreshOfflineChapters, refreshQueue]);
+
+  // Fallback polling when SSE is disconnected - only if there are active downloads
+  useEffect(() => {
+    const hasActiveDownloads = queueItems.length > 0;
+    if (!extensionId || sseConnected || loading || !hasActiveDownloads) {
+      return; // Skip if no extension, SSE is connected, still loading, or no active downloads
+    }
+
+    const pollInterval = setInterval(() => {
+      Promise.all([refreshOfflineChapters(), refreshQueue()]).catch((error) => {
+        if (!(error instanceof ApiError && error.status === 503)) {
+          logger.error("Failed to poll offline data", {
+            component: "OfflineMangaContext",
+            action: "poll-data",
+            mangaId,
+            extensionId,
+            error: error instanceof Error ? error : new Error(String(error)),
+          });
+        }
+      });
+    }, 20000); // Poll every 20 seconds when SSE is disconnected and downloads are active
+
+    return () => {
+      clearInterval(pollInterval);
+    };
+  }, [extensionId, mangaId, sseConnected, loading, queueItems.length, refreshOfflineChapters, refreshQueue]);
+
+  // Refresh when page becomes visible - catches missed events when user navigates back
+  useEffect(() => {
+    if (!extensionId) {
+      return;
+    }
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        logger.info("Page became visible, refreshing offline data", {
+          component: "OfflineMangaContext",
+          action: "visibility-refresh",
+          mangaId,
+          extensionId,
+        });
+
+        Promise.all([refreshOfflineChapters(), refreshQueue()]).catch((error) => {
+          if (!(error instanceof ApiError && error.status === 503)) {
+            logger.error("Failed to refresh on visibility change", {
+              component: "OfflineMangaContext",
+              action: "visibility-refresh",
+              mangaId,
+              extensionId,
+              error: error instanceof Error ? error : new Error(String(error)),
+            });
+          }
+        });
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [extensionId, mangaId, refreshOfflineChapters, refreshQueue]);
 
   const queueChapter = useCallback(
     async (chapterId: string, options: { priority?: number } = {}) => {
@@ -414,6 +607,20 @@ export function OfflineMangaProvider({
         });
 
         await refreshQueue();
+      } catch (error) {
+        // If backend says chapter is already downloaded, refresh our local cache
+        if (error instanceof Error && error.message.includes("already downloaded")) {
+          logger.info("Chapter already downloaded, refreshing local cache", {
+            component: "OfflineMangaContext",
+            action: "queue-chapter",
+            chapterId,
+            mangaId,
+          });
+          // Refresh to sync the offlineChaptersMap
+          await refreshOfflineChapters();
+        }
+        // Re-throw the error so UI can handle it
+        throw error;
       } finally {
         removePendingChapter(chapterId);
       }
@@ -425,6 +632,7 @@ export function OfflineMangaProvider({
       addPendingChapter,
       removePendingChapter,
       refreshQueue,
+      refreshOfflineChapters,
     ],
   );
 
