@@ -1,7 +1,8 @@
-import { access, constants as fsConstants } from "node:fs/promises";
+import { access, constants as fsConstants, unlink } from "node:fs/promises";
 import path from "node:path";
 import express, { type Request, type Response } from "express";
 import cors from "cors";
+import multer from "multer";
 import type { Server } from "node:http";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import type { ExtensionFilters, MangaDetails } from "@jamra/extension-sdk";
@@ -26,7 +27,7 @@ import {
   type RegistrySourceConfig,
   type ResolvedExtensionVersion,
 } from "./extensions/registryService.js";
-import { DownloadWorkerHost } from "@jamra/offline-storage";
+import { DownloadWorkerHost, archiveManga } from "@jamra/offline-storage";
 import {
   CoverCacheManager,
   type CoverCacheSettings,
@@ -252,6 +253,14 @@ export async function startCatalogServer(
   }
 
   app.use(express.json());
+
+  // Set up file upload middleware (multer)
+  const upload = multer({
+    dest: path.join(process.cwd(), ".jamra-data", ".uploads"),
+    limits: {
+      fileSize: 500 * 1024 * 1024, // 500MB max file size
+    },
+  });
 
   let bootstrapExtensionPath: string | undefined;
   try {
@@ -2621,6 +2630,514 @@ export async function startCatalogServer(
       res.json({ success: true });
     } catch (error) {
       handleError(res, error, "Failed to clear download history");
+    }
+  });
+
+  // Archive manga to ZIP
+  app.post("/api/offline/archive", async (req, res) => {
+    try {
+      if (!downloadWorker) {
+        res.status(503).json({ error: "Offline storage not available" });
+        return;
+      }
+
+      const { items, options } = req.body as {
+        items: Array<{
+          extensionId: string;
+          mangaId: string;
+          chapterIds?: string[];
+        }>;
+        options?: {
+          includeMetadata?: boolean;
+          includeCover?: boolean;
+          compressionLevel?: number;
+        };
+      };
+
+      if (!items || !Array.isArray(items) || items.length === 0) {
+        res.status(400).json({ error: "items array is required" });
+        return;
+      }
+
+      console.log("[OfflineAPI] archive manga", { itemCount: items.length });
+
+      // Create archives directory if it doesn't exist
+      const archivesDir = path.join(dataRoot, ".archives");
+      await import("node:fs/promises").then((fs) =>
+        fs.mkdir(archivesDir, { recursive: true }),
+      );
+
+      // Generate unique archive name
+      const timestamp = Date.now();
+      const archiveName =
+        items.length === 1
+          ? `${items[0].mangaId}-${timestamp}.zip`
+          : `bulk-archive-${timestamp}.zip`;
+      const outputPath = path.join(archivesDir, archiveName);
+
+      // For now, archive only the first manga (single manga archive)
+      // TODO: Implement bulk archiving
+      if (items.length > 1) {
+        res.status(400).json({
+          error: "Bulk archiving not yet implemented",
+          success: false,
+        });
+        return;
+      }
+
+      const item = items[0];
+
+      // Get manga metadata
+      const metadata = await downloadWorker.getMangaMetadata(
+        item.extensionId,
+        item.mangaId,
+      );
+
+      if (!metadata) {
+        res.status(404).json({
+          error: "Manga not found in offline storage",
+          success: false,
+        });
+        return;
+      }
+
+      // Filter chapters if specific chapters requested
+      let filteredMetadata = metadata;
+      if (item.chapterIds && item.chapterIds.length > 0) {
+        filteredMetadata = {
+          ...metadata,
+          chapters: metadata.chapters.filter((ch) =>
+            item.chapterIds!.includes(ch.chapterId),
+          ),
+        };
+      }
+
+      // Create archive
+      const result = await archiveManga(
+        dataRoot,
+        item.extensionId,
+        filteredMetadata,
+        outputPath,
+        {
+          includeMetadata: options?.includeMetadata !== false,
+          includeCover: options?.includeCover !== false,
+          compressionLevel: options?.compressionLevel || 6,
+        },
+      );
+
+      if (!result.success) {
+        res.status(500).json({
+          error: result.error || "Failed to create archive",
+          success: false,
+        });
+        return;
+      }
+
+      // Return download URL
+      const downloadUrl = `/api/offline/archive/download/${archiveName}`;
+
+      res.json({
+        success: true,
+        downloadUrl,
+        sizeBytes: result.sizeBytes,
+      });
+    } catch (error) {
+      handleError(res, error, "Failed to create archive");
+    }
+  });
+
+  // Download archived file
+  app.get("/api/offline/archive/download/:filename", async (req, res) => {
+    try {
+      const { filename } = req.params;
+
+      // Validate filename (prevent directory traversal)
+      if (filename.includes("..") || filename.includes("/")) {
+        res.status(400).json({ error: "Invalid filename" });
+        return;
+      }
+
+      const archivePath = path.join(
+        dataRoot,
+        ".archives",
+        filename,
+      );
+
+      // Check if file exists
+      try {
+        await access(archivePath, fsConstants.R_OK);
+      } catch {
+        res.status(404).json({ error: "Archive not found" });
+        return;
+      }
+
+      console.log("[OfflineAPI] download archive", { filename });
+
+      // Set headers for download
+      res.setHeader("Content-Type", "application/zip");
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+
+      // Send file
+      res.sendFile(archivePath);
+    } catch (error) {
+      handleError(res, error, "Failed to download archive");
+    }
+  });
+
+  // Import archive - validate
+  app.post("/api/offline/import/validate", upload.single("file"), async (req, res) => {
+    try {
+      if (!req.file) {
+        res.status(400).json({ error: "No file uploaded" });
+        return;
+      }
+
+      console.log("[OfflineAPI] validate import archive", {
+        filename: req.file.originalname,
+        size: req.file.size,
+      });
+
+      const { validateArchive } = await import("@jamra/offline-storage");
+      const validation = await validateArchive(req.file.path);
+
+      // Clean up uploaded file
+      await unlink(req.file.path);
+
+      res.json(validation);
+    } catch (error) {
+      handleError(res, error, "Failed to validate archive");
+    }
+  });
+
+  // Import archive
+  app.post("/api/offline/import", upload.single("file"), async (req, res) => {
+    try {
+      if (!req.file) {
+        res.status(400).json({ error: "No file uploaded" });
+        return;
+      }
+
+      if (!downloadWorker) {
+        res.status(503).json({ error: "Offline storage not available" });
+        return;
+      }
+
+      const conflictResolution = (req.body.conflictResolution || "skip") as "skip" | "overwrite" | "rename";
+
+      console.log("[OfflineAPI] import archive", {
+        filename: req.file.originalname,
+        size: req.file.size,
+        conflictResolution,
+      });
+
+      // Set up SSE
+      res.setHeader("Content-Type", "text/event-stream");
+      res.setHeader("Cache-Control", "no-cache");
+      res.setHeader("Connection", "keep-alive");
+
+      const sendProgress = (current: number, total: number, message?: string) => {
+        const progress = total > 0 ? Math.floor((current / total) * 100) : current;
+        res.write(`data: ${JSON.stringify({ type: "progress", progress, message })}\n\n`);
+      };
+
+      try {
+        const { importMangaArchive } = await import("@jamra/offline-storage");
+
+        const result = await importMangaArchive(
+          dataRoot,
+          req.file.path,
+          {
+            conflictResolution,
+            validate: true,
+            onProgress: sendProgress,
+          },
+        );
+
+        if (result.success) {
+          res.write(`data: ${JSON.stringify({ type: "complete", result })}\n\n`);
+        } else {
+          res.write(`data: ${JSON.stringify({ type: "error", error: result.error })}\n\n`);
+        }
+
+        res.end();
+
+        // Clean up uploaded file
+        await unlink(req.file.path);
+
+        // Reload offline manga list in background
+        if (result.success && !result.skipped) {
+          console.log("[OfflineAPI] Import successful, reloading manga list");
+          // The manager will pick up changes automatically via file system
+        }
+      } catch (error) {
+        res.write(`data: ${JSON.stringify({
+          type: "error",
+          error: error instanceof Error ? error.message : "Import failed"
+        })}\n\n`);
+        res.end();
+
+        // Clean up uploaded file
+        await unlink(req.file.path);
+      }
+    } catch (error) {
+      handleError(res, error, "Failed to import archive");
+    }
+  });
+
+  // Perform storage cleanup
+  app.post("/api/offline/cleanup", async (req, res) => {
+    try {
+      if (!downloadWorker) {
+        res.status(503).json({ error: "Offline storage not available" });
+        return;
+      }
+
+      console.log("[OfflineAPI] manual cleanup triggered");
+
+      // Get storage settings
+      const settingsPath = path.join(dataRoot, ".settings", "storage.json");
+      let settings = {
+        maxStorageGB: 10,
+        autoCleanupEnabled: false,
+        cleanupStrategy: "oldest" as const,
+        cleanupThresholdPercent: 90,
+      };
+
+      try {
+        const { readFile } = await import("node:fs/promises");
+        const settingsData = await readFile(settingsPath, "utf-8");
+        settings = JSON.parse(settingsData);
+      } catch {
+        // Use defaults
+      }
+
+      // Perform cleanup
+      const { performCleanup } = await import("@jamra/offline-storage");
+      const targetFreeGB = req.body.targetFreeGB || 1;
+      const result = await performCleanup(dataRoot, settings, targetFreeGB);
+
+      res.json(result);
+    } catch (error) {
+      handleError(res, error, "Failed to perform cleanup");
+    }
+  });
+
+  // Get storage settings
+  app.get("/api/offline/settings", async (req, res) => {
+    try {
+      const settingsPath = path.join(dataRoot, ".settings", "storage.json");
+
+      try {
+        const { readFile } = await import("node:fs/promises");
+        const settingsData = await readFile(settingsPath, "utf-8");
+        const settings = JSON.parse(settingsData);
+        res.json(settings);
+      } catch (error) {
+        // Return defaults if settings file doesn't exist
+        res.json({
+          maxStorageGB: 10,
+          autoCleanupEnabled: false,
+          cleanupStrategy: "oldest",
+          cleanupThresholdPercent: 90,
+        });
+      }
+    } catch (error) {
+      handleError(res, error, "Failed to get storage settings");
+    }
+  });
+
+  // Update storage settings
+  app.put("/api/offline/settings", async (req, res) => {
+    try {
+      const settings = req.body;
+
+      console.log("[OfflineAPI] update storage settings", settings);
+
+      // Validate settings
+      if (typeof settings.maxStorageGB !== "number" || settings.maxStorageGB <= 0) {
+        res.status(400).json({ error: "Invalid maxStorageGB" });
+        return;
+      }
+
+      if (typeof settings.autoCleanupEnabled !== "boolean") {
+        res.status(400).json({ error: "Invalid autoCleanupEnabled" });
+        return;
+      }
+
+      if (!["oldest", "largest", "least-accessed"].includes(settings.cleanupStrategy)) {
+        res.status(400).json({ error: "Invalid cleanupStrategy" });
+        return;
+      }
+
+      if (
+        typeof settings.cleanupThresholdPercent !== "number" ||
+        settings.cleanupThresholdPercent < 50 ||
+        settings.cleanupThresholdPercent > 95
+      ) {
+        res.status(400).json({ error: "Invalid cleanupThresholdPercent" });
+        return;
+      }
+
+      // Ensure settings directory exists
+      const settingsDir = path.join(dataRoot, ".settings");
+      const { mkdir, writeFile } = await import("node:fs/promises");
+      await mkdir(settingsDir, { recursive: true });
+
+      // Write settings to file
+      const settingsPath = path.join(settingsDir, "storage.json");
+      await writeFile(settingsPath, JSON.stringify(settings, null, 2), "utf-8");
+
+      console.log("[OfflineAPI] storage settings updated");
+
+      res.json({ success: true, settings });
+    } catch (error) {
+      handleError(res, error, "Failed to update storage settings");
+    }
+  });
+
+  // Get scheduler settings
+  app.get("/api/offline/scheduler", async (req, res) => {
+    try {
+      const settingsPath = path.join(dataRoot, ".settings", "scheduler.json");
+
+      try {
+        const { readFile } = await import("node:fs/promises");
+        const settingsData = await readFile(settingsPath, "utf-8");
+        const settings = JSON.parse(settingsData);
+        res.json(settings);
+      } catch (error) {
+        // Return defaults if settings file doesn't exist
+        res.json({
+          enabled: false,
+          allowedStartHour: 0,
+          allowedEndHour: 23,
+          maxBandwidthMBps: 0,
+          pauseDuringActiveUse: false,
+        });
+      }
+    } catch (error) {
+      handleError(res, error, "Failed to get scheduler settings");
+    }
+  });
+
+  // Update scheduler settings
+  app.put("/api/offline/scheduler", async (req, res) => {
+    try {
+      const settings = req.body;
+
+      console.log("[OfflineAPI] update scheduler settings", settings);
+
+      // Validate settings
+      if (typeof settings.enabled !== "boolean") {
+        res.status(400).json({ error: "Invalid enabled" });
+        return;
+      }
+
+      if (
+        typeof settings.allowedStartHour !== "number" ||
+        settings.allowedStartHour < 0 ||
+        settings.allowedStartHour > 23
+      ) {
+        res.status(400).json({ error: "Invalid allowedStartHour" });
+        return;
+      }
+
+      if (
+        typeof settings.allowedEndHour !== "number" ||
+        settings.allowedEndHour < 0 ||
+        settings.allowedEndHour > 23
+      ) {
+        res.status(400).json({ error: "Invalid allowedEndHour" });
+        return;
+      }
+
+      if (
+        typeof settings.maxBandwidthMBps !== "number" ||
+        settings.maxBandwidthMBps < 0
+      ) {
+        res.status(400).json({ error: "Invalid maxBandwidthMBps" });
+        return;
+      }
+
+      if (typeof settings.pauseDuringActiveUse !== "boolean") {
+        res.status(400).json({ error: "Invalid pauseDuringActiveUse" });
+        return;
+      }
+
+      // Ensure settings directory exists
+      const settingsDir = path.join(dataRoot, ".settings");
+      const { mkdir, writeFile } = await import("node:fs/promises");
+      await mkdir(settingsDir, { recursive: true });
+
+      // Write settings to file
+      const settingsPath = path.join(settingsDir, "scheduler.json");
+      await writeFile(settingsPath, JSON.stringify(settings, null, 2), "utf-8");
+
+      console.log("[OfflineAPI] scheduler settings updated");
+
+      res.json({ success: true, settings });
+    } catch (error) {
+      handleError(res, error, "Failed to update scheduler settings");
+    }
+  });
+
+  // Update manga metadata
+  app.patch("/api/offline/metadata/:extensionId/:mangaId", async (req, res) => {
+    try {
+      if (!downloadWorker) {
+        res.status(503).json({ error: "Offline storage not available" });
+        return;
+      }
+
+      const { extensionId, mangaId } = req.params;
+      const updates = req.body;
+
+      console.log("[OfflineAPI] update metadata", { extensionId, mangaId, updates });
+
+      // Validate that we have at least one field to update
+      const allowedFields = ["title", "description", "authors", "artists"];
+      const hasValidUpdates = Object.keys(updates).some(key => allowedFields.includes(key));
+
+      if (!hasValidUpdates) {
+        res.status(400).json({
+          error: "No valid metadata fields provided",
+          allowedFields
+        });
+        return;
+      }
+
+      // Get existing metadata
+      const existingMetadata = await downloadWorker.getMangaMetadata(extensionId, mangaId);
+
+      if (!existingMetadata) {
+        res.status(404).json({ error: "Manga not found in offline storage" });
+        return;
+      }
+
+      // Build path to metadata file
+      const metadataPath = path.join(dataRoot, extensionId, mangaId, "metadata.json");
+
+      // Update metadata with new values (only update provided fields)
+      const updatedMetadata = {
+        ...existingMetadata,
+        title: updates.title !== undefined ? updates.title : existingMetadata.title,
+        description: updates.description !== undefined ? updates.description : existingMetadata.description,
+        authors: updates.authors !== undefined ? updates.authors : existingMetadata.authors,
+        artists: updates.artists !== undefined ? updates.artists : existingMetadata.artists,
+      };
+
+      // Write updated metadata to file
+      const { writeFile } = await import("node:fs/promises");
+      await writeFile(metadataPath, JSON.stringify(updatedMetadata, null, 2), "utf-8");
+
+      console.log("[OfflineAPI] metadata updated successfully");
+
+      res.json({
+        success: true,
+        metadata: updatedMetadata
+      });
+    } catch (error) {
+      handleError(res, error, "Failed to update metadata");
     }
   });
 

@@ -1,67 +1,29 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
-import {
-  Box,
-  Collapse,
-  Progress,
-  Text,
-  ActionIcon,
-  ScrollArea,
-  Button,
-  Popover,
-  Badge,
-  Tooltip,
-} from "@mantine/core";
-import { ChevronDown, ChevronUp, Download, X, ArrowRight, WifiOff } from "lucide-react";
+import { Box, Text, Badge, Tooltip } from "@mantine/core";
+import { Download, ArrowRight, WifiOff } from "lucide-react";
 import { useUIStore } from "@/store/ui";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
-import {
-  getOfflineQueue,
-  cancelOfflineDownload,
-  type OfflineQueuedDownload,
-} from "@/lib/api";
+import { getOfflineQueue, type OfflineQueuedDownload } from "@/lib/api";
 import { STYLES } from "@/lib/constants";
 import {
   useOfflineEvents,
   type OfflineDownloadEvent,
 } from "@/hooks/use-offline-events";
-import { MIN_SIDEBAR_WIDTH } from "@/store/ui";
 import { logger } from "@/lib/logger";
 
-interface DownloadsByManga {
-  [mangaId: string]: {
-    mangaSlug: string;
-    downloads: OfflineQueuedDownload[];
-  };
-}
-
 const DOWNLOAD_CLASSES = {
-  buttonLabel:
-    "block w-full overflow-hidden text-ellipsis whitespace-nowrap text-xs font-medium",
-  sectionMaxWidth: "max-w-full",
-  itemContainer: "max-w-full overflow-hidden",
-  itemHeader: "mb-1 flex w-full items-start justify-between gap-2 max-w-full",
-  textInline: `flex-1 min-w-0 ${STYLES.TEXT_TRUNCATE_INLINE}`,
-  textBlock: STYLES.TEXT_TRUNCATE,
   badge: `${STYLES.BADGE_COUNTER} absolute right-1.5 top-1.5`,
 };
 
 export function GlobalDownloadStatus() {
   const sidebarCollapsed = useUIStore((state) => state.collapsed);
-  const sidebarWidth = useUIStore((state) => state.sidebarWidth);
   const router = useRouter();
-  const [expanded, setExpanded] = useState(false);
-  const [popoverOpened, setPopoverOpened] = useState(false);
   const [downloads, setDownloads] = useState<OfflineQueuedDownload[]>([]);
   const [sseConnected, setSseConnected] = useState(false);
   const queueRefreshTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
-  // Calculate available width for content (sidebar width - padding)
-  const contentWidth = sidebarCollapsed
-    ? 0
-    : Math.max(MIN_SIDEBAR_WIDTH, sidebarWidth) - 16; // 16px total horizontal padding
 
   // Debounced queue refresh function
   const refreshQueueDebounced = useCallback(() => {
@@ -202,237 +164,45 @@ export function GlobalDownloadStatus() {
     };
   }, [sseConnected, downloads.length]);
 
-  // Group downloads by manga
-  const downloadsByManga: DownloadsByManga = downloads.reduce(
-    (acc, download) => {
-      if (!acc[download.mangaId]) {
-        acc[download.mangaId] = {
-          mangaSlug: download.mangaSlug,
-          downloads: [],
-        };
-      }
-      acc[download.mangaId].downloads.push(download);
-      return acc;
-    },
-    {} as DownloadsByManga,
-  );
 
-  const handleCancel = async (queueId: number) => {
-    try {
-      await cancelOfflineDownload(queueId);
-      setDownloads((prev) => prev.filter((item) => item.id !== queueId));
-    } catch (error) {
-      logger.error("Failed to cancel offline download", {
-        component: "GlobalDownloadStatus",
-        action: "cancel-download",
-        queueId,
-        error: error instanceof Error ? error : new Error(String(error)),
-      });
-    }
-  };
-
-  // Render downloads list content (shared between expanded sidebar and popover)
-  const renderDownloadsContent = (maxWidth?: number) => (
-    <>
-      <Box px="xs" py="sm">
-        <Button
-          variant="subtle"
-          size="compact-sm"
-          fullWidth
-          justify="space-between"
-          onClick={() => {
-            router.push("/downloads");
-            setPopoverOpened(false);
-          }}
-          rightSection={<ArrowRight size={12} />}
-        >
-          <span className={DOWNLOAD_CLASSES.buttonLabel}>
-            View All Downloads
-          </span>
-        </Button>
-      </Box>
-      {downloads.length > 0 ? (
-        <ScrollArea.Autosize mah={300} scrollbarSize={6}>
-          <Box px="xs" pb="sm" style={{ maxWidth }}>
-            {Object.entries(downloadsByManga).map(
-              ([mangaId, { mangaSlug, downloads: mangaDownloads }]) => (
-                <Box
-                  key={mangaId}
-                  mb="sm"
-                  className={DOWNLOAD_CLASSES.sectionMaxWidth}
-                >
-                  <Text
-                    size="xs"
-                    fw={600}
-                    c="dimmed"
-                    mb={4}
-                    title={mangaSlug}
-                    className={DOWNLOAD_CLASSES.textBlock}
-                  >
-                    {mangaSlug}
-                  </Text>
-                  <Box className="space-y-2">
-                    {mangaDownloads.map((download) => {
-                      const percent =
-                        download.progressTotal > 0
-                          ? Math.round(
-                              (download.progressCurrent /
-                                download.progressTotal) *
-                                100,
-                            )
-                          : 0;
-
-                      // Format chapter display - simplified logic
-                      let chapterDisplay = "Full manga";
-                      if (download.chapterId) {
-                        if (download.chapterNumber && download.chapterTitle) {
-                          chapterDisplay = `Ch. ${download.chapterNumber}: ${download.chapterTitle}`;
-                        } else if (download.chapterNumber) {
-                          chapterDisplay = `Chapter ${download.chapterNumber}`;
-                        } else if (download.chapterTitle) {
-                          chapterDisplay = download.chapterTitle;
-                        } else {
-                          // Fallback: show last 8 chars of ID
-                          chapterDisplay = `Ch. ${download.chapterId.slice(-8)}`;
-                        }
-                      }
-
-                      return (
-                        <Box
-                          key={download.id}
-                          className={cn(
-                            "rounded border border-border bg-background/50 p-2",
-                            DOWNLOAD_CLASSES.itemContainer,
-                          )}
-                        >
-                          <div className={DOWNLOAD_CLASSES.itemHeader}>
-                            <Text
-                              size="xs"
-                              className={DOWNLOAD_CLASSES.textInline}
-                              title={
-                                download.chapterId || "Full manga download"
-                              }
-                            >
-                              {chapterDisplay}
-                            </Text>
-                            {download.status === "queued" && (
-                              <ActionIcon
-                                size="xs"
-                                variant="subtle"
-                                color="red"
-                                onClick={() => handleCancel(download.id)}
-                                aria-label="Cancel download"
-                                className="flex-shrink-0"
-                              >
-                                <X size={12} />
-                              </ActionIcon>
-                            )}
-                          </div>
-
-                          {download.status === "downloading" && (
-                            <>
-                              <Progress size="xs" value={percent} mb={4} />
-                              <Text
-                                size="xs"
-                                c="dimmed"
-                                className={DOWNLOAD_CLASSES.textBlock}
-                              >
-                                {download.progressCurrent} /{" "}
-                                {download.progressTotal} pages ({percent}%)
-                              </Text>
-                            </>
-                          )}
-
-                          {download.status === "queued" && (
-                            <Text size="xs" c="dimmed">
-                              Queued
-                            </Text>
-                          )}
-
-                          {download.status === "failed" && (
-                            <Text
-                              size="xs"
-                              c="red"
-                              title={download.errorMessage}
-                              className={DOWNLOAD_CLASSES.textBlock}
-                            >
-                              Failed: {download.errorMessage || "Unknown error"}
-                            </Text>
-                          )}
-                        </Box>
-                      );
-                    })}
-                  </Box>
-                </Box>
-              ),
-            )}
-          </Box>
-        </ScrollArea.Autosize>
-      ) : (
-        <Box p="md" pt="xs">
-          <Text size="sm" c="dimmed" ta="center">
-            No active downloads
-          </Text>
-        </Box>
-      )}
-    </>
-  );
-
-  // If sidebar is collapsed, show popover on click
+  // If sidebar is collapsed, navigate to downloads page on click
   if (sidebarCollapsed) {
     return (
       <Box className="flex-shrink-0 border-t border-border">
-        <Popover
-          width={280}
-          position="right"
-          withArrow
-          shadow="md"
-          opened={popoverOpened}
-          onChange={setPopoverOpened}
+        <button
+          onClick={() => router.push("/downloads")}
+          className={cn(
+            "flex w-full items-center gap-2 p-3 hover:bg-muted/50 transition-colors relative",
+            "justify-center",
+          )}
+          aria-label={`Downloads (${downloads.length} active)`}
         >
-          <Popover.Target>
-            <button
-              onClick={() => setPopoverOpened(!popoverOpened)}
-              className={cn(
-                "flex w-full items-center gap-2 p-3 hover:bg-muted/50 transition-colors relative",
-                "justify-center",
-              )}
-              aria-label={`Downloads (${downloads.length} active)`}
+          <Download size={18} className="flex-shrink-0" />
+          {downloads.length > 0 && (
+            <Badge size="xs" circle className={DOWNLOAD_CLASSES.badge}>
+              {downloads.length}
+            </Badge>
+          )}
+          {!sseConnected && (
+            <Badge
+              size="xs"
+              color="yellow"
+              circle
+              className="absolute left-1.5 top-1.5"
             >
-              <Download size={18} className="flex-shrink-0" />
-              {downloads.length > 0 && (
-                <Badge size="xs" circle className={DOWNLOAD_CLASSES.badge}>
-                  {downloads.length}
-                </Badge>
-              )}
-            </button>
-          </Popover.Target>
-
-          <Popover.Dropdown p={0}>
-            <Box className="border-b border-border p-3">
-              <div className="flex items-center justify-between gap-2">
-                <Text size="sm" fw={500}>
-                  Downloads ({downloads.length})
-                </Text>
-                {!sseConnected && (
-                  <Tooltip label="Offline mode - updates may be delayed">
-                    <WifiOff size={14} className="text-amber-500" />
-                  </Tooltip>
-                )}
-              </div>
-            </Box>
-            {renderDownloadsContent(280)}
-          </Popover.Dropdown>
-        </Popover>
+              <WifiOff size={10} />
+            </Badge>
+          )}
+        </button>
       </Box>
     );
   }
 
-  // Expanded sidebar view
+  // Expanded sidebar view - navigate to downloads page on click
   return (
     <Box className="flex-shrink-0 border-t border-border">
       <button
-        onClick={() => setExpanded(!expanded)}
+        onClick={() => router.push("/downloads")}
         className={cn(
           "flex w-full items-center gap-2 p-3 hover:bg-muted/50 transition-colors",
         )}
@@ -446,14 +216,8 @@ export function GlobalDownloadStatus() {
             <WifiOff size={14} className="text-amber-500" />
           </Tooltip>
         )}
-        {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+        <ArrowRight size={16} className="flex-shrink-0" />
       </button>
-
-      <Collapse in={expanded}>
-        <Box className="border-t border-border">
-          {renderDownloadsContent(contentWidth)}
-        </Box>
-      </Collapse>
     </Box>
   );
 }

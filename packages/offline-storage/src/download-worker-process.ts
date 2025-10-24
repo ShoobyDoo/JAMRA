@@ -454,7 +454,7 @@ async function handleCommand(command: WorkerCommand): Promise<void> {
       }
       case "get-metrics": {
         const metrics = requireWorker().getMetrics();
-        sendResult("get-metrics", command.requestId, { metrics });
+        sendResult("get-metrics", command.requestId, { metrics: metrics as any });
         break;
       }
       case "reset-metrics": {

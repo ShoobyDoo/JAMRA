@@ -324,3 +324,46 @@ export async function clearOfflineDownloadHistory(): Promise<{
     method: "DELETE",
   });
 }
+
+// ============================================================================
+// Storage & Manga Management
+// ============================================================================
+
+export interface MangaStorageInfo {
+  mangaId: string;
+  mangaSlug: string;
+  title: string;
+  coverPath: string;
+  extensionId: string;
+  chapterCount: number;
+  totalBytes: number;
+  downloadedAt: number;
+  lastAccessedAt?: number;
+}
+
+export interface StorageStats {
+  totalBytes: number;
+  mangaCount: number;
+  chapterCount: number;
+  pageCount: number;
+  byExtension: Record<string, number>; // extensionId -> bytes
+  byManga: MangaStorageInfo[];
+}
+
+interface StorageStatsResponse {
+  stats: StorageStats;
+}
+
+interface OfflineMangaListResponse {
+  manga: OfflineMangaMetadata[];
+}
+
+export async function getStorageStats(): Promise<StorageStats> {
+  const response = await request<StorageStatsResponse>("/offline/storage");
+  return response.stats;
+}
+
+export async function getOfflineManga(): Promise<OfflineMangaMetadata[]> {
+  const response = await request<OfflineMangaListResponse>("/offline/manga");
+  return response.manga;
+}

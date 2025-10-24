@@ -74,3 +74,41 @@ export {
   listDirs,
   countFiles,
 } from "./utils/file-system.js";
+
+// Archive utilities
+export {
+  archiveChapter,
+  archiveManga,
+  archiveBulk,
+  estimateArchiveSize,
+} from "./archiver.js";
+
+export type {
+  ArchiveOptions,
+  ArchiveResult,
+} from "./archiver.js";
+
+// Import utilities
+export {
+  importMangaArchive,
+  validateArchive,
+} from "./importer.js";
+
+export type {
+  ImportOptions,
+  ImportResult,
+  ValidationResult,
+  ConflictResolution,
+} from "./importer.js";
+
+// Cleanup utilities
+export {
+  shouldCleanup,
+  performCleanup,
+  getStorageUsage,
+} from "./cleanup.js";
+
+export type {
+  StorageSettings,
+  CleanupResult,
+} from "./cleanup.js";

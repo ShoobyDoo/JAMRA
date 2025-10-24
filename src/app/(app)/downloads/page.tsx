@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { Box, Title, Text, Tabs } from "@mantine/core";
-import { Download, History } from "lucide-react";
+import { Download, History, FolderArchive } from "lucide-react";
 import {
   getOfflineQueue,
   cancelOfflineDownload,
@@ -27,6 +27,7 @@ import {
 } from "@/components/downloads/download-utils";
 import { DownloadsQueueSection } from "@/components/downloads/downloads-queue-section";
 import { DownloadsHistorySection } from "@/components/downloads/downloads-history-section";
+import { ManagerTab } from "@/components/downloads/manager-tab";
 import type {
   GroupBy,
   StatusFilter,
@@ -383,6 +384,9 @@ export default function DownloadsPage() {
           <Tabs.Tab value="history" leftSection={<History size={16} />}>
             History ({history.length})
           </Tabs.Tab>
+          <Tabs.Tab value="manager" leftSection={<FolderArchive size={16} />}>
+            Manager
+          </Tabs.Tab>
         </Tabs.List>
 
         {/* Active Downloads Tab */}
@@ -414,6 +418,11 @@ export default function DownloadsPage() {
             onDeleteHistory={handleDeleteHistory}
             onClearHistory={handleClearHistory}
           />
+        </Tabs.Panel>
+
+        {/* Manager Tab */}
+        <Tabs.Panel value="manager" pt="md">
+          <ManagerTab />
         </Tabs.Panel>
       </Tabs>
     </Box>
