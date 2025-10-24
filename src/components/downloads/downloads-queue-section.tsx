@@ -36,6 +36,26 @@ import type {
   DownloadsQueueStats,
 } from "@/components/downloads/types";
 
+// Helper to display manga title, handling cases where backend populates slug with ID
+function getMangaDisplayName(download: OfflineQueuedDownload): string {
+  // Prefer mangaTitle if available
+  if (download.mangaTitle && download.mangaTitle.trim()) {
+    return download.mangaTitle;
+  }
+
+  // Check if mangaSlug looks like a ULID (26 uppercase alphanumeric chars)
+  // If so, it's likely the manga ID, not a readable slug
+  const ulidPattern = /^[0-9A-Z]{26}$/;
+  if (ulidPattern.test(download.mangaSlug)) {
+    // Fallback: use "Manga {short-id}" for better UX
+    // TODO: Backend should populate mangaTitle when creating queue items
+    return `Manga (${download.mangaSlug.slice(0, 8)}...)`;
+  }
+
+  // Use slug as-is if it's not a ULID
+  return download.mangaSlug;
+}
+
 export interface DownloadsQueueSectionProps {
   stats: DownloadsQueueStats;
   groupBy: GroupBy;
@@ -280,7 +300,7 @@ export const DownloadsQueueSection = memo(function DownloadsQueueSection({
 
                         <Box className="flex-1 min-w-0">
                           <Text fw={600} size="sm" className="truncate" mb={2}>
-                            {download.mangaTitle || download.mangaSlug}
+                            {getMangaDisplayName(download)}
                           </Text>
                           <Text size="xs" c="dimmed" className="truncate" mb={4}>
                             {chapterDisplay}

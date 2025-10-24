@@ -40,7 +40,13 @@ export default function DownloadsPage() {
   const [downloads, setDownloads] = useState<OfflineQueuedDownload[]>([]);
   const [history, setHistory] = useState<OfflineDownloadHistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<string | null>("active");
+  const [activeTab, setActiveTab] = useState<string | null>(() => {
+    // Initialize from localStorage if available
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("downloads-active-tab") ?? "active";
+    }
+    return "active";
+  });
 
   // Selection state
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
@@ -55,6 +61,13 @@ export default function DownloadsPage() {
   usePerformanceMonitor("DownloadsPage", {
     detail: { initialTab: "active" },
   });
+
+  // Persist active tab to localStorage
+  useEffect(() => {
+    if (typeof window !== "undefined" && activeTab) {
+      localStorage.setItem("downloads-active-tab", activeTab);
+    }
+  }, [activeTab]);
 
   // Load initial queue and history
   useEffect(() => {
@@ -377,7 +390,7 @@ export default function DownloadsPage() {
       </Box>
 
       <Tabs value={activeTab} onChange={setActiveTab}>
-        <Tabs.List>
+        <Tabs.List className="[&_button:hover:not([data-active])]:bg-muted/50">
           <Tabs.Tab value="active" leftSection={<Download size={16} />}>
             Active Downloads ({stats.total})
           </Tabs.Tab>

@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Clock, BookOpen, Heart, Star, Trash2 } from "lucide-react";
-import { Modal } from "@mantine/core";
+import { Clock, BookOpen, Heart, Star, Trash2, ChevronDown, ChevronUp } from "lucide-react";
+import { Modal, Collapse, Button } from "@mantine/core";
 import type { EnrichedHistoryEntry } from "@/lib/api";
 import { AutoRefreshImage } from "@/components/ui/auto-refresh-image";
 
@@ -117,6 +117,8 @@ function HistoryDetailsModal({
   isOpen,
   onClose,
 }: HistoryDetailsModalProps) {
+  const [metadataExpanded, setMetadataExpanded] = useState(false);
+
   const mangaHref = entry.manga?.slug
     ? `/manga/${entry.manga.slug}`
     : entry.mangaId
@@ -191,12 +193,22 @@ function HistoryDetailsModal({
 
           {entry.metadata && Object.keys(entry.metadata).length > 0 && (
             <div>
-              <span className="text-sm font-medium text-muted-foreground">
-                Metadata:
-              </span>
-              <pre className="text-xs bg-muted p-2 rounded mt-1 overflow-auto">
-                {JSON.stringify(entry.metadata, null, 2)}
-              </pre>
+              <Button
+                variant="subtle"
+                size="compact-sm"
+                onClick={() => setMetadataExpanded(!metadataExpanded)}
+                rightSection={metadataExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                className="mb-2"
+              >
+                {metadataExpanded ? "Hide" : "Show"} Metadata
+              </Button>
+              <Collapse in={metadataExpanded}>
+                <pre className="text-xs bg-muted p-2 rounded overflow-auto">
+                  {JSON.stringify(entry.metadata, null, 2)}
+                </pre>
+                {/* Note: Metadata content may need review on backend.
+                    Library Add actions sometimes show status data that may not be relevant. */}
+              </Collapse>
             </div>
           )}
         </div>

@@ -12,6 +12,10 @@ import {
   type StorageStats,
 } from "@/lib/api/offline";
 import { logger } from "@/lib/logger";
+import {
+  useOfflineEvents,
+  type OfflineDownloadEvent,
+} from "@/hooks/use-offline-events";
 import { StorageDashboard } from "./storage-dashboard";
 import { OfflineMangaList } from "./offline-manga-list";
 import { OfflineSearch, type SearchFilters } from "./offline-search";
@@ -51,6 +55,36 @@ export function ManagerTab() {
   useEffect(() => {
     loadOfflineData();
   }, []);
+
+  // Listen for real-time download events to update storage stats
+  useOfflineEvents({
+    onEvent: useCallback((event: OfflineDownloadEvent) => {
+      // Reload data when downloads complete
+      if (event.type === "download-completed") {
+        // Refresh storage stats and manga list
+        getStorageStats()
+          .then((stats) => setStorageStats(stats))
+          .catch((error) => {
+            logger.error("Failed to refresh storage stats", {
+              component: "ManagerTab",
+              action: "refresh-stats-on-event",
+              error: error instanceof Error ? error : new Error(String(error)),
+            });
+          });
+
+        // Also reload manga list to show new downloads
+        getOfflineManga()
+          .then((manga) => setOfflineManga(manga))
+          .catch((error) => {
+            logger.error("Failed to refresh manga list", {
+              component: "ManagerTab",
+              action: "refresh-manga-on-event",
+              error: error instanceof Error ? error : new Error(String(error)),
+            });
+          });
+      }
+    }, []),
+  });
 
   // Get available extensions from manga list
   const availableExtensions = useMemo(() => {

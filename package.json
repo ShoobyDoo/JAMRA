@@ -39,6 +39,7 @@
     "@mantine/hooks": "8.3.5",
     "@mantine/modals": "^8.3.5",
     "@mantine/notifications": "^8.3.5",
+    "@tanstack/react-virtual": "^3.13.12",
     "clsx": "^2.1.1",
     "express": "^5.1.0",
     "lucide-react": "^0.546.0",

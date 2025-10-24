@@ -103,14 +103,17 @@ export function LibraryCard({ entry, priority = false }: LibraryCardProps) {
             {STATUS_LABELS[status]}
           </Badge>
         </div>
+
+        {/* Title with Backdrop Blur */}
+        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-black/40 backdrop-blur-md [-webkit-backdrop-filter:blur(12px)] p-3">
+          <h3 className="font-semibold text-sm line-clamp-2 text-white group-hover:text-white transition-colors">
+            {manga.title}
+          </h3>
+        </div>
       </div>
 
       {/* Content */}
-      <div className="p-3 space-y-2">
-        {/* Title */}
-        <h3 className="font-semibold text-sm line-clamp-2 min-h-[2.5rem] text-foreground group-hover:text-primary transition-colors">
-          {manga.title}
-        </h3>
+      <div className="p-2 space-y-1">
 
         {/* Rating */}
         {personalRating && (
@@ -122,14 +125,14 @@ export function LibraryCard({ entry, priority = false }: LibraryCardProps) {
 
         {/* Progress */}
         {status === "reading" && totalChapters > 0 && (
-          <div className="space-y-1">
+          <div className="space-y-0.5">
             <div className="flex justify-between text-xs text-muted-foreground">
               <span>
                 {readChapters}/{totalChapters}
               </span>
               <span>{Math.round(progress)}%</span>
             </div>
-            <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+            <div className="h-1 overflow-hidden rounded-full bg-muted">
               <div
                 className={`h-full transition-all ${isComplete ? "bg-green-500" : "bg-primary"}`}
                 style={{ width: `${progress}%` }}

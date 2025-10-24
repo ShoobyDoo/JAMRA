@@ -136,6 +136,7 @@ export const ExtensionCard = memo(function ExtensionCard({
                   event.stopPropagation();
                   onDisable(extension);
                 }}
+                className="hover:!bg-yellow-500/20"
               >
                 Disable
               </Button>
@@ -149,6 +150,7 @@ export const ExtensionCard = memo(function ExtensionCard({
                   event.stopPropagation();
                   onEnable(extension);
                 }}
+                className="hover:!bg-green-500/20"
               >
                 Enable
               </Button>

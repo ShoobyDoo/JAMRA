@@ -60,7 +60,11 @@ export function LibraryFilterBar({
           onClick={() => onStatusChange(undefined)}
         >
           All
-          <Badge variant="light" className="ml-2">
+          <Badge
+            variant={selectedStatus === undefined ? "filled" : "light"}
+            className="ml-2"
+            style={selectedStatus === undefined ? { backgroundColor: 'rgba(255, 255, 255, 0.2)', color: 'white' } : undefined}
+          >
             {totalCount}
           </Badge>
         </Button>

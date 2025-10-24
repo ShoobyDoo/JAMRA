@@ -86,7 +86,7 @@ export function OfflineMangaList({
   sortOrder = "desc",
 }: OfflineMangaListProps) {
   const router = useRouter();
-  const [viewMode, setViewMode] = useState<ViewMode>("grid");
+  const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [expandedManga, setExpandedManga] = useState<Set<string>>(new Set());
   const [currentSort, setCurrentSort] = useState<SortOption>(sortBy);
   const [currentSortOrder, setCurrentSortOrder] = useState<"asc" | "desc">(sortOrder);

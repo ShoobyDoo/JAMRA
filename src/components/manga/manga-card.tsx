@@ -47,12 +47,16 @@ export function MangaCard({ item, extensionId }: MangaCardProps) {
             </span>
           </div>
         )}
+
+        {/* Title with Backdrop Blur */}
+        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-black/40 backdrop-blur-md [-webkit-backdrop-filter:blur(12px)] p-3">
+          <h2 className="line-clamp-2 text-sm font-semibold leading-tight text-white">
+            {item.title}
+          </h2>
+        </div>
       </div>
 
       <div className="space-y-2 p-3">
-        <h2 className="line-clamp-2 text-sm font-semibold leading-tight">
-          {item.title}
-        </h2>
 
         {item.description ? (
           <p className="line-clamp-2 text-xs text-muted-foreground">

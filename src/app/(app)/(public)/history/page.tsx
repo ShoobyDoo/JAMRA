@@ -117,7 +117,7 @@ export default function HistoryPage() {
 
           <Menu shadow="md" width={200}>
             <Menu.Target>
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" className="aspect-square px-2">
                 <MoreVertical className="h-4 w-4" />
               </Button>
             </Menu.Target>

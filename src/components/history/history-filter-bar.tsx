@@ -60,7 +60,7 @@ export function HistoryFilterBar({
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
           leftSection={<Search className="h-4 w-4" />}
-          className="flex-1"
+          className="flex-1 min-w-[200px]"
         />
 
         {/* Action Type Filter */}

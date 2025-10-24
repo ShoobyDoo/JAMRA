@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { useReaderSettings } from "@/store/reader-settings";
 import { CheckCircle, Loader2 } from "lucide-react";
 import type { useReaderControls } from "@/hooks/use-reader-controls";
@@ -59,83 +60,74 @@ export function VerticalMode({
   const hasLoadedPages = pages.some((page) => page !== null);
 
   const containerRef = useRef<HTMLDivElement>(null);
-  const pageRefs = useRef<(HTMLDivElement | null)[]>([]);
   const currentPageRef = useRef(currentPage);
   const skipScrollRef = useRef(false);
-  const programmaticScrollRef = useRef(false);
-  const observerRef = useRef<IntersectionObserver | null>(null);
+  const [isScrolling, setIsScrolling] = useState(false);
 
   useEffect(() => {
     currentPageRef.current = currentPage;
   }, [currentPage]);
 
+  // Virtualized list for better performance with many pages
+  const virtualizer = useVirtualizer({
+    count: pages.length,
+    getScrollElement: () => containerRef.current,
+    estimateSize: (index) => {
+      const page = pages[index];
+      return page?.height ?? DEFAULT_PLACEHOLDER_HEIGHT + gapSize;
+    },
+    overscan: 3, // Render 3 extra pages above/below viewport
+  });
+
+  // Detect current page based on scroll position and virtual items
   useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          const index = Number(entry.target.getAttribute("data-page-index"));
-          if (Number.isNaN(index)) return;
-
-          if (entry.isIntersecting && entry.intersectionRatio >= 0.6) {
-            if (programmaticScrollRef.current) return;
-            if (currentPageRef.current !== index) {
-              currentPageRef.current = index;
-              skipScrollRef.current = true;
-              onPageChange(index);
-            }
-          }
-        });
-      },
-      {
-        root: container,
-        threshold: 0.6,
-      },
-    );
-
-    observerRef.current = observer;
-    pageRefs.current.forEach((element) => {
-      if (element) observer.observe(element);
-    });
-
-    return () => {
-      observer.disconnect();
-      observerRef.current = null;
-    };
-  }, [onPageChange, pages.length]);
-
-  useEffect(() => {
-    const target = pageRefs.current[currentPage];
-    if (!target) return;
-
     if (skipScrollRef.current) {
       skipScrollRef.current = false;
       return;
     }
 
-    programmaticScrollRef.current = true;
-    target.scrollIntoView({ behavior: "auto", block: "start" });
-    const timeout = window.setTimeout(() => {
-      programmaticScrollRef.current = false;
-    }, 150);
+    const virtualItems = virtualizer.getVirtualItems();
+    if (virtualItems.length === 0) return;
 
-    return () => window.clearTimeout(timeout);
-  }, [currentPage]);
+    // Find the page that's most visible in the viewport
+    const container = containerRef.current;
+    if (!container) return;
 
-  const setPageRef = (index: number, element: HTMLDivElement | null) => {
-    const existing = pageRefs.current[index];
-    if (existing && observerRef.current) {
-      observerRef.current.unobserve(existing);
+    const scrollTop = container.scrollTop;
+    const viewportHeight = container.clientHeight;
+    const viewportCenter = scrollTop + viewportHeight / 2;
+
+    // Find the virtual item closest to viewport center
+    let closestIndex = virtualItems[0].index;
+    let closestDistance = Math.abs(virtualItems[0].start - viewportCenter);
+
+    for (const item of virtualItems) {
+      const itemCenter = item.start + item.size / 2;
+      const distance = Math.abs(itemCenter - viewportCenter);
+      if (distance < closestDistance) {
+        closestDistance = distance;
+        closestIndex = item.index;
+      }
     }
 
-    pageRefs.current[index] = element;
-
-    if (element && observerRef.current) {
-      observerRef.current.observe(element);
+    if (currentPageRef.current !== closestIndex && !isScrolling) {
+      currentPageRef.current = closestIndex;
+      onPageChange(closestIndex);
     }
-  };
+  }, [virtualizer, onPageChange, isScrolling]);
+
+  // Scroll to current page when it changes externally
+  useEffect(() => {
+    if (skipScrollRef.current) {
+      skipScrollRef.current = false;
+      return;
+    }
+
+    virtualizer.scrollToIndex(currentPage, {
+      align: "start",
+      behavior: "auto",
+    });
+  }, [currentPage, virtualizer]);
 
   const getImageWidth = () => {
     switch (pageFit) {
@@ -198,10 +190,20 @@ export function VerticalMode({
     }
   };
 
-  // Handle scroll to hide controls
+  // Handle scroll to hide controls and detect scrolling state
   const handleScroll = () => {
     readerControls.hideControls();
+    setIsScrolling(true);
+
+    // Debounce scroll end detection
+    const timeout = setTimeout(() => {
+      setIsScrolling(false);
+    }, 150);
+
+    return () => clearTimeout(timeout);
   };
+
+  const virtualItems = virtualizer.getVirtualItems();
 
   return (
     <div
@@ -217,22 +219,32 @@ export function VerticalMode({
       onClick={handleClick}
       onScroll={handleScroll}
     >
-      <div className="flex flex-col items-center">
-        {pages.map((page, arrayIndex) => {
-          const pageIndex = page?.index ?? arrayIndex;
+      <div
+        style={{
+          height: `${virtualizer.getTotalSize()}px`,
+          width: "100%",
+          position: "relative",
+        }}
+      >
+        {virtualItems.map((virtualRow) => {
+          const pageIndex = virtualRow.index;
+          const page = pages[pageIndex];
           const eagerLoad = pageIndex <= currentPage + 2;
           const placeholderHeight = page?.height ?? DEFAULT_PLACEHOLDER_HEIGHT;
 
           return (
             <div
               key={pageIndex}
-              ref={(el) => setPageRef(pageIndex, el)}
               data-page-index={pageIndex}
-              className="flex w-full items-center justify-center"
               style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                width: "100%",
+                transform: `translateY(${virtualRow.start}px)`,
                 marginBottom: pageIndex < totalPages - 1 ? gapSize : 0,
-                minHeight: placeholderHeight,
               }}
+              className="flex w-full items-center justify-center"
             >
               {page ? (
                 <Image
@@ -274,7 +286,15 @@ export function VerticalMode({
 
         {/* End of chapter section - only show after pages are loaded */}
         {hasLoadedPages && (
-          <div className="flex flex-col items-center justify-center gap-4 py-12 min-h-[400px]">
+          <div
+            style={{
+              position: "absolute",
+              top: virtualizer.getTotalSize(),
+              left: 0,
+              width: "100%",
+            }}
+            className="flex flex-col items-center justify-center gap-4 py-12 min-h-[400px]"
+          >
             <div className="flex flex-col items-center gap-4">
               <div className="flex flex-col items-center gap-2 rounded-lg bg-muted px-8 py-6 text-center">
                 <CheckCircle className="h-8 w-8 text-muted-foreground" />

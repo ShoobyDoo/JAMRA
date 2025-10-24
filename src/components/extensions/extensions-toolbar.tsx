@@ -58,9 +58,9 @@ export const ExtensionsToolbar = memo(function ExtensionsToolbar({
           value={statusFilter}
           onChange={(value) => onStatusFilterChange(value as StatusFilter)}
           data={[
-            { label: "All", value: "all" },
-            { label: "Enabled", value: "enabled" },
-            { label: "Disabled", value: "disabled" },
+            { label: `All (${statusSummary.total})`, value: "all" },
+            { label: `Enabled (${statusSummary.enabled})`, value: "enabled" },
+            { label: `Disabled (${statusSummary.disabled})`, value: "disabled" },
           ]}
         />
         <SegmentedControl
@@ -86,11 +86,6 @@ export const ExtensionsToolbar = memo(function ExtensionsToolbar({
           </ActionIcon>
         </Tooltip>
       </Group>
-      <Text size="sm" c="dimmed" className="whitespace-nowrap">
-        {statusSummary.total === 0
-          ? "No extensions installed yet."
-          : `${statusSummary.enabled} enabled · ${statusSummary.disabled} disabled`}
-      </Text>
     </Group>
   );
 });
