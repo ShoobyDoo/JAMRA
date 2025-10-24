@@ -12,6 +12,15 @@ const nextConfig: NextConfig = {
   },
   images: {
     qualities: [75, 95],
+    // Next.js 16 requires explicit localPatterns for query strings
+    localPatterns: [
+      {
+        pathname: "/api/covers**",
+      },
+      {
+        pathname: "/static/**",
+      },
+    ],
     remotePatterns: [
       {
         protocol: "https",

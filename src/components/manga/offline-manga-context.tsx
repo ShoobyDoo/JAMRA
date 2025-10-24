@@ -25,6 +25,7 @@ import {
   type OfflineMangaMetadata,
   type OfflineQueuedDownload,
 } from "@/lib/api";
+import { RequestDeduplicator } from "@/lib/api/request-deduplicator";
 import {
   useOfflineEvents,
   type OfflineDownloadEvent,
@@ -143,6 +144,9 @@ export function OfflineMangaProvider({
     });
   }, []);
 
+  // Request deduplicator to prevent duplicate in-flight API calls
+  const deduplicator = useMemo(() => new RequestDeduplicator(), []);
+
   const refreshOfflineChapters = useCallback(async () => {
     if (!extensionId) {
       setOfflineAvailable(false);
@@ -152,10 +156,19 @@ export function OfflineMangaProvider({
     }
 
     try {
-      const [chaptersResult, metadata] = await Promise.all([
-        getOfflineChapters(extensionId, mangaId),
-        getOfflineMangaMetadata(extensionId, mangaId),
-      ]);
+      const key = RequestDeduplicator.makeKey(
+        `/api/offline/chapters/${extensionId}/${mangaId}`,
+        "GET",
+      );
+
+      const [chaptersResult, metadata] = await deduplicator.deduplicate(
+        key,
+        async () =>
+          Promise.all([
+            getOfflineChapters(extensionId, mangaId),
+            getOfflineMangaMetadata(extensionId, mangaId),
+          ]),
+      );
 
       setOfflineChapters(chaptersResult);
       setOfflineMetadata(metadata);
@@ -170,7 +183,7 @@ export function OfflineMangaProvider({
       }
       throw error;
     }
-  }, [extensionId, mangaId]);
+  }, [extensionId, mangaId, deduplicator]);
 
   const refreshQueue = useCallback(async () => {
     if (!extensionId) {
@@ -180,7 +193,12 @@ export function OfflineMangaProvider({
     }
 
     try {
-      const queue = await getOfflineQueue();
+      const key = RequestDeduplicator.makeKey("/api/offline/queue", "GET");
+
+      const queue = await deduplicator.deduplicate(key, () =>
+        getOfflineQueue(),
+      );
+
       const relevant = queue.filter(
         (item) => item.extensionId === extensionId && item.mangaId === mangaId,
       );
@@ -195,7 +213,7 @@ export function OfflineMangaProvider({
       }
       throw error;
     }
-  }, [extensionId, mangaId]);
+  }, [extensionId, mangaId, deduplicator]);
 
   // Debounced version of refreshQueue to avoid flooding during bulk operations
   const refreshQueueDebounced = useCallback(() => {
@@ -321,17 +339,10 @@ export function OfflineMangaProvider({
               setQueueItems((prev) => {
                 const existing = prev.find((item) => item.id === event.queueId);
                 if (!existing) {
-                  // Refresh queue to get the new item
-                  refreshQueue().catch((error) => {
-                    logger.error("Failed to refresh offline queue after download start", {
-                      component: "OfflineMangaContext",
-                      action: "refresh-queue",
-                      mangaId,
-                      extensionId,
-                      queueId: event.queueId,
-                      error: error instanceof Error ? error : new Error(String(error)),
-                    });
-                  });
+                  // Item not in local state - ignore the event
+                  // This can happen during initial load or race conditions
+                  // SSE events are the source of truth, so we trust this update
+                  // Next refreshQueue() call will sync the state
                   return prev;
                 }
 
@@ -407,7 +418,9 @@ export function OfflineMangaProvider({
                   }
                 })
                 .finally(() => {
-                  removePendingChapter(event.chapterId);
+                  if (event.chapterId) {
+                    removePendingChapter(event.chapterId);
+                  }
                 });
             }
             break;

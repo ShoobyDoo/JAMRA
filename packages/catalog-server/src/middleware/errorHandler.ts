@@ -59,9 +59,21 @@ export function handleError(
     console.error("Stack trace:", appError.cause.stack);
   }
 
-  res.status(appError.httpStatus).json({
+  // Build response object
+  const responseBody: Record<string, unknown> = {
     error: appError.message,
     code: appError.code,
     ...(detail && { detail }),
-  });
+  };
+
+  // Include validation fields if present
+  if (
+    "fields" in appError &&
+    appError.fields &&
+    typeof appError.fields === "object"
+  ) {
+    responseBody.fields = appError.fields;
+  }
+
+  res.status(appError.httpStatus).json(responseBody);
 }

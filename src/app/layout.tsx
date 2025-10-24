@@ -3,6 +3,7 @@ import "@mantine/core/styles.css";
 import "@mantine/core/styles.layer.css";
 import "@/app/globals.css";
 import { AppWarmup } from "@/components/system/app-warmup";
+import { StoreHydration } from "@/components/system/store-hydration";
 import {
   DataErrorBoundary,
   ErrorBoundary,
@@ -46,6 +47,7 @@ export default function RootLayout({
           <MantineProvider defaultColorScheme="light">
             <ModalsProvider>
               <Notifications position="top-right" zIndex={10000} />
+              <StoreHydration />
               <DataErrorBoundary
                 title="Unable to initialise application"
                 description="App warmup failed. Please retry in a moment."

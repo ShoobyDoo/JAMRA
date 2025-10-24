@@ -1,14 +1,15 @@
+"use client";
+
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
+import { logger } from "@/lib/logger";
 import { SIDEBAR_WIDTH } from "@/lib/constants";
 
 interface UIState {
   collapsed: boolean;
   sidebarWidth: number;
-  _hasHydrated: boolean;
   toggleCollapsed: () => void;
   setSidebarWidth: (width: number) => void;
-  setHasHydrated: (state: boolean) => void;
 }
 
 const MIN_SIDEBAR_WIDTH = 200;
@@ -19,7 +20,6 @@ export const useUIStore = create<UIState>()(
     (set, get) => ({
       collapsed: false,
       sidebarWidth: SIDEBAR_WIDTH.EXPANDED,
-      _hasHydrated: false,
       toggleCollapsed: () => {
         const shouldCollapse = !get().collapsed;
         set({ collapsed: shouldCollapse });
@@ -31,15 +31,16 @@ export const useUIStore = create<UIState>()(
         );
         set({ sidebarWidth: clampedWidth });
       },
-      setHasHydrated: (state: boolean) => {
-        set({ _hasHydrated: state });
-      },
     }),
     {
       name: "ui-storage", // localStorage key
       storage: createJSONStorage(() => localStorage),
-      onRehydrateStorage: () => (state) => {
-        state?.setHasHydrated(true);
+      skipHydration: true, // Prevent automatic hydration to avoid SSR/CSR mismatch
+      onRehydrateStorage: () => () => {
+        logger.info("UI store rehydrated", {
+          component: "UIStore",
+          action: "rehydrate",
+        });
       },
     },
   ),

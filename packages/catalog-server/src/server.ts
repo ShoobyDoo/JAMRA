@@ -26,11 +26,7 @@ import {
   type RegistrySourceConfig,
   type ResolvedExtensionVersion,
 } from "./extensions/registryService.js";
-import {
-  OfflineStorageManager,
-  OfflineRepository,
-  DownloadWorker,
-} from "@jamra/offline-storage";
+import { DownloadWorkerHost } from "@jamra/offline-storage";
 import {
   CoverCacheManager,
   type CoverCacheSettings,
@@ -386,9 +382,7 @@ export async function startCatalogServer(
     ? path.dirname(database.path)
     : path.join(process.cwd(), ".jamra-data");
 
-  let offlineStorageManager: OfflineStorageManager | undefined;
-  let offlineRepository: OfflineRepository | undefined;
-  let downloadWorker: DownloadWorker | undefined;
+  let downloadWorker: DownloadWorkerHost | undefined;
 
   const extensionManager = new ExtensionManager(host, repository, storage);
 
@@ -405,8 +399,10 @@ export async function startCatalogServer(
     console.warn("Initial registry fetch failed", error);
   });
 
+  // Extension ID for bootstrap and worker
+  const explicitId = options.extensionId ?? process.env.JAMRA_EXTENSION_ID;
+
   if (repository && storage) {
-    const explicitId = options.extensionId ?? process.env.JAMRA_EXTENSION_ID;
     let installed = extensionManager.listExtensions();
 
     let bootstrapExists = false;
@@ -513,21 +509,25 @@ export async function startCatalogServer(
   // Initialize and start offline storage system
   if (database) {
     try {
-      offlineRepository = new OfflineRepository(database.db);
-      offlineStorageManager = new OfflineStorageManager(
+      downloadWorker = new DownloadWorkerHost(
         dataRoot,
-        offlineRepository,
-        service,
+        database.path,
+        bootstrapExtensionPath,
+        explicitId,
+        {
+          concurrency: OFFLINE_CONFIG.DOWNLOAD_CONCURRENCY,
+          pollingInterval: OFFLINE_CONFIG.DOWNLOAD_POLL_INTERVAL_MS,
+          chapterConcurrency: OFFLINE_CONFIG.CHAPTER_CONCURRENCY,
+        },
       );
-      downloadWorker = new DownloadWorker(dataRoot, offlineRepository, service, {
-        concurrency: OFFLINE_CONFIG.DOWNLOAD_CONCURRENCY,
-        pollingInterval: OFFLINE_CONFIG.DOWNLOAD_POLL_INTERVAL_MS,
-        chapterConcurrency: OFFLINE_CONFIG.CHAPTER_CONCURRENCY,
-      });
-      // Start download worker in background (non-blocking)
-      void downloadWorker.start().catch((error) => {
-        console.error("Failed to start download worker:", error);
-      });
+      console.log("[OfflineAPI] Starting download worker host...");
+      void downloadWorker.start()
+        .then(() => {
+          console.log("[OfflineAPI] Download worker reported started");
+        })
+        .catch((error) => {
+          console.error("Failed to start download worker:", error);
+        });
       console.log("Offline storage system initialized");
     } catch (error) {
       console.warn("Failed to initialize offline storage system:", error);
@@ -2022,14 +2022,12 @@ export async function startCatalogServer(
         return;
       }
 
-      const workerWasRunning = downloadWorker?.isActive() ?? false;
+      const workerWasRunning = (await downloadWorker?.isActive()) ?? false;
       if (workerWasRunning) {
         await downloadWorker?.stop();
       }
 
-      if (offlineStorageManager) {
-        await offlineStorageManager.nukeOfflineData();
-      }
+      await downloadWorker?.nukeOfflineData();
 
       repository.nukeUserData();
 
@@ -2053,7 +2051,7 @@ export async function startCatalogServer(
   // Queue a chapter for download
   app.post("/api/offline/download/chapter", async (req, res) => {
     try {
-      if (!offlineStorageManager) {
+      if (!downloadWorker) {
         res.status(503).json({ error: "Offline storage not available" });
         return;
       }
@@ -2067,13 +2065,19 @@ export async function startCatalogServer(
         return;
       }
 
-      const queueId = await offlineStorageManager.queueChapterDownload(
+      console.log("[OfflineAPI] queue-chapter request", {
+        extensionId,
+        mangaId,
+        chapterId,
+      });
+      const queueId = await downloadWorker.queueChapterDownload(
         extensionId,
         mangaId,
         chapterId,
         { priority: priority ?? 0 },
       );
 
+      console.log("[OfflineAPI] queue-chapter success", { queueId });
       res.status(201).json({ queueId, success: true });
     } catch (error) {
       if (
@@ -2090,7 +2094,7 @@ export async function startCatalogServer(
   // Queue a manga (all chapters or specific chapters) for download
   app.post("/api/offline/download/manga", async (req, res) => {
     try {
-      if (!offlineStorageManager) {
+      if (!downloadWorker) {
         res.status(503).json({ error: "Offline storage not available" });
         return;
       }
@@ -2104,12 +2108,20 @@ export async function startCatalogServer(
         return;
       }
 
-      const queueIds = await offlineStorageManager.queueMangaDownload(
+      console.log("[OfflineAPI] queue-manga request", {
+        extensionId,
+        mangaId,
+        chapterCount: Array.isArray(chapterIds) ? chapterIds.length : "all",
+      });
+      const queueIds = await downloadWorker.queueMangaDownload(
         extensionId,
         mangaId,
         { chapterIds, priority: priority ?? 0 },
       );
 
+      console.log("[OfflineAPI] queue-manga success", {
+        queueIds,
+      });
       res.status(201).json({ queueIds, success: true });
     } catch (error) {
       handleError(res, error, "Failed to queue manga download");
@@ -2119,12 +2131,13 @@ export async function startCatalogServer(
   // Get all downloaded manga
   app.get("/api/offline/manga", async (_req, res) => {
     try {
-      if (!offlineStorageManager) {
+      if (!downloadWorker) {
         res.status(503).json({ error: "Offline storage not available" });
         return;
       }
 
-      const manga = await offlineStorageManager.getDownloadedManga();
+      console.log("[OfflineAPI] list downloaded manga");
+      const manga = await downloadWorker.getDownloadedManga();
       res.json({ manga });
     } catch (error) {
       handleError(res, error, "Failed to get downloaded manga");
@@ -2134,7 +2147,7 @@ export async function startCatalogServer(
   // Get downloaded manga by ID
   app.get("/api/offline/manga/:mangaId", async (req, res) => {
     try {
-      if (!offlineStorageManager) {
+      if (!downloadWorker) {
         res.status(503).json({ error: "Offline storage not available" });
         return;
       }
@@ -2147,7 +2160,11 @@ export async function startCatalogServer(
         return;
       }
 
-      const metadata = await offlineStorageManager.getMangaMetadata(
+      console.log("[OfflineAPI] get offline metadata", {
+        extensionId,
+        mangaId: req.params.mangaId,
+      });
+      const metadata = await downloadWorker.getMangaMetadata(
         extensionId,
         req.params.mangaId,
       );
@@ -2166,7 +2183,7 @@ export async function startCatalogServer(
   // Get downloaded chapters for a manga
   app.get("/api/offline/manga/:mangaId/chapters", async (req, res) => {
     try {
-      if (!offlineStorageManager) {
+      if (!downloadWorker) {
         res.status(503).json({ error: "Offline storage not available" });
         return;
       }
@@ -2179,7 +2196,11 @@ export async function startCatalogServer(
         return;
       }
 
-      const chapters = await offlineStorageManager.getDownloadedChapters(
+      console.log("[OfflineAPI] list offline chapters", {
+        extensionId,
+        mangaId: req.params.mangaId,
+      });
+      const chapters = await downloadWorker.getDownloadedChapters(
         extensionId,
         req.params.mangaId,
       );
@@ -2195,7 +2216,7 @@ export async function startCatalogServer(
     "/api/offline/manga/:mangaId/chapters/:chapterId/pages",
     async (req, res) => {
       try {
-        if (!offlineStorageManager) {
+        if (!downloadWorker) {
           res.status(503).json({ error: "Offline storage not available" });
           return;
         }
@@ -2208,7 +2229,7 @@ export async function startCatalogServer(
           return;
         }
 
-        const pages = await offlineStorageManager.getChapterPages(
+        const pages = await downloadWorker.getChapterPages(
           extensionId,
           req.params.mangaId,
           req.params.chapterId,
@@ -2233,7 +2254,7 @@ export async function startCatalogServer(
     "/api/offline/manga/:mangaId/chapters/:chapterId/status",
     async (req, res) => {
       try {
-        if (!offlineStorageManager) {
+        if (!downloadWorker) {
           res.status(503).json({ error: "Offline storage not available" });
           return;
         }
@@ -2246,7 +2267,12 @@ export async function startCatalogServer(
           return;
         }
 
-        const isDownloaded = await offlineStorageManager.isChapterDownloaded(
+        console.log("[OfflineAPI] check chapter status", {
+          extensionId,
+          mangaId: req.params.mangaId,
+          chapterId: req.params.chapterId,
+        });
+        const isDownloaded = await downloadWorker.isChapterDownloaded(
           extensionId,
           req.params.mangaId,
           req.params.chapterId,
@@ -2264,7 +2290,7 @@ export async function startCatalogServer(
     "/api/offline/manga/:mangaId/chapters/:chapterId",
     async (req, res) => {
       try {
-        if (!offlineStorageManager) {
+        if (!downloadWorker) {
           res.status(503).json({ error: "Offline storage not available" });
           return;
         }
@@ -2277,7 +2303,12 @@ export async function startCatalogServer(
           return;
         }
 
-        await offlineStorageManager.deleteChapter(
+        console.log("[OfflineAPI] delete chapter", {
+          extensionId,
+          mangaId: req.params.mangaId,
+          chapterId: req.params.chapterId,
+        });
+        await downloadWorker.deleteChapter(
           extensionId,
           req.params.mangaId,
           req.params.chapterId,
@@ -2297,7 +2328,7 @@ export async function startCatalogServer(
   // Delete an entire manga
   app.delete("/api/offline/manga/:mangaId", async (req, res) => {
     try {
-      if (!offlineStorageManager) {
+      if (!downloadWorker) {
         res.status(503).json({ error: "Offline storage not available" });
         return;
       }
@@ -2310,7 +2341,11 @@ export async function startCatalogServer(
         return;
       }
 
-      await offlineStorageManager.deleteManga(extensionId, req.params.mangaId);
+      console.log("[OfflineAPI] delete manga", {
+        extensionId,
+        mangaId: req.params.mangaId,
+      });
+      await downloadWorker.deleteManga(extensionId, req.params.mangaId);
 
       res.status(204).end();
     } catch (error) {
@@ -2325,12 +2360,14 @@ export async function startCatalogServer(
   // Get download queue
   app.get("/api/offline/queue", async (_req, res) => {
     try {
-      if (!offlineStorageManager) {
+      if (!downloadWorker) {
         res.status(503).json({ error: "Offline storage not available" });
         return;
       }
 
-      const queue = await offlineStorageManager.getQueuedDownloads();
+      console.log("[OfflineAPI] get queue request");
+      const queue = await downloadWorker.getQueuedDownloads();
+      console.log("[OfflineAPI] get queue response", { size: queue.length });
       res.json({ queue });
     } catch (error) {
       handleError(res, error, "Failed to get download queue");
@@ -2340,7 +2377,7 @@ export async function startCatalogServer(
   // Get download progress for a queue item
   app.get("/api/offline/queue/:queueId", async (req, res) => {
     try {
-      if (!offlineStorageManager) {
+      if (!downloadWorker) {
         res.status(503).json({ error: "Offline storage not available" });
         return;
       }
@@ -2351,13 +2388,18 @@ export async function startCatalogServer(
         return;
       }
 
-      const progress = await offlineStorageManager.getDownloadProgress(queueId);
+      console.log("[OfflineAPI] get queue item", { queueId });
+      const progress = await downloadWorker.getDownloadProgress(queueId);
 
       if (!progress) {
         res.status(404).json({ error: "Queue item not found" });
         return;
       }
 
+      console.log("[OfflineAPI] get queue item success", {
+        queueId,
+        status: progress.status,
+      });
       res.json({ progress });
     } catch (error) {
       handleError(res, error, "Failed to get download progress");
@@ -2367,7 +2409,7 @@ export async function startCatalogServer(
   // Cancel a queued download
   app.post("/api/offline/queue/:queueId/cancel", async (req, res) => {
     try {
-      if (!offlineStorageManager) {
+      if (!downloadWorker) {
         res.status(503).json({ error: "Offline storage not available" });
         return;
       }
@@ -2378,7 +2420,8 @@ export async function startCatalogServer(
         return;
       }
 
-      await offlineStorageManager.cancelDownload(queueId);
+      console.log("[OfflineAPI] cancel queue", { queueId });
+      await downloadWorker.cancelDownload(queueId);
 
       res.json({ success: true });
     } catch (error) {
@@ -2399,7 +2442,7 @@ export async function startCatalogServer(
 
   app.post("/api/offline/queue/:queueId/retry", async (req, res) => {
     try {
-      if (!offlineStorageManager) {
+      if (!downloadWorker) {
         res.status(503).json({ error: "Offline storage not available" });
         return;
       }
@@ -2410,7 +2453,8 @@ export async function startCatalogServer(
         return;
       }
 
-      await offlineStorageManager.retryDownload(queueId);
+      console.log("[OfflineAPI] retry queue", { queueId });
+      await downloadWorker.retryDownload(queueId);
 
       res.json({ success: true });
     } catch (error) {
@@ -2424,12 +2468,13 @@ export async function startCatalogServer(
 
   app.post("/api/offline/queue/retry-frozen", async (_req, res) => {
     try {
-      if (!offlineStorageManager) {
+      if (!downloadWorker) {
         res.status(503).json({ error: "Offline storage not available" });
         return;
       }
 
-      const retriedIds = await offlineStorageManager.retryFrozenDownloads();
+      console.log("[OfflineAPI] retry frozen queue items");
+      const retriedIds = await downloadWorker.retryFrozenDownloads();
 
       res.json({ success: true, retriedCount: retriedIds.length, retriedIds });
     } catch (error) {
@@ -2440,30 +2485,51 @@ export async function startCatalogServer(
   // Get storage statistics
   app.get("/api/offline/storage", async (_req, res) => {
     try {
-      if (!offlineStorageManager) {
+      if (!downloadWorker) {
         res.status(503).json({ error: "Offline storage not available" });
         return;
       }
 
-      const stats = await offlineStorageManager.getStorageStats();
+      console.log("[OfflineAPI] get storage stats");
+      const stats = await downloadWorker.getStorageStats();
       res.json({ stats });
     } catch (error) {
       handleError(res, error, "Failed to get storage stats");
     }
   });
 
+  // Get performance metrics
+  app.get("/api/offline/metrics", async (_req, res) => {
+    try {
+      if (!downloadWorker) {
+        res.status(503).json({ error: "Offline storage not available" });
+        return;
+      }
+
+      console.log("[OfflineAPI] get performance metrics");
+      const metrics = await downloadWorker.getMetrics();
+      res.json({ metrics });
+    } catch (error) {
+      handleError(res, error, "Failed to get performance metrics");
+    }
+  });
+
   // Server-Sent Events endpoint for real-time download progress
   app.get("/api/offline/events", async (req, res) => {
-    if (!downloadWorker || !offlineStorageManager) {
+    if (!downloadWorker) {
       res.status(503).json({ error: "Offline storage not available" });
       return;
     }
 
+    console.log("[OfflineAPI] SSE /offline/events connection opened");
     // Set headers for SSE
     res.setHeader("Content-Type", "text/event-stream");
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Connection", "keep-alive");
     res.setHeader("X-Accel-Buffering", "no"); // Disable nginx buffering
+
+    // Flush headers immediately to establish SSE connection
+    res.flushHeaders();
 
     // Send initial connection event
     res.write("event: connected\n");
@@ -2471,15 +2537,6 @@ export async function startCatalogServer(
 
     // Listen to download worker events
     const unsubscribeWorker = downloadWorker.on((event) => {
-      try {
-        res.write(`event: ${event.type}\n`);
-        res.write(`data: ${JSON.stringify(event)}\n\n`);
-      } catch (error) {
-        console.error("Error writing SSE event:", error);
-      }
-    });
-
-    const unsubscribeManager = offlineStorageManager.on((event) => {
       try {
         res.write(`event: ${event.type}\n`);
         res.write(`data: ${JSON.stringify(event)}\n\n`);
@@ -2503,14 +2560,14 @@ export async function startCatalogServer(
     req.on("close", () => {
       clearInterval(heartbeat);
       unsubscribeWorker();
-      unsubscribeManager();
+      console.log("[OfflineAPI] SSE /offline/events connection closed");
     });
   });
 
   // Get download history
   app.get("/api/offline/history", async (req, res) => {
     try {
-      if (!offlineStorageManager) {
+      if (!downloadWorker) {
         res.status(503).json({ error: "Offline storage not available" });
         return;
       }
@@ -2518,7 +2575,8 @@ export async function startCatalogServer(
       const limit = req.query.limit
         ? Number.parseInt(req.query.limit as string, 10)
         : undefined;
-      const history = await offlineStorageManager.getDownloadHistory(limit);
+      console.log("[OfflineAPI] get history", { limit });
+      const history = await downloadWorker.getDownloadHistory(limit);
 
       res.json({ history });
     } catch (error) {
@@ -2529,7 +2587,7 @@ export async function startCatalogServer(
   // Delete a download history item
   app.delete("/api/offline/history/:historyId", async (req, res) => {
     try {
-      if (!offlineStorageManager) {
+      if (!downloadWorker) {
         res.status(503).json({ error: "Offline storage not available" });
         return;
       }
@@ -2540,7 +2598,8 @@ export async function startCatalogServer(
         return;
       }
 
-      await offlineStorageManager.deleteHistoryItem(historyId);
+      console.log("[OfflineAPI] delete history item", { historyId });
+      await downloadWorker.deleteHistoryItem(historyId);
 
       res.json({ success: true });
     } catch (error) {
@@ -2551,12 +2610,13 @@ export async function startCatalogServer(
   // Clear all download history
   app.delete("/api/offline/history", async (_req, res) => {
     try {
-      if (!offlineStorageManager) {
+      if (!downloadWorker) {
         res.status(503).json({ error: "Offline storage not available" });
         return;
       }
 
-      await offlineStorageManager.clearDownloadHistory();
+      console.log("[OfflineAPI] clear history");
+      await downloadWorker.clearDownloadHistory();
 
       res.json({ success: true });
     } catch (error) {
@@ -2567,7 +2627,7 @@ export async function startCatalogServer(
   // Validate manga metadata chapter count
   app.post("/api/offline/manga/:mangaId/validate", async (req, res) => {
     try {
-      if (!offlineStorageManager) {
+      if (!downloadWorker) {
         res.status(503).json({ error: "Offline storage not available" });
         return;
       }
@@ -2580,7 +2640,11 @@ export async function startCatalogServer(
         return;
       }
 
-      const result = await offlineStorageManager.validateMangaChapterCount(
+      console.log("[OfflineAPI] validate manga", {
+        extensionId,
+        mangaId: req.params.mangaId,
+      });
+      const result = await downloadWorker.validateMangaChapterCount(
         extensionId,
         req.params.mangaId,
       );
@@ -2596,13 +2660,18 @@ export async function startCatalogServer(
     "/api/offline/page/:mangaId/:chapterId/:filename",
     async (req, res) => {
       try {
-        if (!offlineStorageManager) {
+        if (!downloadWorker) {
           res.status(503).json({ error: "Offline storage not available" });
           return;
         }
 
         const { mangaId, chapterId, filename } = req.params;
-        const pagePath = offlineStorageManager.getPagePath(
+        console.log("[OfflineAPI] get page path", {
+          mangaId,
+          chapterId,
+          filename,
+        });
+        const pagePath = await downloadWorker.getPagePath(
           mangaId,
           chapterId,
           filename,
@@ -2651,8 +2720,8 @@ export async function startCatalogServer(
   });
 
   // Start background metadata sync (non-blocking) after server is ready
-  if (offlineStorageManager) {
-    void offlineStorageManager.startBackgroundMetadataSync({
+  if (downloadWorker) {
+    void downloadWorker.startBackgroundMetadataSync({
       ttlMs: 7 * 24 * 60 * 60 * 1000, // 7 days
       concurrency: 2, // Process 2 manga at a time
       delayMs: 1000, // 1 second between syncs

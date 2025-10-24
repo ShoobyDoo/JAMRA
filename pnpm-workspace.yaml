@@ -1,15 +1,11 @@
 packages:
   - packages/*
 
-allowScripts: better-sqlite3
-
-ignoredBuiltDependencies:
-  - better-sqlite3
-
 onlyBuiltDependencies:
   - "@tailwindcss/oxide"
   - electron
   - electron-winstaller
   - esbuild
+  - puppeteer
   - sharp
   - unrs-resolver

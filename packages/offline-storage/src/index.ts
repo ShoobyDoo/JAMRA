@@ -8,6 +8,7 @@
 // Main classes
 export { OfflineStorageManager } from "./manager.js";
 export { DownloadWorker } from "./downloader.js";
+export { DownloadWorkerHost } from "./download-worker-host.js";
 export { OfflineRepository } from "./repository.js";
 export {
   ImageDownloader,
@@ -43,6 +44,8 @@ export type {
   DownloadImageResult,
 } from "./utils/image-downloader.js";
 export type { DownloadWorkerOptions } from "./downloader.js";
+export type { DownloadWorkerHostOptions } from "./download-worker-host.js";
+export type { PerformanceMetrics } from "./utils/performance-metrics.js";
 
 // Utilities
 export {

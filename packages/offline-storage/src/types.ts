@@ -390,3 +390,57 @@ export type OfflineStorageEvent =
  * Event listener callback
  */
 export type OfflineStorageEventListener = (event: OfflineStorageEvent) => void;
+
+// ============================================================================
+// Consolidated Events (Performance Optimized)
+// ============================================================================
+
+/**
+ * Download state for consolidated events
+ */
+export type DownloadState = "queued" | "started" | "progress" | "completed" | "failed" | "retried";
+
+/**
+ * Consolidated event types - reduces event overhead by grouping related events
+ */
+export type ConsolidatedOfflineEvent =
+  | {
+      type: "queue-update";
+      items: Array<{
+        queueId: number;
+        mangaId: string;
+        chapterId?: string;
+        state: "queued" | "retried";
+      }>;
+    }
+  | {
+      type: "download-update";
+      items: Array<{
+        queueId: number;
+        mangaId: string;
+        chapterId?: string;
+        state: DownloadState;
+        progressCurrent?: number;
+        progressTotal?: number;
+        error?: string;
+      }>;
+    }
+  | {
+      type: "content-update";
+      updates: Array<
+        | { action: "chapter-deleted"; mangaId: string; chapterId: string }
+        | { action: "manga-deleted"; mangaId: string }
+        | { action: "new-chapters"; mangaId: string; count: number }
+      >;
+    }
+  | {
+      type: "system";
+      action: "cleanup-performed";
+      deletedBytes: number;
+      deletedChapters: number;
+    };
+
+/**
+ * Consolidated event listener callback
+ */
+export type ConsolidatedEventListener = (event: ConsolidatedOfflineEvent) => void;

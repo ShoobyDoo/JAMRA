@@ -209,12 +209,20 @@ class Logger {
     duration?: number,
     context?: Omit<NetworkLogContext, "url" | "method" | "error" | "duration">,
   ): void {
-    this.logNetwork(LogLevel.ERROR, `Network request failed`, {
+    // Check if error is an ApiError with status code
+    const isApiError = error && typeof error === "object" && "status" in error;
+    const status = isApiError ? (error as { status: number }).status : undefined;
+    const message = status
+      ? `Network request failed | Status: ${status}`
+      : "Network request failed";
+
+    this.logNetwork(LogLevel.ERROR, message, {
       ...context,
       url,
       method,
       error,
       duration,
+      statusCode: status,
       timestamp: new Date().toISOString(),
     });
   }

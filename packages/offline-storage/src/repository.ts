@@ -72,6 +72,10 @@ export class OfflineRepository {
   // ==========================================================================
 
   private initializeTables(): void {
+    // Enable WAL mode for better concurrent read/write performance
+    // WAL allows readers to not block writers and vice versa
+    this.db.pragma("journal_mode = WAL");
+
     // Downloaded manga tracking
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS offline_manga (
@@ -425,6 +429,41 @@ export class OfflineRepository {
       WHERE id = ?
     `);
     stmt.run(progressCurrent, progressTotal, queueId);
+  }
+
+  /**
+   * Batch update progress for multiple queue items in a single transaction
+   * More efficient than calling updateQueueProgress multiple times
+   */
+  updateQueueProgressBatch(
+    updates: Array<{
+      queueId: number;
+      progressCurrent: number;
+      progressTotal: number;
+    }>,
+  ): void {
+    if (updates.length === 0) {
+      return;
+    }
+
+    // Use a transaction for atomic batch update
+    const transaction = this.db.transaction(() => {
+      const stmt = this.db.prepare(`
+        UPDATE download_queue
+        SET progress_current = ?, progress_total = ?
+        WHERE id = ?
+      `);
+
+      for (const update of updates) {
+        stmt.run(
+          update.progressCurrent,
+          update.progressTotal,
+          update.queueId,
+        );
+      }
+    });
+
+    transaction();
   }
 
   deleteQueueItem(queueId: number): void {

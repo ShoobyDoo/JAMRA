@@ -2,6 +2,7 @@
 
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
+import { logger } from "@/lib/logger";
 
 export interface ImageCacheSettings {
   enabled: boolean;
@@ -22,7 +23,6 @@ export interface ImageCacheSettings {
 }
 
 interface SettingsState {
-  _hasHydrated: boolean;
   imageCache: ImageCacheSettings;
   imageCacheSynced: boolean;
   setImageCache: (settings: Partial<ImageCacheSettings>) => void;
@@ -32,7 +32,6 @@ interface SettingsState {
     maxEntries: number;
     fetchTimeoutMs?: number;
   }) => void;
-  setHasHydrated: (hydrated: boolean) => void;
 }
 
 const DEFAULT_IMAGE_CACHE: ImageCacheSettings = {
@@ -46,7 +45,6 @@ const DEFAULT_IMAGE_CACHE: ImageCacheSettings = {
 export const useSettingsStore = create<SettingsState>()(
   persist(
     (set, get) => ({
-      _hasHydrated: false,
       imageCache: DEFAULT_IMAGE_CACHE,
       imageCacheSynced: false,
       setImageCache: (settings) =>
@@ -73,13 +71,16 @@ export const useSettingsStore = create<SettingsState>()(
           },
           imageCacheSynced: true,
         }),
-      setHasHydrated: (hydrated) => set({ _hasHydrated: hydrated }),
     }),
     {
       name: "jamra-settings",
       storage: createJSONStorage(() => localStorage),
-      onRehydrateStorage: () => (state) => {
-        state?.setHasHydrated(true);
+      skipHydration: true, // Prevent automatic hydration to avoid SSR/CSR mismatch
+      onRehydrateStorage: () => () => {
+        logger.info("Settings store rehydrated", {
+          component: "SettingsStore",
+          action: "rehydrate",
+        });
       },
     },
   ),

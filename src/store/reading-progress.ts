@@ -74,7 +74,10 @@ export const useReadingProgress = create<ReadingProgressState>()(
         pendingSaves.delete(key);
         void saveProgressAPI(mangaId, chapterId, page, totalPages).catch(
           (error) => {
-            logger.error("Failed to save reading progress", {
+            // Progress is persisted locally, so API save failures are non-critical
+            // Only log as warning since the data is not lost
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            const logContext: Record<string, unknown> = {
               component: "useReadingProgress",
               action: "save-progress",
               mangaId,
@@ -82,7 +85,14 @@ export const useReadingProgress = create<ReadingProgressState>()(
               page,
               totalPages,
               error: error instanceof Error ? error : new Error(String(error)),
-            });
+            };
+
+            // Include validation details if present
+            if (error && typeof error === "object" && "detail" in error) {
+              logContext.validationDetail = error.detail;
+            }
+
+            logger.warn(`Failed to sync reading progress to server (saved locally): ${errorMessage}`, logContext);
           },
         );
       }, SAVE_DEBOUNCE_MS);
@@ -104,7 +114,9 @@ export const useReadingProgress = create<ReadingProgressState>()(
           snapshot.currentPage,
           snapshot.totalPages,
         ).catch((error) => {
-          logger.error("Failed to flush queued reading progress", {
+          // Progress is persisted locally, so API save failures are non-critical
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          const logContext: Record<string, unknown> = {
             component: "useReadingProgress",
             action: "flush-progress",
             mangaId: snapshot.mangaId,
@@ -112,7 +124,14 @@ export const useReadingProgress = create<ReadingProgressState>()(
             page: snapshot.currentPage,
             totalPages: snapshot.totalPages,
             error: error instanceof Error ? error : new Error(String(error)),
-          });
+          };
+
+          // Include validation details if present
+          if (error && typeof error === "object" && "detail" in error) {
+            logContext.validationDetail = error.detail;
+          }
+
+          logger.warn(`Failed to flush queued reading progress to server (saved locally): ${errorMessage}`, logContext);
         });
       });
     };

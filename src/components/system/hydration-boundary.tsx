@@ -1,35 +1,23 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useRef } from "react";
 import { Loader, Stack, Title } from "@mantine/core";
 import { fetchCacheSettings } from "@/lib/api";
-import { useUIStore } from "@/store/ui";
 import { useSettingsStore } from "@/store/settings";
+import { useHydration } from "@/hooks/use-hydration";
 import { logger } from "@/lib/logger";
-import { TIMEOUTS } from "@/lib/constants";
 
 export function HydrationBoundary({ children }: { children: React.ReactNode }) {
-  const [isHydrated, setIsHydrated] = useState(false);
-  const uiHydrated = useUIStore((state) => state._hasHydrated);
-  const settingsHydrated = useSettingsStore((state) => state._hasHydrated);
+  const isHydrated = useHydration();
   const imageCacheSynced = useSettingsStore((state) => state.imageCacheSynced);
   const applyServerImageCacheSettings = useSettingsStore(
     (state) => state.applyServerImageCacheSettings
   );
+  const logRef = useRef({ cacheSuccess: false, cacheFail: false, ready: false });
 
-  const storesHydrated = useMemo(
-    () => uiHydrated && settingsHydrated,
-    [uiHydrated, settingsHydrated]
-  );
-
+  // Sync cache settings from server after stores hydrate
   useEffect(() => {
-    if (storesHydrated) {
-      setIsHydrated(true);
-    }
-  }, [storesHydrated]);
-
-  useEffect(() => {
-    if (!storesHydrated || imageCacheSynced) {
+    if (!isHydrated || imageCacheSynced) {
       return;
     }
 
@@ -38,6 +26,17 @@ export function HydrationBoundary({ children }: { children: React.ReactNode }) {
     fetchCacheSettings()
       .then(({ enabled, ttlMs, maxEntries, fetchTimeoutMs }) => {
         if (cancelled) return;
+        if (!logRef.current.cacheSuccess) {
+          logger.info("Synced cache settings from server", {
+            component: "HydrationBoundary",
+            action: "cache-settings-synced",
+            enabled,
+            ttlMs,
+            maxEntries,
+            fetchTimeoutMs,
+          });
+          logRef.current.cacheSuccess = true;
+        }
         applyServerImageCacheSettings({
           enabled,
           ttlMs,
@@ -46,31 +45,30 @@ export function HydrationBoundary({ children }: { children: React.ReactNode }) {
         });
       })
       .catch((error) => {
-        logger.warn("Failed to load server cache settings", {
-          component: "HydrationBoundary",
-          action: "sync-cache-settings",
-          error: error instanceof Error ? error : new Error(String(error)),
-        });
+        if (!logRef.current.cacheFail) {
+          logRef.current.cacheFail = true;
+          logger.warn("Failed to load server cache settings", {
+            component: "HydrationBoundary",
+            action: "sync-cache-settings",
+            error: error instanceof Error ? error : new Error(String(error)),
+          });
+        }
       });
 
     return () => {
       cancelled = true;
     };
-  }, [applyServerImageCacheSettings, imageCacheSynced, storesHydrated]);
+  }, [applyServerImageCacheSettings, imageCacheSynced, isHydrated]);
 
+  // Log when hydration completes
   useEffect(() => {
-    // Failsafe: if hydration takes too long (>2s), show content anyway
-    const timeout = setTimeout(() => {
-      if (!isHydrated) {
-        logger.warn("Hydration timeout exceeded; forcing render", {
-          component: "HydrationBoundary",
-          action: "hydrate-timeout",
-        });
-        setIsHydrated(true);
-      }
-    }, TIMEOUTS.HYDRATION);
-
-    return () => clearTimeout(timeout);
+    if (isHydrated && !logRef.current.ready) {
+      logRef.current.ready = true;
+      logger.info("HydrationBoundary rendered children", {
+        component: "HydrationBoundary",
+        action: "hydrated",
+      });
+    }
   }, [isHydrated]);
 
   if (!isHydrated) {

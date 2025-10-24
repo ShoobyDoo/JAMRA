@@ -350,7 +350,7 @@ export function ChapterList({
                     checked={isSelected}
                     onChange={(e) => {
                       e.stopPropagation();
-                      handleToggleSelection(chapter.id, index, e.nativeEvent.shiftKey);
+                      handleToggleSelection(chapter.id, index, (e.nativeEvent as MouseEvent).shiftKey);
                     }}
                   />
                 </div>

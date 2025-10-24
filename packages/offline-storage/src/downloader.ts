@@ -23,6 +23,15 @@ import {
   getDirSize,
 } from "./utils/file-system.js";
 import { ImageDownloader } from "./utils/image-downloader.js";
+import {
+  ProgressBatcher,
+  type ProgressUpdate,
+} from "./utils/progress-batcher.js";
+import { MetadataCache } from "./utils/metadata-cache.js";
+import {
+  PerformanceMetricsTracker,
+  type PerformanceMetrics,
+} from "./utils/performance-metrics.js";
 import type {
   OfflineMangaMetadata,
   OfflineChapterMetadata,
@@ -38,6 +47,16 @@ export interface DownloadWorkerOptions {
   pollingInterval?: number; // Queue polling interval in ms (default: 1000)
   chapterConcurrency?: number; // Max concurrent chapter downloads
   chapterDelayMs?: number; // Delay between chapter downloads in ms (default: 1000)
+  progressBatchInterval?: number; // Progress update batching interval in ms (default: 1500)
+
+  // Performance optimization options
+  performance?: {
+    enableMetrics?: boolean; // Track performance metrics (default: true)
+    enableEventCoalescing?: boolean; // Batch events before emission (default: false)
+    eventCoalescingInterval?: number; // Event batching interval in ms (default: 500)
+    metadataCacheTTL?: number; // Metadata cache TTL in ms (default: 5 minutes)
+    metadataCacheSize?: number; // Max metadata cache entries (default: 100)
+  };
 }
 
 const DEFAULT_CHAPTER_CONCURRENCY = 3;
@@ -46,12 +65,18 @@ export class DownloadWorker {
   private isRunning = false;
   private readonly activeDownloads: Set<number> = new Set();
   private readonly imageDownloader: ImageDownloader;
+  private readonly progressBatcher: ProgressBatcher;
+  private readonly metadataCache: MetadataCache;
+  private readonly metricsTracker: PerformanceMetricsTracker | null;
   private readonly concurrency: number;
   private readonly pollingInterval: number;
   private readonly chapterConcurrency: number;
   private readonly chapterDelayMs: number;
   private lastChapterDownloadTime = 0;
   private readonly eventListeners: Set<OfflineStorageEventListener> = new Set();
+  private readonly performanceOptions: Required<
+    NonNullable<DownloadWorkerOptions["performance"]>
+  >;
 
   constructor(
     private readonly dataDir: string,
@@ -66,6 +91,56 @@ export class DownloadWorker {
       options.chapterConcurrency ?? DEFAULT_CHAPTER_CONCURRENCY;
     this.chapterConcurrency = Math.max(1, requestedChapterConcurrency);
     this.chapterDelayMs = options.chapterDelayMs ?? 1000;
+
+    // Initialize performance options
+    this.performanceOptions = {
+      enableMetrics: options.performance?.enableMetrics ?? true,
+      enableEventCoalescing: options.performance?.enableEventCoalescing ?? false,
+      eventCoalescingInterval:
+        options.performance?.eventCoalescingInterval ?? 500,
+      metadataCacheTTL: options.performance?.metadataCacheTTL ?? 5 * 60 * 1000,
+      metadataCacheSize: options.performance?.metadataCacheSize ?? 100,
+    };
+
+    // Initialize metrics tracker if enabled
+    this.metricsTracker = this.performanceOptions.enableMetrics
+      ? new PerformanceMetricsTracker()
+      : null;
+
+    // Initialize progress batcher with callback that handles both DB and events
+    this.progressBatcher = new ProgressBatcher(
+      (update: ProgressUpdate) => {
+        // Update database
+        this.repository.updateQueueProgress(
+          update.queueId,
+          update.progressCurrent,
+          update.progressTotal,
+        );
+
+        // Track metrics
+        this.metricsTracker?.databaseWrite();
+
+        // Emit progress event
+        this.emit({
+          type: "download-progress",
+          queueId: update.queueId,
+          mangaId: update.mangaId,
+          chapterId: update.chapterId,
+          progressCurrent: update.progressCurrent,
+          progressTotal: update.progressTotal,
+        });
+      },
+      {
+        flushInterval: options.progressBatchInterval ?? 1500,
+        flushOnComplete: true,
+      },
+    );
+
+    // Initialize metadata cache to reduce redundant network calls
+    this.metadataCache = new MetadataCache({
+      maxSize: this.performanceOptions.metadataCacheSize,
+      ttlMs: this.performanceOptions.metadataCacheTTL,
+    });
   }
 
   // ==========================================================================
@@ -78,6 +153,9 @@ export class DownloadWorker {
   }
 
   private emit(event: OfflineStorageEvent): void {
+    // Track metrics
+    this.metricsTracker?.eventEmitted();
+
     for (const listener of this.eventListeners) {
       try {
         listener(event);
@@ -85,6 +163,20 @@ export class DownloadWorker {
         console.error("Error in download worker event listener:", error);
       }
     }
+  }
+
+  /**
+   * Get performance metrics
+   */
+  getMetrics(): PerformanceMetrics | null {
+    return this.metricsTracker?.getMetrics() ?? null;
+  }
+
+  /**
+   * Reset performance metrics
+   */
+  resetMetrics(): void {
+    this.metricsTracker?.reset();
   }
 
   private async resetStaleDownloads(): Promise<void> {
@@ -171,6 +263,9 @@ export class DownloadWorker {
     this.isRunning = false;
     console.log("Download worker stopped");
 
+    // Flush any pending progress updates
+    this.progressBatcher.destroy();
+
     // Wait for current download to complete
     // In production, might want to save state and resume later
   }
@@ -252,6 +347,9 @@ export class DownloadWorker {
    * Downloads a queue item (chapter or full manga)
    */
   private async downloadItem(item: QueuedDownload): Promise<void> {
+    // Track download started
+    this.metricsTracker?.downloadStarted(item.id);
+
     // Mark as downloading
     this.repository.updateQueueStatus(item.id, "downloading");
     this.emit({
@@ -261,13 +359,21 @@ export class DownloadWorker {
       chapterId: item.chapterId,
     });
 
+    let pagesDownloaded = 0;
+
     if (item.chapterId) {
       // Download single chapter
-      await this.downloadChapter(item);
+      pagesDownloaded = await this.downloadChapter(item);
     } else {
       // Download all manga chapters
-      await this.downloadManga(item);
+      pagesDownloaded = await this.downloadManga(item);
     }
+
+    // Flush any pending progress updates before marking complete
+    this.progressBatcher.flush();
+
+    // Track download completed
+    this.metricsTracker?.downloadCompleted(item.id, pagesDownloaded);
 
     // Mark as completed and move to history
     this.repository.updateQueueStatus(item.id, "completed");
@@ -283,18 +389,36 @@ export class DownloadWorker {
   /**
    * Downloads a single chapter
    */
-  private async downloadChapter(item: QueuedDownload): Promise<void> {
+  private async downloadChapter(item: QueuedDownload): Promise<number> {
     if (!item.chapterId) {
       throw new Error("Chapter ID is required for chapter download");
     }
 
-    // Fetch manga and chapter details
-    const mangaDetails = await this.catalogService.syncManga(
-      item.extensionId,
-      item.mangaId,
-    );
+    // Check cache first, then fetch if needed
+    let mangaDetails = this.metadataCache.getManga({
+      extensionId: item.extensionId,
+      mangaId: item.mangaId,
+    });
 
-    const chapter = mangaDetails.details.chapters?.find(
+    if (!mangaDetails) {
+      // Cache miss - fetch from catalog service
+      this.metricsTracker?.networkRequest();
+      const result = await this.catalogService.syncManga(
+        item.extensionId,
+        item.mangaId,
+      );
+      mangaDetails = result.details;
+      // Cache for future use
+      this.metadataCache.setManga(
+        { extensionId: item.extensionId, mangaId: item.mangaId },
+        mangaDetails,
+      );
+    } else {
+      // Cache hit
+      this.metricsTracker?.cacheHit();
+    }
+
+    const chapter = mangaDetails.chapters?.find(
       (c) => c.id === item.chapterId,
     );
     if (!chapter) {
@@ -304,22 +428,45 @@ export class DownloadWorker {
     }
 
     const mangaSlug = sanitizeSlug(
-      mangaDetails.details.slug || mangaDetails.details.title,
+      mangaDetails.slug || mangaDetails.title,
     );
 
     // Ensure manga metadata exists
     await this.ensureMangaMetadata(
       item.extensionId,
-      mangaDetails.details,
+      mangaDetails,
       mangaSlug,
     );
 
-    // Fetch chapter pages
-    const { pages: chapterPages } = await this.catalogService.syncChapterPages(
-      item.extensionId,
-      item.mangaId,
-      item.chapterId!,
-    );
+    // Check cache for chapter pages
+    let chapterPages = this.metadataCache.getChapterPages({
+      extensionId: item.extensionId,
+      mangaId: item.mangaId,
+      chapterId: item.chapterId!,
+    });
+
+    if (!chapterPages) {
+      // Cache miss - fetch from catalog service
+      this.metricsTracker?.networkRequest();
+      const result = await this.catalogService.syncChapterPages(
+        item.extensionId,
+        item.mangaId,
+        item.chapterId!,
+      );
+      chapterPages = result.pages;
+      // Cache for future use
+      this.metadataCache.setChapterPages(
+        {
+          extensionId: item.extensionId,
+          mangaId: item.mangaId,
+          chapterId: item.chapterId!,
+        },
+        chapterPages,
+      );
+    } else {
+      // Cache hit
+      this.metricsTracker?.cacheHit();
+    }
 
     // Validate chapter pages
     if (
@@ -337,11 +484,9 @@ export class DownloadWorker {
     }
 
     const totalPages = chapterPages.pages.length;
-    this.repository.updateQueueProgress(item.id, 0, totalPages);
 
-    // Emit initial progress event
-    this.emit({
-      type: "download-progress",
+    // Send initial progress update through batcher
+    this.progressBatcher.update({
       queueId: item.id,
       mangaId: item.mangaId,
       chapterId: item.chapterId,
@@ -357,9 +502,8 @@ export class DownloadWorker {
       chapter,
       chapterPages.pages,
       (current, total) => {
-        this.repository.updateQueueProgress(item.id, current, total);
-        this.emit({
-          type: "download-progress",
+        // Buffer progress updates instead of immediate DB write + event
+        this.progressBatcher.update({
           queueId: item.id,
           mangaId: item.mangaId,
           chapterId: item.chapterId,
@@ -368,41 +512,87 @@ export class DownloadWorker {
         });
       },
     );
+
+    return chapterPages.pages.length;
   }
 
   /**
    * Downloads all chapters for a manga
    */
-  private async downloadManga(item: QueuedDownload): Promise<void> {
-    // Fetch manga details with chapters
-    const mangaDetails = await this.catalogService.syncManga(
-      item.extensionId,
-      item.mangaId,
-    );
+  private async downloadManga(item: QueuedDownload): Promise<number> {
+    // Check cache first, then fetch if needed
+    let mangaDetails = this.metadataCache.getManga({
+      extensionId: item.extensionId,
+      mangaId: item.mangaId,
+    });
 
-    const chapters = mangaDetails.details.chapters || [];
+    if (!mangaDetails) {
+      // Cache miss - fetch from catalog service
+      this.metricsTracker?.networkRequest();
+      const result = await this.catalogService.syncManga(
+        item.extensionId,
+        item.mangaId,
+      );
+      mangaDetails = result.details;
+      // Cache for future use
+      this.metadataCache.setManga(
+        { extensionId: item.extensionId, mangaId: item.mangaId },
+        mangaDetails,
+      );
+    } else {
+      // Cache hit
+      this.metricsTracker?.cacheHit();
+    }
+
+    const chapters = mangaDetails.chapters || [];
     const mangaSlug = sanitizeSlug(
-      mangaDetails.details.slug || mangaDetails.details.title,
+      mangaDetails.slug || mangaDetails.title,
     );
 
     // Ensure manga metadata exists
     await this.ensureMangaMetadata(
       item.extensionId,
-      mangaDetails.details,
+      mangaDetails,
       mangaSlug,
     );
 
     // Download each chapter
+    let totalPagesDownloaded = 0;
+
     for (let i = 0; i < chapters.length; i++) {
       const chapter = chapters[i];
 
-      // Fetch chapter pages
-      const { pages: chapterPages } =
-        await this.catalogService.syncChapterPages(
+      // Check cache for chapter pages
+      let chapterPages = this.metadataCache.getChapterPages({
+        extensionId: item.extensionId,
+        mangaId: item.mangaId,
+        chapterId: chapter.id,
+      });
+
+      if (!chapterPages) {
+        // Cache miss - fetch from catalog service
+        this.metricsTracker?.networkRequest();
+        const result = await this.catalogService.syncChapterPages(
           item.extensionId,
           item.mangaId,
           chapter.id,
         );
+        chapterPages = result.pages;
+        // Cache for future use
+        this.metadataCache.setChapterPages(
+          {
+            extensionId: item.extensionId,
+            mangaId: item.mangaId,
+            chapterId: chapter.id,
+          },
+          chapterPages,
+        );
+      } else {
+        // Cache hit
+        this.metricsTracker?.cacheHit();
+      }
+
+      totalPagesDownloaded += chapterPages.pages.length;
 
       await this.downloadChapterPages(
         item.extensionId,
@@ -419,13 +609,8 @@ export class DownloadWorker {
           );
           const progressTotal = chapters.length * 100;
 
-          this.repository.updateQueueProgress(
-            item.id,
-            progressCurrent,
-            progressTotal,
-          );
-          this.emit({
-            type: "download-progress",
+          // Buffer progress updates instead of immediate DB write + event
+          this.progressBatcher.update({
             queueId: item.id,
             mangaId: item.mangaId,
             chapterId: chapter.id,
@@ -438,6 +623,8 @@ export class DownloadWorker {
       // Yield to event loop after each chapter to keep app responsive
       await new Promise((resolve) => setImmediate(resolve));
     }
+
+    return totalPagesDownloaded;
   }
 
   /**
@@ -679,6 +866,12 @@ export class DownloadWorker {
       `Download failed for queue item ${item.id} (${item.mangaSlug}):`,
       errorMessage,
     );
+
+    // Flush any pending progress updates before handling error
+    this.progressBatcher.flush();
+
+    // Track download failure
+    this.metricsTracker?.downloadFailed(item.id);
 
     // Check if error is retryable (rate limiting, temporary errors, network issues)
     const isRetryable = errorMessage.includes('temporarily unavailable') ||
