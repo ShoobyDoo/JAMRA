@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useRef } from "react";
+import { useMemo, useRef, useEffect } from "react";
 import type { PropsWithChildren, CSSProperties } from "react";
+import { usePathname } from "next/navigation";
 import { Sidebar } from "@/components/nav/sidebar";
 import { Topbar } from "@/components/topbar/topbar";
 import { useUIStore } from "@/store/ui";
@@ -17,6 +18,14 @@ export function AppLayout({ children }: PropsWithChildren) {
   const collapsed = useUIStore((state) => state.collapsed);
   const sidebarWidth = useUIStore((state) => state.sidebarWidth);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const pathname = usePathname();
+
+  // Reset scroll position on route change
+  useEffect(() => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTo(0, 0);
+    }
+  }, [pathname]);
 
   const computedSidebarWidth = collapsed
     ? SIDEBAR_WIDTH.COLLAPSED

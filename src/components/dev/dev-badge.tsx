@@ -51,7 +51,7 @@ export function DevBadge({ label, info, position = "left" }: DevBadgeProps) {
                 {item.label}:
               </p>
               <div className="flex items-start gap-1">
-                <p className="text-xs break-all flex-1 font-mono bg-muted px-1.5 py-0.5 rounded">
+                <p className="text-xs break-all flex-1 font-mono bg-muted px-1.5 py-0.5 rounded max-h-32 overflow-y-auto">
                   {item.value}
                 </p>
                 <div className="flex gap-0.5 flex-shrink-0">
@@ -131,7 +131,7 @@ export function InlineDevBadge({ info }: InlineDevBadgeProps) {
                 {item.label}:
               </p>
               <div className="flex items-start gap-1">
-                <p className="text-xs break-all flex-1 font-mono bg-muted px-1.5 py-0.5 rounded">
+                <p className="text-xs break-all flex-1 font-mono bg-muted px-1.5 py-0.5 rounded max-h-32 overflow-y-auto">
                   {item.value}
                 </p>
                 <div className="flex gap-0.5 flex-shrink-0">

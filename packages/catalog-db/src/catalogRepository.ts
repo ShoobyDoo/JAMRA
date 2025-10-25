@@ -2282,6 +2282,9 @@ export class CatalogRepository {
       this.db.prepare("DELETE FROM manga_details").run();
       this.db.prepare("DELETE FROM manga").run();
 
+      // Clear cover cache (base64-encoded cached images)
+      this.db.prepare("DELETE FROM manga_cover_cache").run();
+
       // Clear extension cache
       this.db.prepare("DELETE FROM extension_cache").run();
 

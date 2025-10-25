@@ -72,6 +72,7 @@ export interface MangaSummary {
   demographic?: "shounen" | "shoujo" | "seinen" | "josei" | "kids" | string;
   languageCode?: LanguageCode;
   updatedAt?: string;
+  links?: Record<string, string>;
 }
 
 export interface MangaDetails extends MangaSummary {

@@ -22,6 +22,7 @@ import {
   updateCacheSettings,
   fetchCacheSettings,
 } from "@/lib/api";
+import { clearUserDataCaches } from "@/lib/cache-keys";
 import { useUIStore, MIN_SIDEBAR_WIDTH, MAX_SIDEBAR_WIDTH } from "@/store/ui";
 import { useSettingsStore } from "@/store/settings";
 import { CACHE_DEFAULTS } from "@/lib/constants";
@@ -219,6 +220,11 @@ export default function SettingsPage() {
             setIsNuking(true);
             try {
               const result = await nukeUserData();
+
+              // Clear localStorage caches that aren't cleared by server-side nuke
+              // Uses centralized cache management from lib/cache-keys.ts
+              clearUserDataCaches();
+
               notifications.show({
                 title: "Data cleared",
                 message: result.message,

@@ -52,7 +52,7 @@ export const DownloadsHistorySection = memo(function DownloadsHistorySection({
   const [statusFilter, setStatusFilter] = useState<string | null>("all");
   const [sortBy, setSortBy] = useState<string | null>("newest");
   const [expandedGroups, setExpandedGroups] = useState<Set<DateGroup>>(
-    new Set(["today", "this-week"])
+    new Set()
   );
 
   // Filter and sort history

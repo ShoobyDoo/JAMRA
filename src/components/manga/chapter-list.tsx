@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState, useCallback, type ReactNode } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef, type ReactNode } from "react";
 import Link from "next/link";
 import { Button, Loader, Checkbox, Group } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { Check, Download, Loader2, XCircle, CheckSquare } from "lucide-react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { getAllReadingProgress, ApiError } from "@/lib/api";
 import type { ReadingProgressData } from "@/lib/api";
 import type { ChapterWithSlug } from "@/lib/chapter-slug";
@@ -36,6 +37,7 @@ export function ChapterList({
     null,
   );
   const offline = useOfflineMangaContext();
+  const parentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     async function fetchProgress() {
@@ -70,6 +72,12 @@ export function ChapterList({
   }, [mangaId]);
 
   const sortedChapters = useMemo(() => sortChaptersDesc(chapters), [chapters]);
+
+  const virtualizer = useVirtualizer({
+    count: sortedChapters.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 100, // Estimated height of each chapter item (~32px padding + ~68px content)
+  });
 
   const handleToggleSelection = useCallback((chapterId: string, index: number, shiftKey: boolean) => {
     if (shiftKey && lastSelectedIndex !== null) {
@@ -306,123 +314,149 @@ export function ChapterList({
         </div>
       )}
 
-      <div className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-card">
-        {sortedChapters.length === 0 ? (
-          <div className="p-4 text-sm text-muted-foreground">
-            No chapters available.
-          </div>
-        ) : (
-          sortedChapters.map((chapter, index) => {
-          const { label, isRead, progress } = getChapterStatus(chapter.id);
-          const hasProgress = progress !== null;
-          const progressPercent = hasProgress
-            ? Math.round((progress.currentPage / progress.totalPages) * 100)
-            : 0;
-          const scanlatorNames =
-            chapter.scanlators?.filter((name) => name.trim().length > 0) ?? [];
-          const scanlatorLabel =
-            scanlatorNames.length > 0 ? scanlatorNames.join(", ") : "Unknown";
-          const publishedLabel = chapter.publishedAt
-            ? new Date(chapter.publishedAt).toLocaleDateString()
-            : null;
-
-          const baseBorderClass =
-            hasProgress && !isRead
-              ? "border-l-4 border-l-blue-500"
-              : hasProgress && isRead
-                ? "border-l-4 border-l-green-500"
-                : "";
-
-          const isSelected = selectedChapterIds.has(chapter.id);
-
-          return (
+      {sortedChapters.length > 0 && (
+        <div
+          ref={parentRef}
+          className="overflow-auto rounded-lg border border-border bg-card"
+          style={{ height: "600px", contain: "strict" }}
+        >
+          <div
+            style={{
+              height: `${virtualizer.getTotalSize()}px`,
+              width: "100%",
+              position: "relative",
+            }}
+          >
             <div
-              key={chapter.id}
-              className={`relative flex flex-col gap-3 p-4 transition hover:bg-secondary focus-within:bg-secondary md:flex-row md:items-center md:justify-between ${baseBorderClass} ${isSelected ? "bg-blue-50 dark:bg-blue-950/20" : ""}`}
-              onClick={(e) => {
-                if (selectionMode && e.target === e.currentTarget) {
-                  handleToggleSelection(chapter.id, index, e.shiftKey);
-                }
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                width: "100%",
+                transform: `translateY(${virtualizer.getVirtualItems()[0]?.start ?? 0}px)`,
               }}
             >
-              {selectionMode && (
-                <div className="flex items-center">
-                  <Checkbox
-                    checked={isSelected}
-                    onChange={(e) => {
-                      e.stopPropagation();
-                      handleToggleSelection(chapter.id, index, (e.nativeEvent as MouseEvent).shiftKey);
-                    }}
-                  />
-                </div>
-              )}
-              <div className="flex-1 min-w-0">
-                <Link
-                  href={`/read/${encodeURIComponent(mangaSlug)}/chapter/${encodeURIComponent(chapter.slug)}`}
-                  className="block"
-                  onClick={(e) => selectionMode && e.preventDefault()}
-                >
-                  <p className="font-medium">{formatChapterTitle(chapter)}</p>
-                  <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
-                    <span className="font-semibold text-muted-foreground/90">
-                      Scanlator: {scanlatorLabel}
-                    </span>
-                    {publishedLabel && <span>• {publishedLabel}</span>}
-                    {hasProgress && (
-                      <span>
-                        • {progress.currentPage + 1}/{progress.totalPages} pages
-                      </span>
-                    )}
-                    <InlineDevBadge
-                      info={[
-                        { label: "Chapter ID", value: chapter.id, copyable: true },
-                        ...(chapter.externalUrl
-                          ? [
-                              {
-                                label: "Source URL",
-                                value: chapter.externalUrl,
-                                copyable: true,
-                                clickable: true,
-                                url: chapter.externalUrl,
-                              },
-                            ]
-                          : []),
-                      ]}
-                    />
-                  </div>
-                </Link>
-                {hasProgress && !isRead && (
-                  <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-muted">
-                    <div
-                      className="h-full bg-blue-500 transition-all duration-300"
-                      style={{ width: `${progressPercent}%` }}
-                    />
-                  </div>
-                )}
-              </div>
-              <div className="flex shrink-0 flex-col items-end gap-2 sm:flex-row sm:items-center sm:justify-end sm:gap-3">
-                {loadingProgress ? (
-                  <Loader size="xs" />
-                ) : (
-                  <span
-                    className={`text-xs font-medium ${
-                      isRead
-                        ? "text-green-600 dark:text-green-400"
-                        : label === "In Progress"
-                          ? "text-blue-600 dark:text-blue-400"
-                          : "text-muted-foreground"
-                    }`}
+              {virtualizer.getVirtualItems().map((virtualItem) => {
+                const index = virtualItem.index;
+                const chapter = sortedChapters[index];
+                const { label, isRead, progress } = getChapterStatus(chapter.id);
+                const hasProgress = progress !== null;
+                const progressPercent = hasProgress
+                  ? Math.round((progress.currentPage / progress.totalPages) * 100)
+                  : 0;
+                const scanlatorNames =
+                  chapter.scanlators?.filter((name) => name.trim().length > 0) ?? [];
+                const scanlatorLabel =
+                  scanlatorNames.length > 0 ? scanlatorNames.join(", ") : "Unknown";
+                const publishedLabel = chapter.publishedAt
+                  ? new Date(chapter.publishedAt).toLocaleDateString()
+                  : null;
+
+                const baseBorderClass =
+                  hasProgress && !isRead
+                    ? "border-l-4 border-l-blue-500"
+                    : hasProgress && isRead
+                      ? "border-l-4 border-l-green-500"
+                      : "";
+
+                const isSelected = selectedChapterIds.has(chapter.id);
+
+                return (
+                  <div
+                    key={chapter.id}
+                    data-index={index}
+                    ref={virtualizer.measureElement}
+                    className={`border-b border-border ${baseBorderClass} ${isSelected ? "bg-blue-50 dark:bg-blue-950/20" : ""}`}
                   >
-                    {label}
-                  </span>
-                )}
-                <ChapterOfflineControls chapter={chapter} offline={offline} />
-              </div>
+                    <div
+                      className={`relative flex flex-col gap-3 p-4 transition hover:bg-secondary focus-within:bg-secondary md:flex-row md:items-center md:justify-between`}
+                      onClick={(e) => {
+                        if (selectionMode && e.target === e.currentTarget) {
+                          handleToggleSelection(chapter.id, index, e.shiftKey);
+                        }
+                      }}
+                    >
+                      {selectionMode && (
+                        <div className="flex items-center">
+                          <Checkbox
+                            checked={isSelected}
+                            onChange={(e) => {
+                              e.stopPropagation();
+                              handleToggleSelection(chapter.id, index, (e.nativeEvent as MouseEvent).shiftKey);
+                            }}
+                          />
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <Link
+                          href={`/read/${encodeURIComponent(mangaSlug)}/chapter/${encodeURIComponent(chapter.slug)}`}
+                          className="block"
+                          onClick={(e) => selectionMode && e.preventDefault()}
+                        >
+                          <p className="font-medium">{formatChapterTitle(chapter)}</p>
+                          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                            <span className="font-semibold text-muted-foreground/90">
+                              Scanlator: {scanlatorLabel}
+                            </span>
+                            {publishedLabel && <span>• {publishedLabel}</span>}
+                            {hasProgress && (
+                              <span>
+                                • {progress.currentPage + 1}/{progress.totalPages} pages
+                              </span>
+                            )}
+                            <InlineDevBadge
+                              info={[
+                                { label: "Chapter ID", value: chapter.id, copyable: true },
+                                ...(chapter.externalUrl
+                                  ? [
+                                      {
+                                        label: "Source URL",
+                                        value: chapter.externalUrl,
+                                        copyable: true,
+                                        clickable: true,
+                                        url: chapter.externalUrl,
+                                      },
+                                    ]
+                                  : []),
+                              ]}
+                            />
+                          </div>
+                        </Link>
+                        {hasProgress && !isRead && (
+                          <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-muted">
+                            <div
+                              className="h-full bg-blue-500 transition-all duration-300"
+                              style={{ width: `${progressPercent}%` }}
+                            />
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex shrink-0 flex-col items-end gap-2 sm:flex-row sm:items-center sm:justify-end sm:gap-3">
+                        {loadingProgress ? (
+                          <Loader size="xs" />
+                        ) : (
+                          <span
+                            className={`text-xs font-medium ${
+                              isRead
+                                ? "text-green-600 dark:text-green-400"
+                                : label === "In Progress"
+                                  ? "text-blue-600 dark:text-blue-400"
+                                  : "text-muted-foreground"
+                            }`}
+                          >
+                            {label}
+                          </span>
+                        )}
+                        <ChapterOfflineControls chapter={chapter} offline={offline} />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-          );
-        })
-        )}
-      </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

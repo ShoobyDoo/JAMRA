@@ -225,15 +225,10 @@ export class WeebCentralScraper {
 
           // Build cover URLs in priority order
           // Hot-updates has desktop + mobile articles. Desktop has /normal/ URLs but no series link.
-          // Mobile has series link but only /small/ URLs. So we construct /normal/ from ID.
+          // Mobile has series link but only /small/ URLs.
           const thumbnailUrls: string[] = [];
 
-          // 1. Constructed /normal/ webp (highest quality, always available)
-          thumbnailUrls.push(
-            `https://temp.compsci88.com/cover/normal/${id}.webp`,
-          );
-
-          // 2. Extract any additional sources from current article
+          // 1. Extract sources from HTML (most reliable)
           $article.find('picture source[type="image/webp"]').each((i, el) => {
             const srcset = $(el).attr("srcset")?.split(" ")[0];
             if (srcset && !thumbnailUrls.includes(srcset)) {
@@ -241,16 +236,22 @@ export class WeebCentralScraper {
             }
           });
 
-          // 3. Add img src (fallback)
+          // 2. Add img src
           const imgSrc = $article.find("img").first().attr("src");
           if (imgSrc && !thumbnailUrls.includes(imgSrc)) {
             thumbnailUrls.push(imgSrc);
           }
 
-          // 4. Add data-src (lazy loading fallback)
+          // 3. Add data-src (lazy loading)
           const dataSrc = $article.find("img").first().attr("data-src");
           if (dataSrc && !thumbnailUrls.includes(dataSrc)) {
             thumbnailUrls.push(dataSrc);
+          }
+
+          // 4. Constructed URL as fallback (may be incorrect on WeebCentral's CDN)
+          const constructedUrl = `https://temp.compsci88.com/cover/normal/${id}.webp`;
+          if (!thumbnailUrls.includes(constructedUrl)) {
+            thumbnailUrls.push(constructedUrl);
           }
 
           items.push({
@@ -259,6 +260,9 @@ export class WeebCentralScraper {
             title,
             coverUrl: thumbnailUrls[0],
             coverUrls: thumbnailUrls.slice(0, 5), // Limit to 5 URLs to prevent payload explosion
+            links: {
+              source: `${BASE_URL}/series/${id}/${name}`,
+            },
           });
         }
       }
@@ -356,15 +360,10 @@ export class WeebCentralScraper {
           });
 
           // Build cover URLs in priority order
-          // Construct /normal/ URL first (highest quality, always available)
+          // Prioritize HTML-extracted URLs over constructed fallbacks
           const thumbnailUrls: string[] = [];
 
-          // 1. Constructed /normal/ webp (highest quality)
-          thumbnailUrls.push(
-            `https://temp.compsci88.com/cover/normal/${id}.webp`,
-          );
-
-          // 2. Extract any additional sources from current article
+          // 1. Extract sources from HTML (most reliable)
           $article.find('picture source[type="image/webp"]').each((i, el) => {
             const srcset = $(el).attr("srcset")?.split(" ")[0];
             if (srcset && !thumbnailUrls.includes(srcset)) {
@@ -372,16 +371,22 @@ export class WeebCentralScraper {
             }
           });
 
-          // 3. Add img src (fallback)
+          // 2. Add img src
           const imgSrc = $article.find("img").first().attr("src");
           if (imgSrc && !thumbnailUrls.includes(imgSrc)) {
             thumbnailUrls.push(imgSrc);
           }
 
-          // 4. Add data-src (lazy loading fallback)
+          // 3. Add data-src (lazy loading)
           const dataSrc = $article.find("img").first().attr("data-src");
           if (dataSrc && !thumbnailUrls.includes(dataSrc)) {
             thumbnailUrls.push(dataSrc);
+          }
+
+          // 4. Constructed URL as fallback (may be incorrect on WeebCentral's CDN)
+          const constructedUrl = `https://temp.compsci88.com/cover/normal/${id}.webp`;
+          if (!thumbnailUrls.includes(constructedUrl)) {
+            thumbnailUrls.push(constructedUrl);
           }
 
           items.push({
@@ -390,6 +395,9 @@ export class WeebCentralScraper {
             title,
             coverUrl: thumbnailUrls[0],
             coverUrls: thumbnailUrls.slice(0, 5), // Limit to 5 URLs to prevent payload explosion
+            links: {
+              source: `${BASE_URL}/series/${id}/${name}`,
+            },
           });
         }
       }
@@ -504,6 +512,7 @@ export class WeebCentralScraper {
     }
 
     // Extract all cover image sources from <picture> element in priority order
+    // Prioritize HTML-extracted URLs over constructed fallbacks
     const coverUrls: string[] = [];
 
     // 1. Get all <source> elements (priority order, excluding /small/ variants)
@@ -526,7 +535,7 @@ export class WeebCentralScraper {
       coverUrls.push(metaSrc);
     }
 
-    // 4. Add /small/ variants as last resort
+    // 4. Add /small/ variants
     $('picture source[type="image/webp"]').each((i, el) => {
       const srcset = $(el).attr("srcset")?.split(" ")[0];
       if (srcset && srcset.includes("/small/") && !coverUrls.includes(srcset)) {
@@ -534,9 +543,10 @@ export class WeebCentralScraper {
       }
     });
 
-    // 5. Constructed fallback if nothing found
-    if (coverUrls.length === 0) {
-      coverUrls.push(`https://temp.compsci88.com/cover/normal/${mangaId}.webp`);
+    // 5. Constructed URL as last resort fallback (may be incorrect on WeebCentral's CDN)
+    const constructedUrl = `https://temp.compsci88.com/cover/normal/${mangaId}.webp`;
+    if (!coverUrls.includes(constructedUrl)) {
+      coverUrls.push(constructedUrl);
     }
 
     // Use first URL as primary, keep array for fallbacks
@@ -556,7 +566,9 @@ export class WeebCentralScraper {
       tags: [],
       rating: undefined,
       year: released ? parseInt(released) : undefined,
-      links: {},
+      links: {
+        source: url,
+      },
       status,
       demographic: undefined,
       altTitles: [],

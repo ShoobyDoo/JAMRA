@@ -9,11 +9,17 @@ import { useSettingsStore } from "@/store/settings";
 import { logger } from "@/lib/logger";
 import { COVER_REPORT_LIMITS } from "@/lib/constants";
 
-const WORKING_URL_CACHE_KEY = "jamra_cover_urls_v2";
+const WORKING_URL_CACHE_KEY = "jamra_cover_urls_v3";
+const CACHE_VERSION = 3;
 
 interface WorkingUrlRecord {
   url: string;
   storedAt: number;
+}
+
+interface WorkingUrlCacheData {
+  version: number;
+  entries: Record<string, WorkingUrlRecord>;
 }
 
 type WorkingUrlCache = Record<string, WorkingUrlRecord>;
@@ -27,9 +33,29 @@ function readWorkingUrlCache(): WorkingUrlCache {
   try {
     const raw = window.localStorage.getItem(WORKING_URL_CACHE_KEY);
     if (!raw) return {};
-    const parsed = JSON.parse(raw) as WorkingUrlCache;
-    return typeof parsed === "object" && parsed ? parsed : {};
+
+    const parsed = JSON.parse(raw) as WorkingUrlCacheData | WorkingUrlCache;
+
+    // Handle versioned cache
+    if (typeof parsed === "object" && parsed && "version" in parsed) {
+      // Check version - if mismatch, clear cache
+      if (parsed.version !== CACHE_VERSION) {
+        window.localStorage.removeItem(WORKING_URL_CACHE_KEY);
+        return {};
+      }
+      return parsed.entries;
+    }
+
+    // Handle legacy unversioned cache (v2 and earlier) - auto-clear
+    window.localStorage.removeItem(WORKING_URL_CACHE_KEY);
+    return {};
   } catch {
+    // Corrupted cache - clear it
+    try {
+      window.localStorage.removeItem(WORKING_URL_CACHE_KEY);
+    } catch {
+      // Ignore errors during cleanup
+    }
     return {};
   }
 }
@@ -37,7 +63,11 @@ function readWorkingUrlCache(): WorkingUrlCache {
 function writeWorkingUrlCache(cache: WorkingUrlCache) {
   if (typeof window === "undefined") return;
   try {
-    window.localStorage.setItem(WORKING_URL_CACHE_KEY, JSON.stringify(cache));
+    const data: WorkingUrlCacheData = {
+      version: CACHE_VERSION,
+      entries: cache,
+    };
+    window.localStorage.setItem(WORKING_URL_CACHE_KEY, JSON.stringify(data));
   } catch {
     // Ignore storage errors (quota, private mode, etc.)
   }
