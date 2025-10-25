@@ -14,7 +14,7 @@ import {
 
 export default function SignInPage() {
   return (
-    <Stack gap="xl" p="xl" maw={420} mx="auto">
+    <Stack gap="xl" maw={420} mx="auto">
       <Stack gap="xs">
         <Title order={1}>Sign in</Title>
         <Text size="sm" c="dimmed">

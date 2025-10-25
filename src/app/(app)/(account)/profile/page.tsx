@@ -4,7 +4,7 @@ import { Button, Paper, Stack, Text, Title } from "@mantine/core";
 
 export default function ProfilePage() {
   return (
-    <Stack gap="xl" p="xl" maw={720} mx="auto">
+    <Stack gap="xl" maw={720} mx="auto">
       <Stack gap="xs">
         <Title order={1}>Profile</Title>
         <Text c="dimmed">

@@ -16,7 +16,7 @@ export default async function DiscoverPage() {
   } catch (error) {
     if (error instanceof ApiError && error.status === 404) {
       return (
-        <div className="space-y-6 p-6">
+        <div className="space-y-6">
           <div>
             <h1 className="text-2xl font-semibold">Discover</h1>
             <p className="text-muted-foreground">
@@ -30,7 +30,7 @@ export default async function DiscoverPage() {
     }
 
     return (
-      <div className="space-y-4 p-6">
+      <div className="space-y-4">
         <h1 className="text-2xl font-semibold">Discover</h1>
         <p className="text-destructive">
           Failed to load catalogue data. Ensure the catalog server is running on
@@ -41,7 +41,7 @@ export default async function DiscoverPage() {
   }
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold">Discover</h1>
         <p className="text-muted-foreground">

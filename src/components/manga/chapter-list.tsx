@@ -11,6 +11,7 @@ import type { ChapterWithSlug } from "@/lib/chapter-slug";
 import { formatChapterTitle, sortChaptersDesc } from "@/lib/chapter-meta";
 import { useOfflineMangaContext } from "./offline-manga-context";
 import { logger } from "@/lib/logger";
+import { InlineDevBadge } from "@/components/dev/dev-badge";
 
 interface ChapterListProps {
   chapters: ChapterWithSlug[];
@@ -372,6 +373,22 @@ export function ChapterList({
                         • {progress.currentPage + 1}/{progress.totalPages} pages
                       </span>
                     )}
+                    <InlineDevBadge
+                      info={[
+                        { label: "Chapter ID", value: chapter.id, copyable: true },
+                        ...(chapter.externalUrl
+                          ? [
+                              {
+                                label: "Source URL",
+                                value: chapter.externalUrl,
+                                copyable: true,
+                                clickable: true,
+                                url: chapter.externalUrl,
+                              },
+                            ]
+                          : []),
+                      ]}
+                    />
                   </div>
                 </Link>
                 {hasProgress && !isRead && (

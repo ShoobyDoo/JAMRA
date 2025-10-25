@@ -55,7 +55,7 @@ export function AppLayout({ children }: PropsWithChildren) {
   return (
     <HydrationBoundary>
       <div
-        className="relative grid h-dvh min-h-0 min-w-[960px] overflow-hidden bg-background text-foreground transition-[grid-template-columns] duration-[250ms] ease-in-out"
+        className="relative grid h-dvh min-h-0 min-w-[960px] overflow-hidden bg-background text-foreground transition-[grid-template-columns] duration-250 ease-in-out"
         style={layoutStyle}
       >
         <aside
@@ -78,7 +78,9 @@ export function AppLayout({ children }: PropsWithChildren) {
             ref={scrollContainerRef}
             className="h-full overflow-y-auto overflow-x-hidden"
           >
-            <div className={`relative mx-auto w-full ${CONTENT_MAX_WIDTH} p-3`}>
+            <div
+              className={`relative mx-auto w-full ${CONTENT_MAX_WIDTH} py-6 px-8`}
+            >
               {children}
             </div>
           </div>

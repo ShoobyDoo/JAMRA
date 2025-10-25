@@ -369,7 +369,7 @@ export default function DownloadsPage() {
 
   if (loading) {
     return (
-      <Box p="xl">
+      <Box>
         <Title order={1} mb="md">
           Downloads
         </Title>
@@ -379,7 +379,7 @@ export default function DownloadsPage() {
   }
 
   return (
-    <Box p="xl">
+    <Box>
       <Box mb="xl">
         <Title order={1} mb="xs">
           Downloads

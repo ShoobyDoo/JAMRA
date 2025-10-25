@@ -25,7 +25,9 @@ export interface ImageCacheSettings {
 interface SettingsState {
   imageCache: ImageCacheSettings;
   imageCacheSynced: boolean;
+  devModeEnabled: boolean;
   setImageCache: (settings: Partial<ImageCacheSettings>) => void;
+  setDevModeEnabled: (enabled: boolean) => void;
   applyServerImageCacheSettings: (settings: {
     enabled: boolean;
     ttlMs: number;
@@ -47,6 +49,7 @@ export const useSettingsStore = create<SettingsState>()(
     (set, get) => ({
       imageCache: DEFAULT_IMAGE_CACHE,
       imageCacheSynced: false,
+      devModeEnabled: false,
       setImageCache: (settings) =>
         set({
           imageCache: {
@@ -58,6 +61,7 @@ export const useSettingsStore = create<SettingsState>()(
               : null),
           },
         }),
+      setDevModeEnabled: (enabled) => set({ devModeEnabled: enabled }),
       applyServerImageCacheSettings: (settings) =>
         set({
           imageCache: {

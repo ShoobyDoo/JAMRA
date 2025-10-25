@@ -35,6 +35,7 @@ export interface ChapterSummary {
   volume?: string;
   publishedAt?: string;
   languageCode?: string;
+  externalUrl?: string;
   scanlators?: string[];
 }
 

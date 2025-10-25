@@ -69,7 +69,7 @@ export const ExtensionCard = memo(function ExtensionCard({
     description.length > 80 ? `${description.slice(0, 80)}...` : description;
 
   return (
-    <Card withBorder padding="md" radius="md" className="extension-card-expandable">
+    <Card withBorder padding="md" radius="md" className="extension-card-expandable transition-colors hover:border-primary/30">
       <Stack gap="sm">
         <Group
           justify="space-between"

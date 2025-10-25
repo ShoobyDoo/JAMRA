@@ -4,7 +4,7 @@ import { Skeleton } from "@mantine/core";
 
 export default function MangaLoadingSkeleton() {
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6">
       <div className="flex flex-col gap-6 lg:flex-row">
         <div className="relative aspect-[3/4] w-full max-w-xs overflow-hidden rounded-lg border border-border bg-muted">
           <Skeleton height="100%" radius="lg" />

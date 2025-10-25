@@ -68,7 +68,7 @@ export default function LibraryPage() {
 
   if (error) {
     return (
-      <div className="space-y-4 p-6">
+      <div className="space-y-4">
         <h1 className="text-2xl font-semibold">Library</h1>
         <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4">
           <p className="text-destructive font-medium">Failed to load library</p>
@@ -79,7 +79,7 @@ export default function LibraryPage() {
   }
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6">
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold">Library</h1>

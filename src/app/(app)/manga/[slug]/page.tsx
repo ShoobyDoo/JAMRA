@@ -13,6 +13,7 @@ import { decodeRouteParam, type MangaRouteParams } from "@/lib/routes";
 import { logger } from "@/lib/logger";
 import { resolveCoverSources } from "@/lib/cover-sources";
 import { AutoRefreshImage } from "@/components/ui/auto-refresh-image";
+import { MangaDetailsDevInfo } from "@/components/dev/manga-details-dev-info";
 
 interface MangaPageProps {
   params: Promise<MangaRouteParams>;
@@ -48,7 +49,7 @@ export default async function MangaPage({ params }: MangaPageProps) {
     resolveCoverSources(details);
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6">
       <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
         <div className="relative aspect-[3/4] w-full max-w-xs shrink-0 overflow-hidden rounded-lg border border-border bg-muted">
           {coverPrimary ? (
@@ -170,6 +171,12 @@ export default async function MangaPage({ params }: MangaPageProps) {
           ) : null}
         </div>
       </div>
+
+      <MangaDetailsDevInfo
+        mangaId={mangaId}
+        extensionId={data.extensionId ?? ""}
+        details={details}
+      />
 
       <OfflineMangaProvider
         extensionId={data.extensionId}

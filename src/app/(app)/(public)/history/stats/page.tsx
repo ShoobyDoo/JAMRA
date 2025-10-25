@@ -15,7 +15,7 @@ export default function HistoryStatsPage() {
 
   if (error) {
     return (
-      <div className="space-y-4 p-6">
+      <div className="space-y-4">
         <h1 className="text-2xl font-semibold">Reading Statistics</h1>
         <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4">
           <p className="text-destructive font-medium">
@@ -28,7 +28,7 @@ export default function HistoryStatsPage() {
   }
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6">
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold">Reading Statistics</h1>

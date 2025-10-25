@@ -7,6 +7,7 @@ import { slugify } from "@/lib/slug";
 import { AutoRefreshImage } from "@/components/ui/auto-refresh-image";
 import { resolveCoverSources } from "@/lib/cover-sources";
 import { Badge } from "@mantine/core";
+import { DevBadge } from "@/components/dev/dev-badge";
 
 interface LibraryCardProps {
   entry: EnrichedLibraryEntry;
@@ -29,7 +30,7 @@ const STATUS_LABELS = {
   dropped: "Dropped",
 };
 
-export function LibraryCard({ entry, priority = false }: LibraryCardProps) {
+export function LibraryCard({ entry }: LibraryCardProps) {
   const {
     manga,
     mangaId,
@@ -49,17 +50,16 @@ export function LibraryCard({ entry, priority = false }: LibraryCardProps) {
       coverUrls: manga.coverUrls ?? undefined,
     });
 
-  // Calculate progress
   const progress = totalChapters > 0 ? (readChapters / totalChapters) * 100 : 0;
   const isComplete = readChapters > 0 && readChapters === totalChapters;
 
   return (
     <Link
       href={`/manga/${encodeURIComponent(destination)}`}
-      className="group relative overflow-hidden rounded-lg border border-border bg-card shadow-sm transition hover:shadow-md"
+      className="group relative overflow-hidden rounded-lg border border-border bg-card shadow-sm transition hover:shadow-md hover:border-primary/30"
     >
-      {/* Cover Image */}
-      <div className="relative aspect-[2/3] overflow-hidden bg-muted">
+      {/* Cover */}
+      <div className="relative aspect-2/3 overflow-hidden bg-muted">
         {coverPrimary ? (
           <AutoRefreshImage
             src={coverPrimary}
@@ -70,7 +70,6 @@ export function LibraryCard({ entry, priority = false }: LibraryCardProps) {
             sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
             mangaId={mangaId}
             extensionId={extensionId}
-            priority={priority}
           />
         ) : (
           <div className="flex h-full items-center justify-center text-muted-foreground">
@@ -79,6 +78,7 @@ export function LibraryCard({ entry, priority = false }: LibraryCardProps) {
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
+              aria-hidden
             >
               <path
                 strokeLinecap="round"
@@ -90,12 +90,32 @@ export function LibraryCard({ entry, priority = false }: LibraryCardProps) {
           </div>
         )}
 
-        {/* Favorite Badge */}
-        {favorite && (
-          <div className="absolute top-2 right-2 rounded-full bg-red-500/90 p-1.5 shadow-lg">
-            <Heart className="h-4 w-4 text-white fill-white" />
-          </div>
-        )}
+        {/* Favorite Badge & Dev Badge */}
+        <div className="absolute top-2 right-2 flex gap-1">
+          {favorite && (
+            <div className="rounded-full bg-red-500/90 p-1.5 shadow-lg">
+              <Heart className="h-4 w-4 text-white fill-white" />
+            </div>
+          )}
+          <DevBadge
+            label="Library Item Debug Info"
+            info={[
+              { label: "Manga ID", value: mangaId, copyable: true },
+              { label: "Extension ID", value: extensionId, copyable: true },
+              ...(coverPrimary
+                ? [
+                    {
+                      label: "Cover URL",
+                      value: coverPrimary,
+                      copyable: true,
+                      clickable: true,
+                      url: coverPrimary,
+                    },
+                  ]
+                : []),
+            ]}
+          />
+        </div>
 
         {/* Status Badge */}
         <div className="absolute top-2 left-2">
@@ -104,17 +124,31 @@ export function LibraryCard({ entry, priority = false }: LibraryCardProps) {
           </Badge>
         </div>
 
-        {/* Title with Backdrop Blur */}
-        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-black/40 backdrop-blur-md [-webkit-backdrop-filter:blur(12px)] p-3">
-          <h3 className="font-semibold text-sm line-clamp-2 text-white group-hover:text-white transition-colors">
-            {manga.title}
-          </h3>
+        {/* Title band (gradient-only by default; stable height + dithered top fade) */}
+        <div className="inset-x-0 bottom-0 p-3 bg-linear-to-t from-black/80 via-black/40 to-transparent absolute">
+          {/* Dithered fade at top edge to melt into the cover */}
+          <div
+            aria-hidden
+            className="
+              pointer-events-none absolute left-0 right-0 top-0 h-6
+              mask-[linear-gradient(to_bottom,black,transparent)]
+              mask-no-repeat mask-size-[100%_100%]
+              bg-[url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2224%22><filter id=%22n%22><feTurbulence type=%22fractalNoise%22 baseFrequency=%220.8%22 numOctaves=%221%22 stitchTiles=%22stitch%22/></filter><rect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23n)%22 opacity=%220.05%22/></svg>')]
+            "
+          />
+          <div className="min-h-14">
+            <h3
+              className="text-sm font-semibold leading-tight line-clamp-2 text-white group-hover:text-white transition-colors"
+              title={manga.title}
+            >
+              {manga.title}
+            </h3>
+          </div>
         </div>
       </div>
 
       {/* Content */}
       <div className="p-2 space-y-1">
-
         {/* Rating */}
         {personalRating && (
           <div className="flex items-center gap-1 text-xs text-muted-foreground">
@@ -134,7 +168,9 @@ export function LibraryCard({ entry, priority = false }: LibraryCardProps) {
             </div>
             <div className="h-1 overflow-hidden rounded-full bg-muted">
               <div
-                className={`h-full transition-all ${isComplete ? "bg-green-500" : "bg-primary"}`}
+                className={`h-full transition-all ${
+                  isComplete ? "bg-green-500" : "bg-primary"
+                }`}
                 style={{ width: `${progress}%` }}
               />
             </div>

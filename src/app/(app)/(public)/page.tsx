@@ -11,7 +11,9 @@ import { logger } from "@/lib/logger";
 import type { EnrichedReadingProgress } from "@/lib/api";
 
 export default function HomePage() {
-  const [enrichedHistory, setEnrichedHistory] = useState<EnrichedReadingProgress[]>([]);
+  const [enrichedHistory, setEnrichedHistory] = useState<
+    EnrichedReadingProgress[]
+  >([]);
   const [isLoading, setIsLoading] = useState(true);
   const [viewMode, setViewMode] = useState<"card" | "list">("card");
 
@@ -57,7 +59,7 @@ export default function HomePage() {
 
   if (isLoading) {
     return (
-      <div className="space-y-4 p-4">
+      <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
             <Skeleton height={32} width={200} />
@@ -76,7 +78,7 @@ export default function HomePage() {
 
   if (enrichedHistory.length === 0) {
     return (
-      <div className="space-y-4 p-4">
+      <div className="space-y-4">
         <div>
           <h1 className="text-2xl font-semibold">Continue Reading</h1>
           <p className="text-muted-foreground">
@@ -103,14 +105,14 @@ export default function HomePage() {
 
   // Separate available and unavailable manga
   const availableManga = enrichedHistory.filter(
-    (item) => !item.error && item.manga,
+    (item) => !item.error && item.manga
   );
   const unavailableManga = enrichedHistory.filter(
-    (item) => item.error || !item.manga,
+    (item) => item.error || !item.manga
   );
 
   return (
-    <div className="space-y-6 p-4">
+    <div className="space-y-6">
       {/* Available Manga Section */}
       {availableManga.length > 0 && (
         <div className="space-y-3">
@@ -149,7 +151,13 @@ export default function HomePage() {
             />
           </div>
 
-          <div className={viewMode === "list" ? "space-y-2" : "grid gap-3 grid-cols-[repeat(auto-fill,minmax(320px,1fr))]"}>
+          <div
+            className={
+              viewMode === "list"
+                ? "space-y-2"
+                : "grid gap-3 grid-cols-[repeat(auto-fill,minmax(320px,1fr))]"
+            }
+          >
             {availableManga.map((item, index) => (
               <ContinueReadingCard
                 key={`${item.mangaId}:${item.chapterId}`}
@@ -182,7 +190,13 @@ export default function HomePage() {
             </p>
           </div>
 
-          <div className={viewMode === "list" ? "space-y-2" : "grid gap-3 grid-cols-[repeat(auto-fill,minmax(320px,1fr))]"}>
+          <div
+            className={
+              viewMode === "list"
+                ? "space-y-2"
+                : "grid gap-3 grid-cols-[repeat(auto-fill,minmax(320px,1fr))]"
+            }
+          >
             {unavailableManga.map((item) => (
               <ContinueReadingCard
                 key={`${item.mangaId}:${item.chapterId}`}

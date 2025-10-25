@@ -84,7 +84,7 @@ export default function HistoryPage() {
 
   if (error) {
     return (
-      <div className="space-y-4 p-6">
+      <div className="space-y-4">
         <h1 className="text-2xl font-semibold">History</h1>
         <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4">
           <p className="text-destructive font-medium">Failed to load history</p>
@@ -95,7 +95,7 @@ export default function HistoryPage() {
   }
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>

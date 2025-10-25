@@ -16,7 +16,7 @@ import {
 } from "@mantine/core";
 import { modals } from "@mantine/modals";
 import { notifications } from "@mantine/notifications";
-import { AlertTriangle, RefreshCw, Sidebar } from "lucide-react";
+import { AlertTriangle, RefreshCw, Sidebar, Code } from "lucide-react";
 import {
   nukeUserData,
   updateCacheSettings,
@@ -25,6 +25,7 @@ import {
 import { useUIStore, MIN_SIDEBAR_WIDTH, MAX_SIDEBAR_WIDTH } from "@/store/ui";
 import { useSettingsStore } from "@/store/settings";
 import { CACHE_DEFAULTS } from "@/lib/constants";
+import { showNotificationWithProgress } from "@/lib/notification-utils";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -39,6 +40,8 @@ export default function SettingsPage() {
   const setSidebarWidth = useUIStore((state) => state.setSidebarWidth);
   const imageCache = useSettingsStore((state) => state.imageCache);
   const setImageCache = useSettingsStore((state) => state.setImageCache);
+  const devModeEnabled = useSettingsStore((state) => state.devModeEnabled);
+  const setDevModeEnabled = useSettingsStore((state) => state.setDevModeEnabled);
   const applyServerImageCacheSettings = useSettingsStore(
     (state) => state.applyServerImageCacheSettings,
   );
@@ -98,10 +101,11 @@ export default function SettingsPage() {
         maxEntries: settings.maxEntries,
       });
 
-      notifications.show({
+      showNotificationWithProgress({
         title: "Cache settings saved",
         message: "Cover caching preferences updated successfully.",
         color: "green",
+        autoClose: 3000,
       });
     } catch (error) {
       notifications.show({
@@ -138,10 +142,11 @@ export default function SettingsPage() {
         ttlDays: settings.ttlMs / DAY_MS,
         maxEntries: settings.maxEntries,
       });
-      notifications.show({
+      showNotificationWithProgress({
         title: "Cache settings synced",
         message: "Pulled the latest settings from the API.",
         color: "blue",
+        autoClose: 3000,
       });
     } catch (error) {
       notifications.show({
@@ -241,7 +246,7 @@ export default function SettingsPage() {
   };
 
   return (
-    <Stack gap="xl" p="xl" maw={900} mx="auto">
+    <Stack gap="xl" maw={900} mx="auto">
       <Stack gap="xs">
         <Title order={1}>Settings</Title>
         <Text c="dimmed">
@@ -316,7 +321,7 @@ export default function SettingsPage() {
             onChange={(event) =>
               setCacheForm((prev) => ({
                 ...prev,
-                enabled: event.currentTarget.checked,
+                enabled: event.currentTarget?.checked ?? !prev.enabled,
               }))
             }
             label="Enable cover image caching"
@@ -390,6 +395,49 @@ export default function SettingsPage() {
 
           <Alert color={cacheForm.enabled ? "green" : "gray"}>
             <Text size="sm">{cacheSummary}</Text>
+          </Alert>
+        </Stack>
+      </Paper>
+
+      <Paper withBorder p="lg" radius="md">
+        <Stack gap="md">
+          <div>
+            <Group gap="xs" mb="xs">
+              <Code size={20} />
+              <Title order={2} size="h3">
+                Developer Options
+              </Title>
+            </Group>
+            <Text size="sm" c="dimmed">
+              Enable debugging features for development and troubleshooting.
+            </Text>
+          </div>
+
+          <Switch
+            checked={devModeEnabled}
+            onChange={(event) => {
+              const newValue = event.currentTarget?.checked ?? !devModeEnabled;
+              setDevModeEnabled(newValue);
+              showNotificationWithProgress({
+                title: newValue ? "Developer mode enabled" : "Developer mode disabled",
+                message: newValue
+                  ? "Debug information is now visible throughout the app"
+                  : "Debug information has been hidden",
+                color: newValue ? "blue" : "gray",
+                autoClose: 3000,
+              });
+            }}
+            label="Enable Developer Mode"
+            description="Shows extension metadata, source URLs, cache information, and other debugging details throughout the app"
+          />
+
+          <Alert color="blue" title="Developer Mode">
+            <Text size="sm">
+              When enabled, you&apos;ll see debug badges and information on manga
+              pages, cards, chapters, and the reader. This includes extension IDs,
+              source URLs, cache status, and direct links to compare with source
+              websites.
+            </Text>
           </Alert>
         </Stack>
       </Paper>

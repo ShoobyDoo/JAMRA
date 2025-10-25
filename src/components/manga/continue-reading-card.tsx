@@ -11,6 +11,7 @@ import { formatChapterTitle, sortChaptersAsc } from "@/lib/chapter-meta";
 import { AutoRefreshImage } from "@/components/ui/auto-refresh-image";
 import { resolveCoverSources } from "@/lib/cover-sources";
 import { formatTimeAgo } from "@/lib/time";
+import { DevBadge } from "@/components/dev/dev-badge";
 
 interface ContinueReadingCardProps {
   manga: MangaDetails | null;
@@ -177,16 +178,40 @@ export function ContinueReadingCard({
           </div>
         </Link>
 
-        {/* Details button - absolute positioned */}
-        <Tooltip label="View manga details" position="left" withArrow>
-          <Link
-            href={`/manga/${encodeURIComponent(destination)}`}
-            className="absolute top-2 right-2 z-10 flex items-center gap-1 px-2 py-1 rounded bg-background/95 backdrop-blur-sm border border-border hover:bg-primary/10 hover:border-primary/50 hover:text-primary transition-all shadow-sm text-xs font-medium"
-          >
-            <BookOpen className="h-3 w-3" />
-            <span className="sr-only">Details</span>
-          </Link>
-        </Tooltip>
+        {/* Details button & Dev Badge - absolute positioned */}
+        <div className="absolute top-2 right-2 z-10 flex gap-1">
+          <DevBadge
+            label="Continue Reading Debug Info"
+            info={[
+              { label: "Manga ID", value: mangaId, copyable: true },
+              ...(extensionId
+                ? [{ label: "Extension ID", value: extensionId, copyable: true }]
+                : []),
+              { label: "Chapter ID", value: currentChapterId, copyable: true },
+              ...(coverPrimary
+                ? [
+                    {
+                      label: "Cover URL",
+                      value: coverPrimary,
+                      copyable: true,
+                      clickable: true,
+                      url: coverPrimary,
+                    },
+                  ]
+                : []),
+            ]}
+            position="left"
+          />
+          <Tooltip label="View manga details" position="left" withArrow>
+            <Link
+              href={`/manga/${encodeURIComponent(destination)}`}
+              className="flex items-center gap-1 px-2 py-1 rounded bg-background/95 backdrop-blur-sm border border-border hover:bg-primary/10 hover:border-primary/50 hover:text-primary transition-all shadow-sm text-xs font-medium"
+            >
+              <BookOpen className="h-3 w-3" />
+              <span className="sr-only">Details</span>
+            </Link>
+          </Tooltip>
+        </div>
       </div>
     );
   }
@@ -263,8 +288,30 @@ export function ContinueReadingCard({
         </div>
       </Link>
 
-      {/* Details Button - Top right corner */}
-      <div className="absolute top-2 right-2 z-10">
+      {/* Details Button & Dev Badge - Top right corner */}
+      <div className="absolute top-2 right-2 z-10 flex gap-1">
+        <DevBadge
+          label="Continue Reading Debug Info"
+          info={[
+            { label: "Manga ID", value: mangaId, copyable: true },
+            ...(extensionId
+              ? [{ label: "Extension ID", value: extensionId, copyable: true }]
+              : []),
+            { label: "Chapter ID", value: currentChapterId, copyable: true },
+            ...(coverPrimary
+              ? [
+                  {
+                    label: "Cover URL",
+                    value: coverPrimary,
+                    copyable: true,
+                    clickable: true,
+                    url: coverPrimary,
+                  },
+                ]
+              : []),
+          ]}
+          position="left"
+        />
         <Tooltip label="View manga details" position="left" withArrow>
           <Link
             href={`/manga/${encodeURIComponent(destination)}`}

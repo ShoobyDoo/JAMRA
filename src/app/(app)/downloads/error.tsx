@@ -19,7 +19,7 @@ export default function DownloadsError({
   }, [error]);
 
   return (
-    <div className="flex min-h-[50vh] items-center justify-center p-6">
+    <div className="flex min-h-[50vh] items-center justify-center">
       <Stack align="center" gap="md" className="text-center">
         <AlertTriangle className="h-10 w-10 text-destructive" />
         <Title order={3}>Downloads unavailable</Title>
