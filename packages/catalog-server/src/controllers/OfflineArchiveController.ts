@@ -10,6 +10,7 @@ import { handleError as handleAppError } from "../middleware/errorHandler.js";
 import { access, constants as fsConstants, unlink } from "node:fs/promises";
 import * as path from "node:path";
 import { archiveManga } from "@jamra/offline-storage";
+import { validateFilename, validatePath } from "../utils/security.js";
 
 export class OfflineArchiveController {
   constructor(private readonly deps: ServerDependencies) {}
@@ -47,7 +48,7 @@ export class OfflineArchiveController {
         return;
       }
 
-      console.log("[OfflineAPI] archive manga", { itemCount: items.length });
+      console.log("[OfflineAPI] archive manga, items: %d", items.length);
 
       // Create archives directory if it doesn't exist
       const archivesDir = path.join(this.deps.dataRoot, ".archives");
@@ -141,17 +142,23 @@ export class OfflineArchiveController {
     try {
       const { filename } = req.params;
 
-      // Validate filename (prevent directory traversal)
-      if (filename.includes("..") || filename.includes("/")) {
-        res.status(400).json({ error: "Invalid filename" });
+      // Validate filename using security utility (prevent directory traversal)
+      try {
+        validateFilename(filename);
+      } catch (error) {
+        res.status(400).json({ error: error instanceof Error ? error.message : "Invalid filename" });
         return;
       }
 
-      const archivePath = path.join(
-        this.deps.dataRoot,
-        ".archives",
-        filename,
-      );
+      // Construct and validate the full archive path
+      const archivesDir = path.join(this.deps.dataRoot, ".archives");
+      let archivePath: string;
+      try {
+        archivePath = validatePath(archivesDir, filename);
+      } catch {
+        res.status(400).json({ error: "Path validation failed" });
+        return;
+      }
 
       // Check if file exists
       try {
@@ -161,7 +168,7 @@ export class OfflineArchiveController {
         return;
       }
 
-      console.log("[OfflineAPI] download archive", { filename });
+      console.log("[OfflineAPI] download archive %s", filename);
 
       // Set headers for download
       res.setHeader("Content-Type", "application/zip");
@@ -185,10 +192,7 @@ export class OfflineArchiveController {
         return;
       }
 
-      console.log("[OfflineAPI] validate import archive", {
-        filename: req.file.originalname,
-        size: req.file.size,
-      });
+      console.log("[OfflineAPI] validate import archive %s (size: %d)", req.file.originalname, req.file.size);
 
       const { validateArchive } = await import("@jamra/offline-storage");
       const validation = await validateArchive(req.file.path);
@@ -220,11 +224,7 @@ export class OfflineArchiveController {
 
       const conflictResolution = (req.body.conflictResolution || "skip") as "skip" | "overwrite" | "rename";
 
-      console.log("[OfflineAPI] import archive", {
-        filename: req.file.originalname,
-        size: req.file.size,
-        conflictResolution,
-      });
+      console.log("[OfflineAPI] import archive %s (size: %d, resolution: %s)", req.file.originalname, req.file.size, conflictResolution);
 
       // Set up SSE
       res.setHeader("Content-Type", "text/event-stream");

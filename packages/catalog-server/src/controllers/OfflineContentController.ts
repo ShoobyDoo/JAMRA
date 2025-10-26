@@ -8,6 +8,7 @@ import type { Request, Response } from "express";
 import type { ServerDependencies } from "../types/server-dependencies.js";
 import { handleError as handleAppError } from "../middleware/errorHandler.js";
 import { getQueryParam } from "../utils/request-helpers.js";
+import { validateFilename, validateSlug } from "../utils/security.js";
 
 export class OfflineContentController {
   constructor(private readonly deps: ServerDependencies) {}
@@ -54,10 +55,7 @@ export class OfflineContentController {
         return;
       }
 
-      console.log("[OfflineAPI] get offline metadata", {
-        extensionId,
-        mangaId: req.params.mangaId,
-      });
+      console.log("[OfflineAPI] get offline metadata %s %s", extensionId, req.params.mangaId);
       const metadata = await this.deps.downloadWorker.getMangaMetadata(
         extensionId,
         req.params.mangaId,
@@ -93,10 +91,7 @@ export class OfflineContentController {
         return;
       }
 
-      console.log("[OfflineAPI] list offline chapters", {
-        extensionId,
-        mangaId: req.params.mangaId,
-      });
+      console.log("[OfflineAPI] list offline chapters %s %s", extensionId, req.params.mangaId);
       const chapters = await this.deps.downloadWorker.getDownloadedChapters(
         extensionId,
         req.params.mangaId,
@@ -165,11 +160,7 @@ export class OfflineContentController {
         return;
       }
 
-      console.log("[OfflineAPI] check chapter status", {
-        extensionId,
-        mangaId: req.params.mangaId,
-        chapterId: req.params.chapterId,
-      });
+      console.log("[OfflineAPI] check chapter status %s %s %s", extensionId, req.params.mangaId, req.params.chapterId);
       const isDownloaded = await this.deps.downloadWorker.isChapterDownloaded(
         extensionId,
         req.params.mangaId,
@@ -201,11 +192,7 @@ export class OfflineContentController {
         return;
       }
 
-      console.log("[OfflineAPI] delete chapter", {
-        extensionId,
-        mangaId: req.params.mangaId,
-        chapterId: req.params.chapterId,
-      });
+      console.log("[OfflineAPI] delete chapter %s %s %s", extensionId, req.params.mangaId, req.params.chapterId);
       await this.deps.downloadWorker.deleteChapter(
         extensionId,
         req.params.mangaId,
@@ -241,10 +228,7 @@ export class OfflineContentController {
         return;
       }
 
-      console.log("[OfflineAPI] delete manga", {
-        extensionId,
-        mangaId: req.params.mangaId,
-      });
+      console.log("[OfflineAPI] delete manga %s %s", extensionId, req.params.mangaId);
       await this.deps.downloadWorker.deleteManga(extensionId, req.params.mangaId);
 
       res.status(204).end();
@@ -271,7 +255,16 @@ export class OfflineContentController {
       const { extensionId, mangaId } = req.params;
       const updates = req.body;
 
-      console.log("[OfflineAPI] update metadata", { extensionId, mangaId, updates });
+      console.log("[OfflineAPI] update metadata %s %s", extensionId, mangaId);
+
+      // Validate extensionId and mangaId to prevent path traversal
+      try {
+        validateSlug(extensionId);
+        validateSlug(mangaId);
+      } catch {
+        res.status(400).json({ error: "Invalid extensionId or mangaId" });
+        return;
+      }
 
       // Validate that we have at least one field to update
       const allowedFields = ["title", "description", "authors", "artists"];
@@ -293,9 +286,9 @@ export class OfflineContentController {
         return;
       }
 
-      // Build path to metadata file
+      // Build path to metadata file (validated paths)
       const path = await import("node:path");
-      const metadataPath = path.default.join(this.deps.dataRoot, extensionId, mangaId, "metadata.json");
+      const metadataPath = path.default.join(this.deps.dataRoot, "offline", extensionId, mangaId, "metadata.json");
 
       // Update metadata with new values (only update provided fields)
       const updatedMetadata = {
@@ -340,10 +333,7 @@ export class OfflineContentController {
         return;
       }
 
-      console.log("[OfflineAPI] validate manga", {
-        extensionId,
-        mangaId: req.params.mangaId,
-      });
+      console.log("[OfflineAPI] validate manga %s %s", extensionId, req.params.mangaId);
       const result = await this.deps.downloadWorker.validateMangaChapterCount(
         extensionId,
         req.params.mangaId,
@@ -367,11 +357,16 @@ export class OfflineContentController {
       }
 
       const { mangaId, chapterId, filename } = req.params;
-      console.log("[OfflineAPI] get page path", {
-        mangaId,
-        chapterId,
-        filename,
-      });
+      console.log("[OfflineAPI] get page path %s %s %s", mangaId, chapterId, filename);
+
+      // Validate filename to prevent directory traversal
+      try {
+        validateFilename(filename);
+      } catch {
+        res.status(400).json({ error: "Invalid filename" });
+        return;
+      }
+
       const pagePath = await this.deps.downloadWorker.getPagePath(
         mangaId,
         chapterId,

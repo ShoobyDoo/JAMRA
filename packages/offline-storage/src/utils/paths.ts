@@ -133,11 +133,34 @@ export function buildPagePath(
 
 /**
  * Sanitizes a slug to be filesystem-safe
+ * Enhanced to be more restrictive and prevent path traversal attacks
  */
 export function sanitizeSlug(slug: string): string {
-  return slug
+  // Remove any null bytes
+  let sanitized = slug.replace(/\0/g, "");
+
+  // Convert to lowercase and replace non-alphanumeric characters (except hyphens) with hyphens
+  sanitized = sanitized
     .toLowerCase()
     .replace(/[^a-z0-9-]/g, "-")
     .replace(/-+/g, "-")
     .replace(/^-|-$/g, "");
+
+  // Additional safety: reject if the slug contains directory traversal patterns
+  // This should never happen after the above replacements, but adds an extra layer of security
+  if (sanitized.includes("..") || sanitized.includes("/") || sanitized.includes("\\")) {
+    throw new Error("Slug contains invalid characters");
+  }
+
+  // Ensure the slug is not empty after sanitization
+  if (!sanitized || sanitized.length === 0) {
+    throw new Error("Slug cannot be empty after sanitization");
+  }
+
+  // Limit length to prevent filesystem issues
+  if (sanitized.length > 200) {
+    sanitized = sanitized.slice(0, 200);
+  }
+
+  return sanitized;
 }

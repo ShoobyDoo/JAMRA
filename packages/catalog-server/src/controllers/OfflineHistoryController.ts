@@ -29,7 +29,7 @@ export class OfflineHistoryController {
       const limit = req.query.limit
         ? Number.parseInt(req.query.limit as string, 10)
         : undefined;
-      console.log("[OfflineAPI] get history", { limit });
+      console.log("[OfflineAPI] get history, limit: %s", limit !== undefined ? limit : "none");
       const history = await this.deps.downloadWorker.getDownloadHistory(limit);
 
       res.json({ history });
@@ -55,7 +55,7 @@ export class OfflineHistoryController {
         return;
       }
 
-      console.log("[OfflineAPI] delete history item", { historyId });
+      console.log("[OfflineAPI] delete history item %d", historyId);
       await this.deps.downloadWorker.deleteHistoryItem(historyId);
 
       res.json({ success: true });

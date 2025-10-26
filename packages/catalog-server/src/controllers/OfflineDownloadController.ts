@@ -36,11 +36,7 @@ export class OfflineDownloadController {
         return;
       }
 
-      console.log("[OfflineAPI] queue-chapter request", {
-        extensionId,
-        mangaId,
-        chapterId,
-      });
+      console.log("[OfflineAPI] queue-chapter request %s %s %s", extensionId, mangaId, chapterId);
       const queueId = await this.deps.downloadWorker.queueChapterDownload(
         extensionId,
         mangaId,
@@ -48,7 +44,7 @@ export class OfflineDownloadController {
         { priority: priority ?? 0 },
       );
 
-      console.log("[OfflineAPI] queue-chapter success", { queueId });
+      console.log("[OfflineAPI] queue-chapter success %d", queueId);
       res.status(201).json({ queueId, success: true });
     } catch (error) {
       if (
@@ -82,20 +78,14 @@ export class OfflineDownloadController {
         return;
       }
 
-      console.log("[OfflineAPI] queue-manga request", {
-        extensionId,
-        mangaId,
-        chapterCount: Array.isArray(chapterIds) ? chapterIds.length : "all",
-      });
+      console.log("[OfflineAPI] queue-manga request %s %s (chapters: %s)", extensionId, mangaId, Array.isArray(chapterIds) ? chapterIds.length : "all");
       const queueIds = await this.deps.downloadWorker.queueMangaDownload(
         extensionId,
         mangaId,
         { chapterIds, priority: priority ?? 0 },
       );
 
-      console.log("[OfflineAPI] queue-manga success", {
-        queueIds,
-      });
+      console.log("[OfflineAPI] queue-manga success, queued: %d", queueIds.length);
       res.status(201).json({ queueIds, success: true });
     } catch (error) {
       this.handleError(res, error, "Failed to queue manga download");
@@ -115,7 +105,7 @@ export class OfflineDownloadController {
 
       console.log("[OfflineAPI] get queue request");
       const queue = await this.deps.downloadWorker.getQueuedDownloads();
-      console.log("[OfflineAPI] get queue response", { size: queue.length });
+      console.log("[OfflineAPI] get queue response, size: %d", queue.length);
       res.json({ queue });
     } catch (error) {
       this.handleError(res, error, "Failed to get download queue");
@@ -139,7 +129,7 @@ export class OfflineDownloadController {
         return;
       }
 
-      console.log("[OfflineAPI] get queue item", { queueId });
+      console.log("[OfflineAPI] get queue item %d", queueId);
       const progress = await this.deps.downloadWorker.getDownloadProgress(queueId);
 
       if (!progress) {
@@ -147,10 +137,7 @@ export class OfflineDownloadController {
         return;
       }
 
-      console.log("[OfflineAPI] get queue item success", {
-        queueId,
-        status: progress.status,
-      });
+      console.log("[OfflineAPI] get queue item success %d (status: %s)", queueId, progress.status);
       res.json({ progress });
     } catch (error) {
       this.handleError(res, error, "Failed to get download progress");
@@ -174,7 +161,7 @@ export class OfflineDownloadController {
         return;
       }
 
-      console.log("[OfflineAPI] cancel queue", { queueId });
+      console.log("[OfflineAPI] cancel queue %d", queueId);
       await this.deps.downloadWorker.cancelDownload(queueId);
 
       res.json({ success: true });
@@ -211,7 +198,7 @@ export class OfflineDownloadController {
         return;
       }
 
-      console.log("[OfflineAPI] retry queue", { queueId });
+      console.log("[OfflineAPI] retry queue %d", queueId);
       await this.deps.downloadWorker.retryDownload(queueId);
 
       res.json({ success: true });
@@ -274,7 +261,7 @@ export class OfflineDownloadController {
         res.write(`event: ${event.type}\n`);
         res.write(`data: ${JSON.stringify(event)}\n\n`);
       } catch (error) {
-        console.error("Error writing SSE event:", error);
+        console.error("Error writing SSE event: %s", String(error));
       }
     });
 
@@ -284,7 +271,7 @@ export class OfflineDownloadController {
         res.write("event: heartbeat\n");
         res.write(`data: ${JSON.stringify({ timestamp: Date.now() })}\n\n`);
       } catch (error) {
-        console.error("Error sending heartbeat:", error);
+        console.error("Error sending heartbeat: %s", String(error));
         clearInterval(heartbeat);
       }
     }, SERVER_CONFIG.SSE_HEARTBEAT_INTERVAL_MS);

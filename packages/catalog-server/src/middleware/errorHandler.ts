@@ -12,8 +12,8 @@ export function errorHandler(
 ) {
   const appError = toAppError(error);
 
-  // Log error details
-  console.error(`[${appError.code}] ${appError.message}`, {
+  // Log error details (using format string to prevent injection)
+  console.error("[%s] %s", appError.code, appError.message, {
     path: req.path,
     method: req.method,
     ...(appError.cause instanceof Error && { cause: appError.cause.message }),
@@ -53,9 +53,9 @@ export function handleError(
       ? appError.cause.message
       : String(appError.cause);
 
-  console.error(fallbackMessage, detail);
+  console.error("%s %s", fallbackMessage, detail);
   if (appError.cause instanceof Error && appError.cause.stack) {
-    console.error("Stack trace:", appError.cause.stack);
+    console.error("Stack trace: %s", appError.cause.stack);
   }
 
   // Build response object

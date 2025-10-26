@@ -69,7 +69,7 @@ export class OfflineStorageController {
         res.json(settings);
       } catch (error) {
         // Return defaults if settings file doesn't exist (expected on first run)
-        console.log(`[OfflineStorageController] Settings file not found, using defaults: ${error instanceof Error ? error.message : String(error)}`);
+        console.log("[OfflineStorageController] Settings file not found, using defaults: %s", error instanceof Error ? error.message : String(error));
         res.json({
           maxStorageGB: 10,
           autoCleanupEnabled: false,
@@ -90,7 +90,7 @@ export class OfflineStorageController {
     try {
       const settings = req.body;
 
-      console.log("[OfflineAPI] update storage settings", settings);
+      console.log("[OfflineAPI] update storage settings");
 
       // Validate settings
       if (typeof settings.maxStorageGB !== "number" || settings.maxStorageGB <= 0) {

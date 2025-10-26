@@ -31,7 +31,7 @@ export class OfflineSchedulerController {
         res.json(settings);
       } catch (error) {
         // Return defaults if settings file doesn't exist (expected on first run)
-        console.log(`[OfflineSchedulerController] Settings file not found, using defaults: ${error instanceof Error ? error.message : String(error)}`);
+        console.log("[OfflineSchedulerController] Settings file not found, using defaults: %s", error instanceof Error ? error.message : String(error));
         res.json({
           enabled: false,
           allowedStartHour: 0,
@@ -53,7 +53,7 @@ export class OfflineSchedulerController {
     try {
       const settings = req.body;
 
-      console.log("[OfflineAPI] update scheduler settings", settings);
+      console.log("[OfflineAPI] update scheduler settings");
 
       // Validate settings
       if (typeof settings.enabled !== "boolean") {

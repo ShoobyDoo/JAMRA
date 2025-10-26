@@ -186,8 +186,9 @@ export class ReadingProgressController {
             }
           } catch (error) {
             console.error(
-              `Failed to hydrate manga ${mangaId} for reading progress`,
-              error,
+              "Failed to hydrate manga %s for reading progress: %s",
+              mangaId,
+              String(error),
             );
             result.error =
               error instanceof Error ? error.message : String(error);

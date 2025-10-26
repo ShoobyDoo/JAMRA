@@ -127,14 +127,15 @@ export class CatalogController {
                     })
                     .catch((error) => {
                       console.warn(
-                        `Failed to prefetch cover for ${item.id}`,
-                        error,
+                        "Failed to prefetch cover for %s: %s",
+                        item.id,
+                        String(error),
                       );
                     });
                 }
               }
             } catch (error) {
-              console.warn(`Failed to read cover cache for ${item.id}`, error);
+              console.warn("Failed to read cover cache for %s: %s", item.id, String(error));
             }
           }
         }
@@ -149,8 +150,8 @@ export class CatalogController {
           );
         } catch (error) {
           console.warn(
-            "Failed to cache catalogue items for slug lookup",
-            error,
+            "Failed to cache catalogue items for slug lookup: %s",
+            String(error),
           );
         }
       }

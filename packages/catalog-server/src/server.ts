@@ -83,7 +83,7 @@ export async function startCatalogServer(
       options.extensionPath ?? process.env.JAMRA_EXTENSION_PATH,
     );
   } catch (error) {
-    console.warn("Failed to resolve bootstrap extension path.", error);
+    console.warn("Failed to resolve bootstrap extension path. %s", String(error));
   }
   const usingCustomBootstrap =
     options.extensionPath !== undefined ||
@@ -100,7 +100,7 @@ export async function startCatalogServer(
       console.warn(
         "Failed to initialize SQLite catalog store. Falling back to in-memory cache.",
       );
-      console.warn(String(error));
+      console.warn("%s", String(error));
       database = undefined;
     }
   }
@@ -133,7 +133,7 @@ export async function startCatalogServer(
     try {
       coverCacheManager.purgeExpired();
     } catch (error) {
-      console.warn("Failed to purge expired cover cache entries", error);
+      console.warn("Failed to purge expired cover cache entries %s", String(error));
     }
   }
 
@@ -198,14 +198,15 @@ export async function startCatalogServer(
               })
               .catch((error) => {
                 console.warn(
-                  `Failed to prefetch cover for ${details.id}`,
-                  error,
+                  "Failed to prefetch cover for %s: %s",
+                  details.id,
+                  String(error),
                 );
               });
           }
         }
       } catch (error) {
-        console.warn(`Failed to resolve cached cover for ${details.id}`, error);
+        console.warn("Failed to resolve cached cover for %s: %s", details.id, String(error));
       }
     }
   };
@@ -227,12 +228,12 @@ export async function startCatalogServer(
   const registrySources = resolveRegistrySources();
   const registryService = new ExtensionRegistryService(registrySources, {
     onError: (error, source) => {
-      console.warn(`Extension registry ${source.url} failed`, error);
+      console.warn("Extension registry %s failed: %s", source.url, String(error));
     },
   });
 
   void registryService.listRegistries().catch((error) => {
-    console.warn("Initial registry fetch failed", error);
+    console.warn("Initial registry fetch failed: %s", String(error));
   });
 
   // Extension ID for bootstrap and worker
@@ -284,26 +285,31 @@ export async function startCatalogServer(
             installed = extensionManager.listExtensions();
           } catch (error) {
             console.warn(
-              `Failed to install bootstrap extension from ${bootstrapExtensionPath}.`,
-              error,
+              "Failed to install bootstrap extension from %s: %s",
+              bootstrapExtensionPath,
+              String(error),
             );
           }
         }
 
         if (explicitId && bootstrapId !== explicitId) {
           console.warn(
-            `Bootstrap extension id ${bootstrapId} did not match expected ${explicitId}.`,
+            "Bootstrap extension id %s did not match expected %s",
+            bootstrapId,
+            explicitId,
           );
         }
       } catch (error) {
         console.warn(
-          `Unable to read bootstrap extension at ${bootstrapExtensionPath}.`,
-          error,
+          "Unable to read bootstrap extension at %s: %s",
+          bootstrapExtensionPath,
+          String(error),
         );
       }
     } else if (bootstrapExtensionPath) {
       console.warn(
-        `Bootstrap extension not found at ${bootstrapExtensionPath}.`,
+        "Bootstrap extension not found at %s",
+        bootstrapExtensionPath,
       );
     }
 
@@ -318,13 +324,16 @@ export async function startCatalogServer(
         installed = extensionManager.listExtensions();
         if (explicitId && installedExtension.id !== explicitId) {
           console.warn(
-            `Bootstrap extension id ${installedExtension.id} did not match expected ${explicitId}.`,
+            "Bootstrap extension id %s did not match expected %s",
+            installedExtension.id,
+            explicitId,
           );
         }
       } catch (error) {
         console.warn(
-          `Failed to bootstrap extension from ${bootstrapExtensionPath}.`,
-          error,
+          "Failed to bootstrap extension from %s: %s",
+          bootstrapExtensionPath,
+          String(error),
         );
       }
     }
@@ -333,7 +342,7 @@ export async function startCatalogServer(
       try {
         await extensionManager.enableExtension(explicitId);
       } catch (error) {
-        console.warn(`Unable to force-enable extension ${explicitId}:`, error);
+        console.warn("Unable to force-enable extension %s: %s", explicitId, String(error));
       }
     }
   }
@@ -362,11 +371,11 @@ export async function startCatalogServer(
           console.log("[OfflineAPI] Download worker reported started");
         })
         .catch((error) => {
-          console.error("Failed to start download worker:", error);
+          console.error("Failed to start download worker: %s", String(error));
         });
       console.log("Offline storage system initialized");
     } catch (error) {
-      console.warn("Failed to initialize offline storage system:", error);
+      console.warn("Failed to initialize offline storage system: %s", String(error));
     }
   }
 
@@ -394,7 +403,10 @@ export async function startCatalogServer(
   const server = await new Promise<Server>((resolve) => {
     const listener = app.listen(port, () => {
       console.log(
-        `Catalog server listening on http://localhost:${port} (node ${process.version}, abi ${process.versions.modules})`,
+        "Catalog server listening on http://localhost:%d (node %s, abi %s)",
+        port,
+        process.version,
+        process.versions.modules,
       );
       resolve(listener);
     });
@@ -407,7 +419,7 @@ export async function startCatalogServer(
       concurrency: 2, // Process 2 manga at a time
       delayMs: 1000, // 1 second between syncs
     }).catch((error) => {
-      console.error("Background metadata sync failed:", error);
+      console.error("Background metadata sync failed: %s", String(error));
     });
   }
 
@@ -436,7 +448,7 @@ if (entryFile) {
   const entryUrl = pathToFileURL(entryFile).href;
   if (entryUrl === import.meta.url) {
     void startCatalogServer().catch((error) => {
-      console.error("Failed to start catalog server", error);
+      console.error("Failed to start catalog server: %s", String(error));
       process.exit(1);
     });
   }
