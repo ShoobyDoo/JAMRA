@@ -61,19 +61,31 @@ export class ElectronLogger {
 
   info(message: string, meta?: unknown): void {
     const entry = this.formatEntry("INFO", message, meta);
-    console.info(message, meta);
+    if (meta !== undefined) {
+      console.info(message, meta);
+    } else {
+      console.info(message);
+    }
     this.buffer.push(entry);
   }
 
   warn(message: string, meta?: unknown): void {
     const entry = this.formatEntry("WARN", message, meta);
-    console.warn(message, meta);
+    if (meta !== undefined) {
+      console.warn(message, meta);
+    } else {
+      console.warn(message);
+    }
     this.buffer.push(entry);
   }
 
   error(message: string, meta?: unknown): void {
     const entry = this.formatEntry("ERROR", message, meta);
-    console.error(message, meta);
+    if (meta !== undefined) {
+      console.error(message, meta);
+    } else {
+      console.error(message);
+    }
     this.buffer.push(entry);
 
     // Also write to error.log

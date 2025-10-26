@@ -129,35 +129,71 @@ app.on("window-all-closed", () => {
 
 let shuttingDown = false;
 
-app.on("before-quit", async (event) => {
+async function shutdown(exitCode = 0): Promise<void> {
   if (shuttingDown) {
     return;
   }
 
-  event.preventDefault();
   shuttingDown = true;
-  logger.info("Shutting down application");
-
-  try {
-    await catalogClose?.();
-    logger.info("Catalog server closed");
-  } catch (error) {
-    logger.error("Failed to close catalog server", { error: String(error) });
-  }
-
-  await new Promise<void>((resolve) => {
-    if (nextServer) {
-      nextServer.close(() => {
-        logger.info("Next.js server closed");
-        resolve();
-      });
-    } else {
-      resolve();
-    }
+  logger.info("Shutting down application", {
+    catalogServer: !!catalogClose,
+    nextServer: !!nextServer,
   });
 
-  // Close logger and flush remaining logs
-  await logger.close();
+  // Set a timeout to force exit if shutdown hangs
+  const forceExitTimeout = setTimeout(() => {
+    console.error("Shutdown timeout exceeded, forcing exit");
+    process.exit(1);
+  }, 10000); // 10 seconds
 
-  app.exit();
+  try {
+    try {
+      await catalogClose?.();
+      logger.info("Catalog server closed");
+    } catch (error) {
+      logger.error("Failed to close catalog server", { error: String(error) });
+    }
+
+    await new Promise<void>((resolve) => {
+      if (nextServer) {
+        nextServer.close(() => {
+          logger.info("Next.js server closed");
+          resolve();
+        });
+      } else {
+        resolve();
+      }
+    });
+
+    // Close logger and flush remaining logs
+    try {
+      await logger.close();
+    } catch (error) {
+      console.error("Failed to close logger:", error);
+    }
+  } catch (error) {
+    console.error("Unexpected error during shutdown:", error);
+  } finally {
+    clearTimeout(forceExitTimeout);
+    process.exit(exitCode);
+  }
+}
+
+// Handle application-level quit events (Cmd+Q, etc.)
+app.on("before-quit", async (event) => {
+  if (!shuttingDown) {
+    event.preventDefault();
+    await shutdown(0);
+  }
+});
+
+// Handle process signals (Ctrl+C, kill, etc.)
+process.on("SIGINT", async () => {
+  console.log("Received SIGINT");
+  await shutdown(0);
+});
+
+process.on("SIGTERM", async () => {
+  console.log("Received SIGTERM");
+  await shutdown(0);
 });

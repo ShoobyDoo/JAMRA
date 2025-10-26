@@ -508,10 +508,12 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  process.on("SIGINT", async () => {
-    console.log(`${logPrefix} Received SIGINT`);
-    await cleanup();
-    process.exit(0);
+  // SIGINT: When Ctrl+C is pressed, both parent and child receive SIGINT.
+  // We handle it here to prevent Node.js default termination, but don't exit.
+  // The parent will send a graceful "stop" IPC command, which we handle properly.
+  process.on("SIGINT", () => {
+    console.log(`${logPrefix} Received SIGINT, waiting for parent shutdown command`);
+    // Don't exit - let parent orchestrate shutdown via IPC
   });
 
   process.on("SIGTERM", async () => {

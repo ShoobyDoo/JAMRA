@@ -99,11 +99,25 @@ export class DownloadWorkerHost {
 
   async stop(): Promise<void> {
     if (!this.isStarted) return;
+
+    // Check if worker is still alive before sending stop command
+    if (!this.childProcess) {
+      console.log(`${logPrefix} Worker already exited`);
+      this.isStarted = false;
+      return;
+    }
+
     try {
       console.log(`${logPrefix} Sending stop command`);
       await this.request("stop", undefined, DEFAULT_IPC_TIMEOUTS.stopTimeout);
     } catch (error) {
-      console.error(`${logPrefix} Error stopping worker:`, error);
+      // Only log error if it's not about the worker already being gone
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (!errorMessage.includes("Worker process exited") && !errorMessage.includes("not available")) {
+        console.error(`${logPrefix} Error stopping worker:`, error);
+      } else {
+        console.log(`${logPrefix} Worker stopped (process already exited)`);
+      }
     }
     this.isStarted = false;
     await this.killWorker();
