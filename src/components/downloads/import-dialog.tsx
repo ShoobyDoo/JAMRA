@@ -20,6 +20,7 @@ import {
   FileArchive,
   AlertTriangle,
 } from "lucide-react";
+import { logger } from "@/lib/logger";
 
 interface ImportDialogProps {
   opened: boolean;
@@ -172,7 +173,12 @@ export function ImportDialog({
               throw new Error(data.error || "Import failed");
             }
           } catch (error) {
-            console.error("Failed to parse SSE data:", error);
+            // JSON parse errors in SSE stream are common when receiving partial data
+            logger.debug("Failed to parse SSE data chunk", {
+              component: "ImportDialog",
+              action: "parse-sse-chunk",
+              error: error instanceof Error ? error : new Error(String(error)),
+            });
           }
         }
       }

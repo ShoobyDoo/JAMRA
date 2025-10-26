@@ -138,7 +138,7 @@ export async function performCleanup(
 
   try {
     // Get all manga with stats
-    let allManga = await getAllMangaWithStats(dataDir);
+    const allManga = await getAllMangaWithStats(dataDir);
 
     // Sort based on cleanup strategy
     switch (settings.cleanupStrategy) {

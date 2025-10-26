@@ -390,7 +390,7 @@ export default function DownloadsPage() {
       </Box>
 
       <Tabs value={activeTab} onChange={setActiveTab}>
-        <Tabs.List className="[&_button:hover:not([data-active])]:bg-muted/50">
+        <Tabs.List className="[&_button:hover:not([data-active])]:bg-gray-100 dark:[&_button:hover:not([data-active])]:bg-gray-800">
           <Tabs.Tab value="active" leftSection={<Download size={16} />}>
             Active Downloads ({stats.total})
           </Tabs.Tab>

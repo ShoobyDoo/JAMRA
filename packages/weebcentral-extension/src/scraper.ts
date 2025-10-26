@@ -5,6 +5,7 @@ import type {
   ChapterPages,
   ChapterPagesChunk,
   ExtensionCache,
+  ExtensionLogger,
 } from "@jamra/extension-sdk";
 import { RateLimiter } from "./rate-limiter.js";
 
@@ -38,13 +39,15 @@ export class WeebCentralScraper {
   private rateLimiter: RateLimiter;
   private seriesCache: Map<string, SeriesMetadata> = new Map();
   private cache?: ExtensionCache;
+  private logger: ExtensionLogger;
   private chapterPagesCache: Map<
     string,
     { pages: ChapterPages["pages"]; fetchedAt: number }
   > = new Map();
 
-  constructor(rateLimiter: RateLimiter, cache?: ExtensionCache) {
+  constructor(rateLimiter: RateLimiter, logger: ExtensionLogger, cache?: ExtensionCache) {
     this.rateLimiter = rateLimiter;
+    this.logger = logger;
     this.cache = cache;
   }
 
@@ -55,33 +58,33 @@ export class WeebCentralScraper {
   private async fetchChapterPageList(
     chapterId: string,
   ): Promise<ChapterPages["pages"]> {
-    console.log(
-      `[WeebCentral] fetchChapterPageList called for chapter ${chapterId}`,
-    );
+    this.logger.debug("Fetching chapter page list", { chapterId });
 
     const cached = this.chapterPagesCache.get(chapterId);
     const now = Date.now();
     if (cached && now - cached.fetchedAt < CHAPTER_PAGES_CACHE_TTL_MS) {
-      console.log(
-        `[WeebCentral] Using cached pages for chapter ${chapterId} (${cached.pages.length} images)`,
-      );
+      this.logger.debug("Using cached chapter pages", {
+        chapterId,
+        pageCount: cached.pages.length,
+      });
       return cached.pages;
     }
 
     const url = `${BASE_URL}/chapters/${chapterId}/images?reading_style=long_strip`;
-    console.log(`[WeebCentral] Fetching chapter pages from ${url}`);
+    this.logger.debug("Fetching chapter pages from URL", { url });
 
     const html = await this.rateLimiter.throttle(async () => {
       const response = await fetch(url, { headers: HEADERS });
-      console.log(
-        `[WeebCentral] HTTP Response: ${response.status} ${response.statusText}`,
-      );
+      this.logger.debug("HTTP response received", {
+        status: response.status,
+        statusText: response.statusText,
+      });
       if (!response.ok) {
         const errorText = await response.text();
-        console.error(
-          `[WeebCentral] HTTP ${response.status} error response (first 500 chars):`,
-          errorText.substring(0, 500),
-        );
+        this.logger.error("HTTP error response", {
+          status: response.status,
+          preview: errorText.substring(0, 500),
+        });
 
         // Check for rate limiting or temporary errors
         if (response.status === 429 || response.status === 503) {
@@ -94,30 +97,33 @@ export class WeebCentralScraper {
 
       // Validate that we got actual HTML, not an error page
       if (!text.includes('<html') && !text.includes('<img')) {
-        console.error(`[WeebCentral] Invalid response (first 500 chars):`, text.substring(0, 500));
+        this.logger.error("Invalid response from server", {
+          preview: text.substring(0, 500),
+        });
         throw new Error('Invalid response from server - possible rate limiting or maintenance');
       }
 
       return text;
     });
 
-    console.log(`[WeebCentral] HTML fetched, length: ${html.length}`);
+    this.logger.debug("HTML fetched", { length: html.length });
 
     // Log first part of HTML to debug parsing issues
     if (html.length < 2000 || !html.includes("<img")) {
-      console.warn(
-        `[WeebCentral] Suspicious HTML response (first 1000 chars):`,
-        html.substring(0, 1000),
-      );
+      this.logger.warn("Suspicious HTML response", {
+        length: html.length,
+        preview: html.substring(0, 1000),
+      });
     }
 
     const $ = cheerio.load(html);
     const images: ChapterPages["pages"] = [];
 
     // Count all section and img tags for debugging
-    console.log(
-      `[WeebCentral] DOM stats: ${$("section").length} sections, ${$("img").length} images`,
-    );
+    this.logger.debug("DOM stats", {
+      sections: $("section").length,
+      images: $("img").length,
+    });
 
     // Try multiple selectors to find images
     const selectors = [
@@ -132,12 +138,13 @@ export class WeebCentralScraper {
     for (const selector of selectors) {
       if (images.length > 0) break; // Stop if we found images
 
-      console.log(`[WeebCentral] Trying selector: ${selector}`);
+      this.logger.debug("Trying selector", { selector });
       $(selector).each((i, el) => {
         const src = $(el).attr("src");
-        console.log(
-          `[WeebCentral]   Found img #${i}: src=${src?.substring(0, 50)}...`,
-        );
+        this.logger.debug("Found image", {
+          index: i,
+          srcPreview: src?.substring(0, 50),
+        });
 
         if (
           src &&
@@ -158,24 +165,27 @@ export class WeebCentralScraper {
         }
       });
 
-      console.log(
-        `[WeebCentral]   Result: ${images.length} images after selector ${selector}`,
-      );
+      this.logger.debug("Selector result", {
+        selector,
+        imageCount: images.length,
+      });
     }
 
-    console.log(
-      `[WeebCentral] Final result: Found ${images.length} images for chapter ${chapterId}`,
-    );
+    this.logger.debug("Final extraction result", {
+      chapterId,
+      imageCount: images.length,
+    });
 
     if (images.length === 0) {
-      console.warn(
-        `[WeebCentral] No images found for chapter ${chapterId}. HTML length: ${html.length}`,
-      );
-      console.warn(`[WeebCentral] HTML preview: ${html.substring(0, 500)}`);
+      this.logger.warn("No images found", {
+        chapterId,
+        htmlLength: html.length,
+        htmlPreview: html.substring(0, 500),
+      });
     }
 
     this.chapterPagesCache.set(chapterId, { pages: images, fetchedAt: now });
-    console.log(`[WeebCentral] Returning ${images.length} images`);
+    this.logger.debug("Returning chapter images", { count: images.length });
     return images;
   }
 
@@ -220,7 +230,7 @@ export class WeebCentralScraper {
           // Cache series metadata
           this.seriesCache.set(id, { id, name });
           this.cache?.set(SERIES_CACHE_NAMESPACE, id, name).catch((err) => {
-            console.warn(`Failed to cache series name for ${id}:`, err);
+            this.logger.warn("Failed to cache series name", { id, error: String(err) });
           });
 
           // Build cover URLs in priority order
@@ -356,7 +366,7 @@ export class WeebCentralScraper {
           this.seriesCache.set(id, { id, name });
           // Persist to database cache asynchronously (fire-and-forget)
           this.cache?.set(SERIES_CACHE_NAMESPACE, id, name).catch((err) => {
-            console.warn(`Failed to cache series name for ${id}:`, err);
+            this.logger.warn("Failed to cache series name", { id, error: String(err) });
           });
 
           // Build cover URLs in priority order
@@ -430,13 +440,14 @@ export class WeebCentralScraper {
 
     const chapterPromise = this.getChapterList(mangaId);
     const url = `${BASE_URL}/series/${mangaId}/${metadata.name}`;
-    console.log(`[WeebCentral] Fetching manga details from: ${url}`);
+    this.logger.debug("Fetching manga details", { url });
 
     const html = await this.rateLimiter.throttle(async () => {
       const response = await fetch(url, { headers: HEADERS });
-      console.log(
-        `[WeebCentral] Manga details response: ${response.status} ${response.statusText}`,
-      );
+      this.logger.debug("Manga details response", {
+        status: response.status,
+        statusText: response.statusText,
+      });
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
@@ -507,7 +518,7 @@ export class WeebCentralScraper {
     try {
       chapters = await chapterPromise;
     } catch (error) {
-      console.warn(`Failed to fetch chapter list for ${mangaId}:`, error);
+      this.logger.warn("Failed to fetch chapter list", { mangaId, error: String(error) });
       chapters = [];
     }
 
@@ -595,18 +606,19 @@ export class WeebCentralScraper {
           return cached;
         }
       } catch (error) {
-        console.warn(`Failed to read cached chapters for ${seriesId}:`, error);
+        this.logger.warn("Failed to read cached chapters", { seriesId, error: String(error) });
       }
     }
 
     const url = `${BASE_URL}/series/${seriesId}/full-chapter-list`;
-    console.log(`[WeebCentral] Fetching chapter list from: ${url}`);
+    this.logger.debug("Fetching chapter list", { url });
 
     const html = await this.rateLimiter.throttle(async () => {
       const response = await fetch(url, { headers: HEADERS });
-      console.log(
-        `[WeebCentral] Chapter list response: ${response.status} ${response.statusText}`,
-      );
+      this.logger.debug("Chapter list response", {
+        status: response.status,
+        statusText: response.statusText,
+      });
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
@@ -801,7 +813,7 @@ export class WeebCentralScraper {
       this.cache
         .set(CHAPTER_CACHE_NAMESPACE, cacheKey, ordered, CHAPTER_CACHE_TTL_MS)
         .catch((error) => {
-          console.warn(`Failed to cache chapters for ${seriesId}:`, error);
+          this.logger.warn("Failed to cache chapters", { seriesId, error: String(error) });
         });
     }
 
@@ -813,10 +825,10 @@ export class WeebCentralScraper {
 
     // Ensure images is always an array
     if (!images || !Array.isArray(images)) {
-      console.error(
-        `[WeebCentral] fetchChapterPageList returned invalid data for chapter ${chapterId}:`,
-        images,
-      );
+      this.logger.error("Invalid chapter page data", {
+        chapterId,
+        receivedData: images,
+      });
       return {
         chapterId,
         mangaId: "",

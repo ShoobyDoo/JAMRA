@@ -16,7 +16,7 @@ import type {
   MangaDetailsRequest,
 } from "@jamra/extension-sdk";
 import {
-  CatalogRepository,
+  ExtensionRepository,
   SqliteExtensionCache,
   type CatalogDatabase,
   type StoredExtensionSourceMetadata,
@@ -93,7 +93,7 @@ function buildInvocationContext(
 
 export class ExtensionHost {
   private readonly extensions = new Map<string, LoadedExtensionRecord>();
-  private readonly repository?: CatalogRepository;
+  private readonly repository?: ExtensionRepository;
   private readonly cacheFactory?: (
     manifest: ExtensionManifest,
   ) => ExtensionContext["cache"];
@@ -104,7 +104,7 @@ export class ExtensionHost {
     this.defaultContext = options.defaultContext;
     this.cacheFactory = options.cacheFactory;
     if (options.database) {
-      this.repository = new CatalogRepository(options.database.db);
+      this.repository = new ExtensionRepository(options.database.db);
       if (!this.cacheFactory) {
         this.sharedCache = new SqliteExtensionCache(options.database.db);
       }
@@ -150,17 +150,17 @@ export class ExtensionHost {
       await extensionModule.handlers.onInitialize(context);
     }
 
-    const upsertOptions: Parameters<CatalogRepository["upsertExtension"]>[1] = {
+    const upsertOptions: Parameters<ExtensionRepository["upsertExtension"]>[1] = {
       entryPath: filePath,
       enabled: true,
       settings: persistedSettings,
     };
 
-    if (options.sourceMetadata !== undefined) {
-      upsertOptions.source = options.sourceMetadata;
+    if (options.sourceMetadata !== undefined && options.sourceMetadata !== null) {
+      upsertOptions.sourceMetadata = options.sourceMetadata;
     }
 
-    if (options.updateState !== undefined) {
+    if (options.updateState !== undefined && options.updateState !== null) {
       upsertOptions.updateState = options.updateState;
     }
 

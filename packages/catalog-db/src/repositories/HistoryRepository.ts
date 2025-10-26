@@ -31,8 +31,8 @@ export class HistoryRepository {
     const result = this.db
       .prepare(
         `
-        INSERT INTO history (manga_id, chapter_id, action_type, timestamp, metadata_json)
-        VALUES (@manga_id, @chapter_id, @action_type, @timestamp, @metadata_json)
+        INSERT INTO history_entries (manga_id, chapter_id, action_type, timestamp, metadata)
+        VALUES (@manga_id, @chapter_id, @action_type, @timestamp, @metadata)
       `,
       )
       .run({
@@ -40,7 +40,7 @@ export class HistoryRepository {
         chapter_id: entry.chapterId ?? null,
         action_type: entry.actionType,
         timestamp,
-        metadata_json: entry.metadata ? JSON.stringify(entry.metadata) : null,
+        metadata: entry.metadata ? JSON.stringify(entry.metadata) : null,
       });
 
     return {
@@ -54,7 +54,7 @@ export class HistoryRepository {
   }
 
   getHistory(options?: HistoryQueryOptions): HistoryEntry[] {
-    let sql = "SELECT * FROM history WHERE 1=1";
+    let sql = "SELECT * FROM history_entries WHERE 1=1";
     const params: Record<string, unknown> = {};
 
     if (options?.mangaId) {
@@ -95,7 +95,7 @@ export class HistoryRepository {
       chapter_id: string | null;
       action_type: string;
       timestamp: number;
-      metadata_json: string | null;
+      metadata: string | null;
     }>;
 
     return rows.map((row) => ({
@@ -104,7 +104,7 @@ export class HistoryRepository {
       chapterId: row.chapter_id,
       actionType: row.action_type,
       timestamp: row.timestamp,
-      metadata: row.metadata_json ? JSON.parse(row.metadata_json) : null,
+      metadata: row.metadata ? JSON.parse(row.metadata) : null,
     }));
   }
 
@@ -115,17 +115,17 @@ export class HistoryRepository {
   clearHistory(beforeTimestamp?: number): number {
     if (beforeTimestamp) {
       const result = this.db
-        .prepare("DELETE FROM history WHERE timestamp < ?")
+        .prepare("DELETE FROM history_entries WHERE timestamp < ?")
         .run(beforeTimestamp);
       return result.changes ?? 0;
     } else {
-      const result = this.db.prepare("DELETE FROM history").run();
+      const result = this.db.prepare("DELETE FROM history_entries").run();
       return result.changes ?? 0;
     }
   }
 
   deleteHistoryEntry(id: number): void {
-    this.db.prepare("DELETE FROM history WHERE id = ?").run(id);
+    this.db.prepare("DELETE FROM history_entries WHERE id = ?").run(id);
   }
 
   getHistoryStats(options?: { startDate?: number; endDate?: number }): {
@@ -133,7 +133,7 @@ export class HistoryRepository {
     uniqueManga: number;
     byActionType: Record<string, number>;
   } {
-    let sql = "SELECT COUNT(*) as total FROM history WHERE 1=1";
+    let sql = "SELECT COUNT(*) as total FROM history_entries WHERE 1=1";
     const params: Record<string, unknown> = {};
 
     if (options?.startDate) {
@@ -149,7 +149,7 @@ export class HistoryRepository {
     const totalRow = this.db.prepare(sql).get(params) as { total: number };
 
     let uniqueSql =
-      "SELECT COUNT(DISTINCT manga_id) as unique_manga FROM history WHERE 1=1";
+      "SELECT COUNT(DISTINCT manga_id) as unique_manga FROM history_entries WHERE 1=1";
     if (options?.startDate) {
       uniqueSql += " AND timestamp >= @start_date";
     }
@@ -162,7 +162,7 @@ export class HistoryRepository {
     };
 
     let actionSql =
-      "SELECT action_type, COUNT(*) as count FROM history WHERE 1=1";
+      "SELECT action_type, COUNT(*) as count FROM history_entries WHERE 1=1";
     if (options?.startDate) {
       actionSql += " AND timestamp >= @start_date";
     }

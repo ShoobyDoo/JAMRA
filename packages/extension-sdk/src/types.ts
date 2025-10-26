@@ -258,3 +258,29 @@ export interface SettingsValidationError {
   field: string;
   message: string;
 }
+
+/**
+ * Logger interface provided to extensions
+ * Allows extensions to log messages with proper structure
+ */
+export interface ExtensionLogger {
+  /**
+   * Log debug-level message (only in development)
+   */
+  debug(message: string, meta?: Record<string, unknown>): void;
+
+  /**
+   * Log info-level message
+   */
+  info(message: string, meta?: Record<string, unknown>): void;
+
+  /**
+   * Log warning-level message
+   */
+  warn(message: string, meta?: Record<string, unknown>): void;
+
+  /**
+   * Log error-level message
+   */
+  error(message: string, meta?: Record<string, unknown>): void;
+}

@@ -27,6 +27,32 @@ export interface LibraryTag {
   createdAt: number;
 }
 
+export interface EnrichedLibraryEntry extends LibraryEntry {
+  manga: {
+    title: string;
+    description: string | null;
+    coverUrl: string | null;
+    coverUrls: string[] | null;
+    status: string | null;
+    tags: string[] | null;
+  };
+  totalChapters: number;
+  readChapters: number;
+}
+
+export interface LibraryStats {
+  totalManga: number;
+  byStatus: {
+    reading: number;
+    plan_to_read: number;
+    completed: number;
+    on_hold: number;
+    dropped: number;
+  };
+  totalChaptersRead: number;
+  favorites: number;
+}
+
 export class LibraryRepository {
   constructor(private readonly db: Database.Database) {}
 
@@ -343,5 +369,142 @@ export class LibraryRepository {
       color: row.color,
       createdAt: row.created_at,
     }));
+  }
+
+  getEnrichedLibraryEntries(filters?: {
+    status?: LibraryStatus;
+    favorite?: boolean;
+  }): EnrichedLibraryEntry[] {
+    let sql = `
+      SELECT
+        le.manga_id as mangaId,
+        le.extension_id as extensionId,
+        le.status,
+        le.personal_rating as personalRating,
+        le.favorite,
+        le.notes,
+        le.added_at as addedAt,
+        le.updated_at as updatedAt,
+        le.started_at as startedAt,
+        le.completed_at as completedAt,
+        m.title,
+        m.description,
+        m.cover_url as coverUrl,
+        m.cover_urls_json as coverUrlsJson,
+        m.status as mangaStatus,
+        m.tags_json as tagsJson,
+        (SELECT COUNT(*) FROM chapters WHERE manga_id = le.manga_id) as totalChapters,
+        (SELECT COUNT(DISTINCT chapter_id) FROM reading_progress WHERE manga_id = le.manga_id) as readChapters
+      FROM library_entries le
+      LEFT JOIN manga m ON le.manga_id = m.id
+      WHERE 1=1
+    `;
+
+    const params: Record<string, unknown> = {};
+
+    if (filters?.status) {
+      sql += " AND le.status = @status";
+      params.status = filters.status;
+    }
+
+    if (filters?.favorite !== undefined) {
+      sql += " AND le.favorite = @favorite";
+      params.favorite = filters.favorite ? 1 : 0;
+    }
+
+    sql += " ORDER BY le.updated_at DESC";
+
+    const rows = this.db.prepare(sql).all(params) as Array<{
+      mangaId: string;
+      extensionId: string;
+      status: LibraryStatus;
+      personalRating: number | null;
+      favorite: number;
+      notes: string | null;
+      addedAt: number;
+      updatedAt: number;
+      startedAt: number | null;
+      completedAt: number | null;
+      title: string | null;
+      description: string | null;
+      coverUrl: string | null;
+      coverUrlsJson: string | null;
+      mangaStatus: string | null;
+      tagsJson: string | null;
+      totalChapters: number;
+      readChapters: number;
+    }>;
+
+    return rows.map((row) => ({
+      mangaId: row.mangaId,
+      extensionId: row.extensionId,
+      status: row.status,
+      personalRating: row.personalRating,
+      favorite: row.favorite === 1,
+      notes: row.notes,
+      addedAt: row.addedAt,
+      updatedAt: row.updatedAt,
+      startedAt: row.startedAt,
+      completedAt: row.completedAt,
+      manga: {
+        title: row.title ?? "Unknown",
+        description: row.description,
+        coverUrl: row.coverUrl,
+        coverUrls: row.coverUrlsJson ? JSON.parse(row.coverUrlsJson) : null,
+        status: row.mangaStatus,
+        tags: row.tagsJson ? JSON.parse(row.tagsJson) : null,
+      },
+      totalChapters: row.totalChapters,
+      readChapters: row.readChapters,
+    }));
+  }
+
+  getLibraryStats(): LibraryStats {
+    const totalRow = this.db
+      .prepare("SELECT COUNT(*) as count FROM library_entries")
+      .get() as { count: number };
+
+    const statusRows = this.db
+      .prepare(
+        `
+        SELECT status, COUNT(*) as count
+        FROM library_entries
+        GROUP BY status
+      `,
+      )
+      .all() as Array<{ status: string; count: number }>;
+
+    const favoritesRow = this.db
+      .prepare(
+        "SELECT COUNT(*) as count FROM library_entries WHERE favorite = 1",
+      )
+      .get() as { count: number };
+
+    const chaptersRow = this.db
+      .prepare(
+        "SELECT COUNT(DISTINCT chapter_id) FROM reading_progress",
+      )
+      .get() as { count: number };
+
+    const byStatus = {
+      reading: 0,
+      plan_to_read: 0,
+      completed: 0,
+      on_hold: 0,
+      dropped: 0,
+    };
+
+    for (const row of statusRows) {
+      if (row.status in byStatus) {
+        byStatus[row.status as keyof typeof byStatus] = row.count;
+      }
+    }
+
+    return {
+      totalManga: totalRow.count,
+      byStatus,
+      totalChaptersRead: chaptersRow.count,
+      favorites: favoritesRow.count,
+    };
   }
 }

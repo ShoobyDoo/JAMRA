@@ -10,11 +10,10 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { pipeline } from "node:stream/promises";
 import archiver from "archiver";
 import type { OfflineMangaMetadata, OfflineChapterMetadata } from "./types";
 import { buildMangaPaths, buildChapterPaths } from "./utils/paths.js";
-import { readJSON, fileExists } from "./utils/file-system.js";
+import { fileExists } from "./utils/file-system.js";
 
 export interface ArchiveOptions {
   /** Include metadata.json files */

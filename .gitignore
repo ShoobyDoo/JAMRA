@@ -48,6 +48,7 @@ next-env.d.ts
 .jamra-data/*.sqlite*
 .jamra-data/extensions/
 .jamra-data/offline/*
+.jamra-data/logs/
 
 # Electron build output
 dist-electron/

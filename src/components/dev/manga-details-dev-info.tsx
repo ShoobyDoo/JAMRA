@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { DevInfoSection } from "./dev-info-section";
 import { useDevMode } from "@/hooks/use-dev-mode";
 import type { MangaDetails } from "@/lib/api/manga";
-import type { CachedCoverPayload } from "@/lib/api/shared";
 import {
   getExtensionById,
   buildExtensionSourceUrl,

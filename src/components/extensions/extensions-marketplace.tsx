@@ -127,6 +127,7 @@ export const ExtensionsMarketplace = memo(function ExtensionsMarketplace({
                         </div>
                         <Button
                           size="xs"
+                          variant="filled"
                           leftSection={<ArrowDownToLine size={14} />}
                           onClick={() => onInstall(extension)}
                         >

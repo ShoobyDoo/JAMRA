@@ -452,7 +452,7 @@ export default function SettingsPage() {
         withBorder
         p="lg"
         radius="md"
-        className="border border-[var(--mantine-color-red-6)] bg-[var(--mantine-color-red-0)]"
+        className="border border-mantine-red-6 bg-mantine-red-0"
       >
         <Stack gap="md">
           <Group gap="xs">

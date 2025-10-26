@@ -21,7 +21,6 @@ import type {
   WorkerCommandType,
   WorkerCommandPayloads,
   ResultForCommand,
-  WorkerMessage,
 } from "./worker-ipc.js";
 import { isWorkerMessage, DEFAULT_IPC_TIMEOUTS } from "./worker-ipc.js";
 import type { PerformanceMetrics } from "./utils/performance-metrics.js";
@@ -112,7 +111,7 @@ export class DownloadWorkerHost {
 
   async destroy(): Promise<void> {
     console.log(`${logPrefix} Destroying worker host`);
-    for (const [requestId, pending] of this.pendingRequests.entries()) {
+    for (const [_requestId, pending] of this.pendingRequests.entries()) {
       clearTimeout(pending.timeout);
       pending.reject(new Error("Worker host destroyed"));
     }
@@ -415,7 +414,7 @@ export class DownloadWorkerHost {
       this.isInitialized = false;
       this.isStarted = false;
 
-      for (const [requestId, pending] of this.pendingRequests.entries()) {
+      for (const [_requestId, pending] of this.pendingRequests.entries()) {
         clearTimeout(pending.timeout);
         pending.reject(new Error("Worker process exited"));
       }

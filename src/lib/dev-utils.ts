@@ -1,5 +1,6 @@
 import { fetchExtensions } from "./api/extensions";
 import type { ManagedExtension } from "./api/extensions";
+import { logger } from "./logger";
 
 /**
  * Cache for extension manifests to avoid repeated API calls
@@ -27,7 +28,12 @@ export async function getExtensionById(
 
     return extensionCache.get(extensionId) ?? null;
   } catch (error) {
-    console.error("Failed to fetch extension:", error);
+    logger.warn("Failed to fetch extension metadata", {
+      component: "dev-utils",
+      action: "get-extension-by-id",
+      extensionId,
+      error: error instanceof Error ? error : new Error(String(error)),
+    });
     return null;
   }
 }

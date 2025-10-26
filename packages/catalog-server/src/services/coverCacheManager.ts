@@ -1,4 +1,4 @@
-import { CatalogRepository, type CoverCacheRecord } from "@jamra/catalog-db";
+import type { CoverCacheRepository, CoverCacheRecord } from "@jamra/catalog-db";
 
 export interface CoverCacheSettings {
   enabled: boolean;
@@ -66,7 +66,7 @@ export class CoverCacheManager {
   private settings: CoverCacheSettings;
 
   constructor(
-    private readonly repository: CatalogRepository,
+    private readonly repositories: { coverCache: CoverCacheRepository },
     initialSettings?: Partial<CoverCacheSettings>,
   ) {
     this.settings = {
@@ -90,12 +90,12 @@ export class CoverCacheManager {
     extensionId: string,
     mangaId: string,
   ): Promise<CachedCoverPayload | undefined> {
-    const record = this.repository.getCoverCache(extensionId, mangaId);
+    const record = this.repositories.coverCache.getCoverCache(extensionId, mangaId);
     if (!record) return undefined;
 
     const now = Date.now();
     if (record.expiresAt && record.expiresAt <= now) {
-      this.repository.deleteCoverCache(extensionId, mangaId);
+      this.repositories.coverCache.deleteCoverCache(extensionId, mangaId);
       return undefined;
     }
 
@@ -113,13 +113,13 @@ export class CoverCacheManager {
     extensionId: string,
     mangaId: string,
     urls: string[],
-    metadata?: unknown,
+    metadata?: Record<string, unknown>,
   ): Promise<void> {
     if (!this.settings.enabled) return;
     if (urls.length === 0) return;
 
     const now = Date.now();
-    const existing = this.repository.getCoverCache(extensionId, mangaId);
+    const existing = this.repositories.coverCache.getCoverCache(extensionId, mangaId);
     if (existing && (!existing.expiresAt || existing.expiresAt > now)) {
       return;
     }
@@ -132,18 +132,20 @@ export class CoverCacheManager {
         const fetched = await fetchWithTimeout(url, timeoutMs);
         if (!fetched) continue;
 
-        this.repository.upsertCoverCache(extensionId, mangaId, {
-          coverUrl: url,
-          dataBase64: fetched.dataBase64,
-          mimeType: fetched.mimeType,
-          bytes: fetched.bytes,
-          metadata,
-          updatedAt: now,
-          expiresAt:
-            this.settings.ttlMs > 0 ? now + this.settings.ttlMs : undefined,
-        });
+        this.repositories.coverCache.upsertCoverCache(
+          extensionId,
+          mangaId,
+          url,
+          fetched.dataBase64,
+          {
+            mimeType: fetched.mimeType,
+            bytes: fetched.bytes,
+            metadata,
+            ttlMs: this.settings.ttlMs > 0 ? this.settings.ttlMs : undefined,
+          }
+        );
 
-        this.repository.trimCoverCache(this.settings.maxEntries);
+        this.repositories.coverCache.trimCoverCache(this.settings.maxEntries);
         return;
       } catch (error) {
         // Try next URL
@@ -155,6 +157,6 @@ export class CoverCacheManager {
   }
 
   purgeExpired(nowTs: number = Date.now()): number {
-    return this.repository.purgeExpiredCoverCache(nowTs);
+    return this.repositories.coverCache.purgeExpiredCoverCache(nowTs);
   }
 }

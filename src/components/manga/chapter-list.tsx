@@ -20,37 +20,63 @@ interface ChapterListProps {
   mangaSlug: string;
 }
 
+interface ChapterListState {
+  progressMap: Map<string, ReadingProgressData>;
+  loadingProgress: boolean;
+  selectionMode: boolean;
+  selectedChapterIds: Set<string>;
+  lastSelectedIndex: number | null;
+}
+
 export function ChapterList({
   chapters,
   mangaId,
   mangaSlug,
 }: ChapterListProps) {
-  const [progressMap, setProgressMap] = useState<
-    Map<string, ReadingProgressData>
-  >(new Map());
-  const [loadingProgress, setLoadingProgress] = useState(true);
-  const [selectionMode, setSelectionMode] = useState(false);
-  const [selectedChapterIds, setSelectedChapterIds] = useState<Set<string>>(
-    new Set(),
-  );
-  const [lastSelectedIndex, setLastSelectedIndex] = useState<number | null>(
-    null,
-  );
+  // Consolidated state to prevent sync issues
+  const [state, setState] = useState<ChapterListState>({
+    progressMap: new Map(),
+    loadingProgress: true,
+    selectionMode: false,
+    selectedChapterIds: new Set(),
+    lastSelectedIndex: null,
+  });
+
   const offline = useOfflineMangaContext();
   const parentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    const abortController = new AbortController();
+    const timeout = setTimeout(() => abortController.abort(), 10000); // 10s timeout
+
     async function fetchProgress() {
       try {
         const allProgress = await getAllReadingProgress();
+
+        // Check if aborted
+        if (abortController.signal.aborted) return;
+
         const map = new Map<string, ReadingProgressData>();
         allProgress.forEach((progress) => {
           if (progress.mangaId === mangaId) {
             map.set(progress.chapterId, progress);
           }
         });
-        setProgressMap(map);
+
+        setState((prev) => ({
+          ...prev,
+          progressMap: map,
+          loadingProgress: false,
+        }));
       } catch (error) {
+        if (abortController.signal.aborted) {
+          logger.warn("Reading progress fetch aborted", {
+            component: "ChapterList",
+            mangaId,
+          });
+          return;
+        }
+
         logger.error("Failed to fetch reading progress", {
           component: "ChapterList",
           action: "load-progress",
@@ -63,12 +89,19 @@ export function ChapterList({
           color: "red",
           autoClose: 5000,
         });
+
+        setState((prev) => ({ ...prev, loadingProgress: false }));
       } finally {
-        setLoadingProgress(false);
+        clearTimeout(timeout);
       }
     }
 
     fetchProgress();
+
+    return () => {
+      clearTimeout(timeout);
+      abortController.abort();
+    };
   }, [mangaId]);
 
   const sortedChapters = useMemo(() => sortChaptersDesc(chapters), [chapters]);
@@ -76,54 +109,58 @@ export function ChapterList({
   const virtualizer = useVirtualizer({
     count: sortedChapters.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 100, // Estimated height of each chapter item (~32px padding + ~68px content)
+    estimateSize: () => 120, // Estimated height of each chapter item (includes padding, text, buttons)
   });
 
   const handleToggleSelection = useCallback((chapterId: string, index: number, shiftKey: boolean) => {
-    if (shiftKey && lastSelectedIndex !== null) {
+    if (shiftKey && state.lastSelectedIndex !== null) {
       // Range selection with Shift+click
-      const start = Math.min(lastSelectedIndex, index);
-      const end = Math.max(lastSelectedIndex, index);
+      const start = Math.min(state.lastSelectedIndex, index);
+      const end = Math.max(state.lastSelectedIndex, index);
       const rangeIds = new Set<string>();
 
       for (let i = start; i <= end; i++) {
         rangeIds.add(sortedChapters[i].id);
       }
 
-      setSelectedChapterIds((prev) => {
-        const next = new Set(prev);
-        rangeIds.forEach((id) => next.add(id));
-        return next;
-      });
+      setState((prev) => ({
+        ...prev,
+        selectedChapterIds: new Set([...prev.selectedChapterIds, ...rangeIds]),
+        lastSelectedIndex: index,
+      }));
     } else {
       // Single selection
-      setSelectedChapterIds((prev) => {
-        const next = new Set(prev);
+      setState((prev) => {
+        const next = new Set(prev.selectedChapterIds);
         if (next.has(chapterId)) {
           next.delete(chapterId);
         } else {
           next.add(chapterId);
         }
-        return next;
+        return {
+          ...prev,
+          selectedChapterIds: next,
+          lastSelectedIndex: index,
+        };
       });
     }
-    setLastSelectedIndex(index);
-  }, [lastSelectedIndex, sortedChapters]);
+  }, [state.lastSelectedIndex, sortedChapters]);
 
   const handleSelectAll = useCallback(() => {
-    if (selectedChapterIds.size === sortedChapters.length) {
-      setSelectedChapterIds(new Set());
-    } else {
-      setSelectedChapterIds(new Set(sortedChapters.map((ch) => ch.id)));
-    }
-  }, [selectedChapterIds.size, sortedChapters]);
+    setState((prev) => ({
+      ...prev,
+      selectedChapterIds: prev.selectedChapterIds.size === sortedChapters.length
+        ? new Set()
+        : new Set(sortedChapters.map((ch) => ch.id)),
+    }));
+  }, [sortedChapters]);
 
   const handleDownloadSelected = useCallback(async () => {
     if (!offline) {
       return;
     }
 
-    const selectedIds = Array.from(selectedChapterIds);
+    const selectedIds = Array.from(state.selectedChapterIds);
     if (selectedIds.length === 0) {
       notifications.show({
         title: "No chapters selected",
@@ -142,8 +179,11 @@ export function ChapterList({
         color: "green",
         autoClose: 3000,
       });
-      setSelectionMode(false);
-      setSelectedChapterIds(new Set());
+      setState((prev) => ({
+        ...prev,
+        selectionMode: false,
+        selectedChapterIds: new Set(),
+      }));
     } catch (error) {
       logger.error("Failed to queue selected chapters", {
         component: "ChapterList",
@@ -163,10 +203,10 @@ export function ChapterList({
         autoClose: 5000,
       });
     }
-  }, [offline, selectedChapterIds, mangaId]);
+  }, [offline, state.selectedChapterIds, mangaId]);
 
   const getChapterStatus = (chapterId: string) => {
-    const progress = progressMap.get(chapterId);
+    const progress = state.progressMap.get(chapterId);
     if (!progress) {
       return {
         label: "Unread",
@@ -250,7 +290,7 @@ export function ChapterList({
     <div className="space-y-4">
       {canDownload && downloadableChapters.length > 0 && (
         <div className="rounded-lg border border-border bg-card p-3">
-          {!selectionMode ? (
+          {!state.selectionMode ? (
             <div className="flex items-center justify-between">
               <div className="text-sm text-muted-foreground">
                 {downloadableChapters.length} chapter{downloadableChapters.length === 1 ? "" : "s"} available to download
@@ -271,7 +311,7 @@ export function ChapterList({
                   size="sm"
                   variant="light"
                   leftSection={<CheckSquare size={16} />}
-                  onClick={() => setSelectionMode(true)}
+                  onClick={() => setState((prev) => ({ ...prev, selectionMode: true }))}
                 >
                   Select Chapters
                 </Button>
@@ -281,10 +321,10 @@ export function ChapterList({
             <Group className="w-full" justify="space-between">
               <Group>
                 <Checkbox
-                  checked={selectedChapterIds.size === sortedChapters.length && sortedChapters.length > 0}
-                  indeterminate={selectedChapterIds.size > 0 && selectedChapterIds.size < sortedChapters.length}
+                  checked={state.selectedChapterIds.size === sortedChapters.length && sortedChapters.length > 0}
+                  indeterminate={state.selectedChapterIds.size > 0 && state.selectedChapterIds.size < sortedChapters.length}
                   onChange={handleSelectAll}
-                  label={`${selectedChapterIds.size} selected`}
+                  label={`${state.selectedChapterIds.size} selected`}
                 />
               </Group>
               <Group>
@@ -294,7 +334,7 @@ export function ChapterList({
                   color="blue"
                   leftSection={<Download size={16} />}
                   onClick={handleDownloadSelected}
-                  disabled={selectedChapterIds.size === 0}
+                  disabled={state.selectedChapterIds.size === 0}
                 >
                   Download Selected
                 </Button>
@@ -302,8 +342,11 @@ export function ChapterList({
                   size="sm"
                   variant="subtle"
                   onClick={() => {
-                    setSelectionMode(false);
-                    setSelectedChapterIds(new Set());
+                    setState((prev) => ({
+                      ...prev,
+                      selectionMode: false,
+                      selectedChapterIds: new Set(),
+                    }));
                   }}
                 >
                   Cancel
@@ -359,7 +402,7 @@ export function ChapterList({
                       ? "border-l-4 border-l-green-500"
                       : "";
 
-                const isSelected = selectedChapterIds.has(chapter.id);
+                const isSelected = state.selectedChapterIds.has(chapter.id);
 
                 return (
                   <div
@@ -371,12 +414,12 @@ export function ChapterList({
                     <div
                       className={`relative flex flex-col gap-3 p-4 transition hover:bg-secondary focus-within:bg-secondary md:flex-row md:items-center md:justify-between`}
                       onClick={(e) => {
-                        if (selectionMode && e.target === e.currentTarget) {
+                        if (state.selectionMode && e.target === e.currentTarget) {
                           handleToggleSelection(chapter.id, index, e.shiftKey);
                         }
                       }}
                     >
-                      {selectionMode && (
+                      {state.selectionMode && (
                         <div className="flex items-center">
                           <Checkbox
                             checked={isSelected}
@@ -391,7 +434,7 @@ export function ChapterList({
                         <Link
                           href={`/read/${encodeURIComponent(mangaSlug)}/chapter/${encodeURIComponent(chapter.slug)}`}
                           className="block"
-                          onClick={(e) => selectionMode && e.preventDefault()}
+                          onClick={(e) => state.selectionMode && e.preventDefault()}
                         >
                           <p className="font-medium">{formatChapterTitle(chapter)}</p>
                           <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
@@ -432,7 +475,7 @@ export function ChapterList({
                         )}
                       </div>
                       <div className="flex shrink-0 flex-col items-end gap-2 sm:flex-row sm:items-center sm:justify-end sm:gap-3">
-                        {loadingProgress ? (
+                        {state.loadingProgress ? (
                           <Loader size="xs" />
                         ) : (
                           <span

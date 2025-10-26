@@ -126,7 +126,7 @@ export default function HistoryStatsPage() {
               </Text>
             </div>
             <Stack gap="md">
-              {Object.entries(stats.actionCounts).map(([action, count]) => {
+              {Object.entries(stats.actionCounts || {}).map(([action, count]) => {
                 const total = stats.totalEntries;
                 const percentage =
                   total > 0 ? Math.round((count / total) * 100) : 0;

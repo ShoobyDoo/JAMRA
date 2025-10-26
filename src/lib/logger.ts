@@ -1,44 +1,67 @@
 /**
  * Logging utility for JAMRA application
- * Provides verbose debugging information in development mode only
+ * Provides structured logging with multiple transport support
  */
 
-export enum LogLevel {
-  DEBUG = 0,
-  INFO = 1,
-  WARN = 2,
-  ERROR = 3,
-  OFF = 4,
-}
-
-export interface LogContext {
-  [key: string]: unknown;
-  timestamp?: string;
-  component?: string;
-  action?: string;
-  userId?: string;
-  sessionId?: string;
-}
-
-export interface NetworkLogContext extends LogContext {
-  url?: string;
-  method?: string;
-  statusCode?: number;
-  duration?: number;
-  requestSize?: number;
-  responseSize?: number;
-  error?: Error;
-}
+import { LogLevel, type LogContext, type NetworkLogContext, type LogEntry } from "./logger/types";
+import type { LogTransport } from "./logger/transports/base";
+import { ConsoleTransport } from "./logger/transports/console";
 
 class Logger {
-  private isDev = process.env.NODE_ENV === "development";
-  private minLevel: LogLevel = this.isDev ? LogLevel.DEBUG : LogLevel.INFO;
+  private transports: LogTransport[] = [];
+  private minLevel: LogLevel = LogLevel.INFO;
+  private isDev = false;
+
+  constructor() {
+    // Detect environment
+    if (typeof process !== "undefined") {
+      this.isDev = process.env.NODE_ENV === "development";
+      this.minLevel = this.isDev ? LogLevel.DEBUG : LogLevel.INFO;
+    }
+
+    // Initialize with console transport by default
+    this.addTransport(
+      new ConsoleTransport({
+        minLevel: this.minLevel,
+      }),
+    );
+  }
+
+  /**
+   * Add a transport to the logger
+   */
+  addTransport(transport: LogTransport): void {
+    this.transports.push(transport);
+  }
+
+  /**
+   * Remove a transport by name
+   */
+  removeTransport(name: string): void {
+    const index = this.transports.findIndex((t) => t.name === name);
+    if (index !== -1) {
+      const transport = this.transports[index];
+      this.transports.splice(index, 1);
+
+      // Close the transport if it supports it
+      if (transport.close) {
+        void transport.close();
+      }
+    }
+  }
+
+  /**
+   * Get all transports
+   */
+  getTransports(): LogTransport[] {
+    return [...this.transports];
+  }
 
   setMinLevel(level: LogLevel): void {
     this.minLevel = level;
   }
 
-  // Configuration methods
+  // Configuration methods for backward compatibility
   enableVerboseLogging(): void {
     this.minLevel = LogLevel.DEBUG;
   }
@@ -63,66 +86,42 @@ class Logger {
     return level >= this.minLevel;
   }
 
-  private formatMessage(
+  private createLogEntry(
     level: LogLevel,
     message: string,
     context?: LogContext,
-  ): string {
-    const timestamp = new Date().toISOString();
-    const levelName = LogLevel[level];
-    const component = context?.component ? `[${context.component}]` : "";
-    const action = context?.action ? `(${context.action})` : "";
-
-    return `${timestamp} ${levelName} ${component}${action} ${message}`;
-  }
-
-  private formatNetworkMessage(
-    level: LogLevel,
-    message: string,
-    context?: NetworkLogContext,
-  ): string {
-    const baseMessage = this.formatMessage(level, message, context);
-
-    if (!context) return baseMessage;
-
-    const networkDetails: string[] = [];
-
-    if (context.url) networkDetails.push(`URL: ${context.url}`);
-    if (context.method) networkDetails.push(`Method: ${context.method}`);
-    if (context.statusCode)
-      networkDetails.push(`Status: ${context.statusCode}`);
-    if (context.duration !== undefined)
-      networkDetails.push(`Duration: ${context.duration}ms`);
-    if (context.requestSize !== undefined)
-      networkDetails.push(`Req Size: ${context.requestSize}B`);
-    if (context.responseSize !== undefined)
-      networkDetails.push(`Res Size: ${context.responseSize}B`);
-
-    if (networkDetails.length > 0) {
-      return `${baseMessage} | ${networkDetails.join(" | ")}`;
-    }
-
-    return baseMessage;
+  ): LogEntry {
+    return {
+      level,
+      message,
+      context,
+      timestamp: new Date().toISOString(),
+    };
   }
 
   private log(level: LogLevel, message: string, context?: LogContext): void {
     if (!this.shouldLog(level)) return;
 
-    const formattedMessage = this.formatMessage(level, message, context);
+    const entry = this.createLogEntry(level, message, context);
 
-    switch (level) {
-      case LogLevel.DEBUG:
-        console.debug(formattedMessage, context);
-        break;
-      case LogLevel.INFO:
-        console.info(formattedMessage, context);
-        break;
-      case LogLevel.WARN:
-        console.warn(formattedMessage, context);
-        break;
-      case LogLevel.ERROR:
-        console.error(formattedMessage, context);
-        break;
+    // Send to all transports
+    for (const transport of this.transports) {
+      try {
+        const result = transport.log(entry);
+        // Handle async transports
+        if (result && typeof result.catch === "function") {
+          result.catch((error) => {
+            // eslint-disable-next-line no-console -- Fallback error logging
+            console.error(
+              `[Logger] Transport ${transport.name} failed:`,
+              error,
+            );
+          });
+        }
+      } catch (error) {
+        // eslint-disable-next-line no-console -- Fallback error logging
+        console.error(`[Logger] Transport ${transport.name} failed:`, error);
+      }
     }
   }
 
@@ -131,24 +130,7 @@ class Logger {
     message: string,
     context?: NetworkLogContext,
   ): void {
-    if (!this.shouldLog(level)) return;
-
-    const formattedMessage = this.formatNetworkMessage(level, message, context);
-
-    switch (level) {
-      case LogLevel.DEBUG:
-        console.debug(formattedMessage, context);
-        break;
-      case LogLevel.INFO:
-        console.info(formattedMessage, context);
-        break;
-      case LogLevel.WARN:
-        console.warn(formattedMessage, context);
-        break;
-      case LogLevel.ERROR:
-        console.error(formattedMessage, context);
-        break;
-    }
+    this.log(level, message, context);
   }
 
   debug(message: string, context?: LogContext): void {
@@ -300,6 +282,32 @@ class Logger {
       action: operation,
       duration,
     });
+  }
+
+  /**
+   * Flush all transports (useful before shutdown)
+   */
+  async flush(): Promise<void> {
+    const flushPromises = this.transports
+      .filter((t) => t.flush)
+      .map((t) => t.flush!());
+
+    await Promise.all(flushPromises);
+  }
+
+  /**
+   * Close all transports and release resources
+   */
+  async close(): Promise<void> {
+    await this.flush();
+
+    const closePromises = this.transports
+      .filter((t) => t.close)
+      .map((t) => t.close!());
+
+    await Promise.all(closePromises);
+
+    this.transports = [];
   }
 }
 

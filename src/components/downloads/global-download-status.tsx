@@ -8,15 +8,12 @@ import {
   Text,
   ActionIcon,
   ScrollArea,
-  Button,
   Popover,
   Badge,
   Tooltip,
 } from "@mantine/core";
-import { ChevronDown, ChevronUp, Download, X, ArrowRight, WifiOff } from "lucide-react";
-import { useVirtualizer } from "@tanstack/react-virtual";
+import { ChevronDown, ChevronUp, Download, X, WifiOff } from "lucide-react";
 import { useUIStore } from "@/store/ui";
-import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import {
   getOfflineQueue,
@@ -68,7 +65,6 @@ function getMangaDisplayName(download: OfflineQueuedDownload): string {
 export function GlobalDownloadStatus() {
   const sidebarCollapsed = useUIStore((state) => state.collapsed);
   const sidebarWidth = useUIStore((state) => state.sidebarWidth);
-  const router = useRouter();
   const [expanded, setExpanded] = useState(false);
   const [popoverOpened, setPopoverOpened] = useState(false);
   const [downloads, setDownloads] = useState<OfflineQueuedDownload[]>([]);

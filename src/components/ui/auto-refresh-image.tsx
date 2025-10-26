@@ -37,13 +37,14 @@ function readWorkingUrlCache(): WorkingUrlCache {
     const parsed = JSON.parse(raw) as WorkingUrlCacheData | WorkingUrlCache;
 
     // Handle versioned cache
-    if (typeof parsed === "object" && parsed && "version" in parsed) {
+    if (typeof parsed === "object" && parsed && "version" in parsed && "entries" in parsed) {
+      const cacheData = parsed as WorkingUrlCacheData;
       // Check version - if mismatch, clear cache
-      if (parsed.version !== CACHE_VERSION) {
+      if (cacheData.version !== CACHE_VERSION) {
         window.localStorage.removeItem(WORKING_URL_CACHE_KEY);
         return {};
       }
-      return parsed.entries;
+      return cacheData.entries;
     }
 
     // Handle legacy unversioned cache (v2 and earlier) - auto-clear

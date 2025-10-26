@@ -14,8 +14,9 @@ import {
   Progress,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import { HardDrive, AlertCircle, Save, Trash2 } from "lucide-react";
+import { AlertCircle, Save, Trash2 } from "lucide-react";
 import type { StorageStats } from "@/lib/api/offline";
+import { logger } from "@/lib/logger";
 
 interface StorageSettings {
   maxStorageGB: number;
@@ -54,8 +55,12 @@ export function StorageSettingsComponent({ stats }: StorageSettingsProps) {
         setSettings(data);
       }
     } catch (error) {
-      // Use defaults if settings don't exist yet
-      console.warn("Failed to load storage settings, using defaults", error);
+      // Use defaults if settings don't exist yet (expected on first load)
+      logger.debug("Failed to load storage settings, using defaults", {
+        component: "StorageSettings",
+        action: "load-settings",
+        error: error instanceof Error ? error : new Error(String(error)),
+      });
     } finally {
       setLoading(false);
     }

@@ -16,6 +16,7 @@
     "dev": "pnpm run run bootstrap web",
     "build": "pnpm run run build all",
     "start": "pnpm run run start web",
+    "kill": "bash scripts/kill-dev-servers.sh",
     "lint": "eslint",
     "test": "node --import tsx ./test/index.ts",
     "extension:demo": "node scripts/run-example-extension.mjs",
@@ -62,6 +63,8 @@
     "@types/node": "^24.9.1",
     "@types/react": "^19.2.2",
     "@types/react-dom": "^19.2.2",
+    "@typescript-eslint/eslint-plugin": "^8.46.2",
+    "@typescript-eslint/parser": "^8.46.2",
     "concurrently": "^9.2.1",
     "cross-env": "^10.1.0",
     "electron": "^38.4.0",
@@ -75,7 +78,8 @@
     "puppeteer": "^24.26.1",
     "tailwindcss": "^4.1.16",
     "tsx": "^4.19.1",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.46.2"
   },
   "build": {
     "appId": "com.jamra.app",

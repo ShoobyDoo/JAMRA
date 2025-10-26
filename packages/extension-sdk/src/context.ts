@@ -1,9 +1,4 @@
-export interface ExtensionLogger {
-  debug(message: string, meta?: Record<string, unknown>): void;
-  info(message: string, meta?: Record<string, unknown>): void;
-  warn(message: string, meta?: Record<string, unknown>): void;
-  error(message: string, meta?: Record<string, unknown>): void;
-}
+import type { ExtensionLogger } from "./types";
 
 export interface ExtensionCache {
   get<T>(namespace: string, key: string): Promise<T | undefined>;
@@ -11,7 +6,7 @@ export interface ExtensionCache {
     namespace: string,
     key: string,
     value: T,
-    ttlMs?: number,
+    ttlMs?: number
   ): Promise<void>;
   delete(namespace: string, key: string): Promise<void>;
 }
@@ -35,7 +30,7 @@ export interface HttpRequestOptions {
 export interface ExtensionHttpClient {
   request<T = unknown>(
     url: string,
-    options?: HttpRequestOptions,
+    options?: HttpRequestOptions
   ): Promise<HttpResponse<T>>;
 }
 

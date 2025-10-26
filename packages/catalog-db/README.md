@@ -11,13 +11,31 @@ SQLite persistence layer for JAMRA’s catalogue metadata, chapter listings, pag
 ## Usage
 
 ```ts
-import { CatalogDatabase, CatalogRepository } from "@jamra/catalog-db";
+import {
+  CatalogDatabase,
+  ExtensionRepository,
+  MangaRepository,
+  ChapterRepository,
+} from "@jamra/catalog-db";
 
 const db = new CatalogDatabase();
-const repo = new CatalogRepository(db.db);
 
-repo.upsertExtension(manifest);
-repo.upsertMangaSummaries(manifest.id, catalogue.items);
+// Use individual repositories for focused operations
+const extensionRepo = new ExtensionRepository(db.db);
+const mangaRepo = new MangaRepository(db.db);
+const chapterRepo = new ChapterRepository(db.db);
+
+extensionRepo.upsertExtension(manifest);
+mangaRepo.upsertMangaSummaries(manifest.id, catalogue.items);
+chapterRepo.upsertChapters(manifest.id, mangaId, chapters);
 ```
 
-Future work will wire this package into the extension host to back the runtime cache and long-term catalogue storage.
+Available repositories:
+- `ExtensionRepository` - Extension installation and metadata
+- `MangaRepository` - Manga summaries and details
+- `ChapterRepository` - Chapter lists and page data
+- `LibraryRepository` - User library and reading lists
+- `ReadingProgressRepository` - Chapter reading progress
+- `HistoryRepository` - Reading history tracking
+- `CoverCacheRepository` - Cached cover images
+- `SettingsRepository` - App settings and preferences

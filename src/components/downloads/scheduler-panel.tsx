@@ -14,6 +14,7 @@ import {
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { Clock, AlertCircle, Save, Zap } from "lucide-react";
+import { logger } from "@/lib/logger";
 
 interface SchedulerSettings {
   enabled: boolean;
@@ -49,8 +50,12 @@ export function SchedulerPanel() {
         setSettings(data);
       }
     } catch (error) {
-      // Use defaults if settings don't exist yet
-      console.warn("Failed to load scheduler settings, using defaults", error);
+      // Use defaults if settings don't exist yet (expected on first load)
+      logger.debug("Failed to load scheduler settings, using defaults", {
+        component: "SchedulerPanel",
+        action: "load-settings",
+        error: error instanceof Error ? error : new Error(String(error)),
+      });
     } finally {
       setLoading(false);
     }

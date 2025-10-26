@@ -595,7 +595,7 @@ export function ExtensionsManager({
         value={activeTab}
         onChange={(value) => setActiveTab(value as ExtensionTab)}
       >
-        <Tabs.List>
+        <Tabs.List className="[&_button:hover:not([data-active])]:bg-gray-100 dark:[&_button:hover:not([data-active])]:bg-gray-800">
           <Tabs.Tab value="installed">Installed</Tabs.Tab>
           <Tabs.Tab value="marketplace">Marketplace</Tabs.Tab>
         </Tabs.List>

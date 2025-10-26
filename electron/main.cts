@@ -4,10 +4,36 @@ import { parse } from "node:url";
 import next from "next";
 import { app, BrowserWindow } from "electron";
 import { startCatalogServer } from "@jamra/catalog-server";
+import { ElectronLogger } from "./logger-setup.cjs";
 
 if (process.env.NODE_ENV !== "production") {
   process.env.ELECTRON_DISABLE_SECURITY_WARNINGS = "true";
 }
+
+// Initialize logger
+const dataDir = process.env.JAMRA_DATA_DIR ?? path.join(process.cwd(), ".jamra-data");
+const logger = new ElectronLogger(dataDir);
+
+// Setup crash handlers
+process.on("uncaughtException", (error) => {
+  logger.error("Uncaught exception", {
+    error: String(error),
+    stack: error.stack,
+    name: error.name,
+    message: error.message,
+  });
+  // Give logger time to flush before exiting
+  setTimeout(() => {
+    process.exit(1);
+  }, 1000);
+});
+
+process.on("unhandledRejection", (reason, promise) => {
+  logger.error("Unhandled rejection", {
+    reason: String(reason),
+    promise: String(promise),
+  });
+});
 
 const NEXT_PORT = Number(process.env.JAMRA_NEXT_PORT ?? 3000);
 const API_PORT = Number(process.env.JAMRA_API_PORT ?? 4545);
@@ -51,7 +77,7 @@ async function prepareNext(): Promise<void> {
     nextServer!.listen(NEXT_PORT, resolve);
   });
 
-  console.log(`Next.js server listening on http://localhost:${NEXT_PORT}`);
+  logger.info(`Next.js server listening on http://localhost:${NEXT_PORT}`);
 }
 
 async function createWindow(): Promise<void> {
@@ -69,18 +95,22 @@ async function createWindow(): Promise<void> {
 
   const gpuStatus = app.getGPUFeatureStatus?.();
   if (gpuStatus) {
-    console.log("GPU feature status:", gpuStatus);
+    logger.debug("GPU feature status", gpuStatus);
   }
 }
 
 app.whenReady().then(async () => {
   try {
+    logger.info("Electron app starting", { port: API_PORT, nodeEnv: process.env.NODE_ENV });
     const catalogInstance = await startCatalogServer({ port: API_PORT });
     catalogClose = catalogInstance.close;
+    logger.info("Catalog server started");
     await prepareNext();
+    logger.info("Next.js server prepared");
     await createWindow();
+    logger.info("Main window created");
   } catch (error) {
-    console.error("Failed to start desktop shell", error);
+    logger.error("Failed to start desktop shell", { error: String(error), stack: (error as Error).stack });
     app.quit();
   }
 
@@ -106,19 +136,28 @@ app.on("before-quit", async (event) => {
 
   event.preventDefault();
   shuttingDown = true;
+  logger.info("Shutting down application");
+
   try {
     await catalogClose?.();
+    logger.info("Catalog server closed");
   } catch (error) {
-    console.error("Failed to close catalog server", error);
+    logger.error("Failed to close catalog server", { error: String(error) });
   }
 
   await new Promise<void>((resolve) => {
     if (nextServer) {
-      nextServer.close(() => resolve());
+      nextServer.close(() => {
+        logger.info("Next.js server closed");
+        resolve();
+      });
     } else {
       resolve();
     }
   });
+
+  // Close logger and flush remaining logs
+  await logger.close();
 
   app.exit();
 });

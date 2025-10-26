@@ -120,10 +120,10 @@ async function initialize(config: WorkerInitConfig): Promise<void> {
     cleanupCallbacks.push(() => database.close());
 
     const host = new ExtensionHost({ database });
-    const CatalogRepository = catalogDbModule.CatalogRepository;
-    const catalogRepository = new CatalogRepository(database.db);
+    const ExtensionRepository = catalogDbModule.ExtensionRepository;
+    const extensionRepository = new ExtensionRepository(database.db);
 
-    const enabledExtensions = catalogRepository.listExtensions({
+    const enabledExtensions = extensionRepository.listExtensions({
       status: "enabled",
     });
     console.log(
@@ -454,7 +454,7 @@ async function handleCommand(command: WorkerCommand): Promise<void> {
       }
       case "get-metrics": {
         const metrics = requireWorker().getMetrics();
-        sendResult("get-metrics", command.requestId, { metrics: metrics as any });
+        sendResult("get-metrics", command.requestId, { metrics });
         break;
       }
       case "reset-metrics": {

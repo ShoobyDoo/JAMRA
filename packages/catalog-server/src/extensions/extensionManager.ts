@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { ExtensionHost, importExtension } from "@jamra/extension-host";
 import {
-  CatalogRepository,
+  ExtensionRepository,
   type ExtensionListOptions,
   type StoredExtension,
   type StoredExtensionSourceMetadata,
@@ -25,18 +25,18 @@ export interface ManagedExtension extends StoredExtension {
 export class ExtensionManager {
   constructor(
     private readonly host: ExtensionHost,
-    private readonly repository?: CatalogRepository,
+    private readonly repositories?: { extensions: ExtensionRepository },
     private readonly storage?: ExtensionStorage,
   ) {}
 
   async initialize(): Promise<void> {
-    if (!this.repository) return;
+    if (!this.repositories) return;
 
-    const installed = this.repository.listExtensions({ status: "enabled" });
+    const installed = this.repositories.extensions.listExtensions({ status: "enabled" });
     for (const extension of installed) {
       const entryPath = extension.entryPath;
       if (!entryPath) {
-        this.repository.setExtensionEnabled(extension.id, false);
+        this.repositories.extensions.setExtensionEnabled(extension.id, false);
         continue;
       }
 
@@ -44,7 +44,7 @@ export class ExtensionManager {
         console.warn(
           `Extension bundle missing at ${entryPath}; disabling ${extension.id}.`,
         );
-        this.repository.setExtensionEnabled(extension.id, false);
+        this.repositories.extensions.setExtensionEnabled(extension.id, false);
         continue;
       }
 
@@ -62,14 +62,14 @@ export class ExtensionManager {
   }
 
   listExtensions(options: ExtensionListOptions = {}): ManagedExtension[] {
-    if (!this.repository) return [];
-    const rows = this.repository.listExtensions(options);
+    if (!this.repositories) return [];
+    const rows = this.repositories.extensions.listExtensions(options);
     return rows.map((row) => this.toManaged(row));
   }
 
   getExtension(id: string): ManagedExtension | undefined {
-    if (!this.repository) return undefined;
-    const row = this.repository.getExtension(id);
+    if (!this.repositories) return undefined;
+    const row = this.repositories.extensions.getExtension(id);
     if (!row) return undefined;
     return this.toManaged(row);
   }
@@ -88,7 +88,7 @@ export class ExtensionManager {
     const extensionModule = await importExtension(absolutePath);
     const manifest = extensionModule.manifest;
 
-    const existing = this.repository!.getExtension(manifest.id);
+    const existing = this.repositories!.extensions.getExtension(manifest.id);
     const targetSettings = options.settings ?? existing?.settings ?? null;
 
     const storedPath = await this.storage!.save(absolutePath, manifest);
@@ -97,23 +97,23 @@ export class ExtensionManager {
       await this.host.unload(manifest.id);
     }
 
-    const upsertOptions: Parameters<CatalogRepository["upsertExtension"]>[1] = {
+    const upsertOptions: Parameters<ExtensionRepository["upsertExtension"]>[1] = {
       entryPath: storedPath,
       enabled: options.enabled ?? true,
       settings: targetSettings,
     };
 
-    if (options.sourceMetadata !== undefined) {
-      upsertOptions.source = options.sourceMetadata;
+    if (options.sourceMetadata !== undefined && options.sourceMetadata !== null) {
+      upsertOptions.sourceMetadata = options.sourceMetadata;
     }
 
-    if (options.updateState !== undefined) {
+    if (options.updateState !== undefined && options.updateState !== null) {
       upsertOptions.updateState = options.updateState;
     }
 
     if (options.enabled === false) {
       upsertOptions.enabled = false;
-      this.repository!.upsertExtension(manifest, upsertOptions);
+      this.repositories!.extensions.upsertExtension(manifest, upsertOptions);
     } else {
       await this.host.loadFromFile(storedPath, {
         settings: targetSettings ?? undefined,
@@ -140,7 +140,7 @@ export class ExtensionManager {
       if (settings !== undefined) {
         await this.host.updateExtensionSettings(id, settings);
       }
-      this.repository!.setExtensionEnabled(id, true);
+      this.repositories!.extensions.setExtensionEnabled(id, true);
       return this.getExtension(id)!;
     }
 
@@ -163,10 +163,10 @@ export class ExtensionManager {
     if (this.host.isLoaded(id)) {
       await this.host.disableExtension(id);
     } else {
-      this.repository!.setExtensionEnabled(id, false);
+      this.repositories!.extensions.setExtensionEnabled(id, false);
     }
 
-    this.repository!.removeExtension(id);
+    this.repositories!.extensions.removeExtension(id);
     await this.storage!.remove(id);
   }
 
@@ -179,7 +179,7 @@ export class ExtensionManager {
     if (this.host.isLoaded(id)) {
       await this.host.updateExtensionSettings(id, settings);
     } else {
-      this.repository!.updateExtensionSettings(id, settings);
+      this.repositories!.extensions.updateExtensionSettings(id, settings);
     }
 
     return this.getExtension(id)!;
@@ -190,7 +190,9 @@ export class ExtensionManager {
     source: StoredExtensionSourceMetadata | null,
   ): void {
     this.ensurePersistence();
-    this.repository!.updateExtensionSourceMetadata(id, source);
+    if (source !== null) {
+      this.repositories!.extensions.updateExtensionSourceMetadata(id, source);
+    }
   }
 
   updateExtensionUpdateState(
@@ -198,7 +200,9 @@ export class ExtensionManager {
     state: StoredExtensionUpdateState | null,
   ): void {
     this.ensurePersistence();
-    this.repository!.updateExtensionUpdateState(id, state);
+    if (state !== null) {
+      this.repositories!.extensions.updateExtensionUpdateState(id, state);
+    }
   }
 
   getDefaultExtensionId(): string | undefined {
@@ -207,22 +211,22 @@ export class ExtensionManager {
       return loaded[0].id;
     }
 
-    if (!this.repository) return undefined;
-    const enabled = this.repository.listExtensions({ status: "enabled" });
+    if (!this.repositories) return undefined;
+    const enabled = this.repositories.extensions.listExtensions({ status: "enabled" });
     return enabled[0]?.id;
   }
 
   private ensurePersistence(): void {
-    if (!this.repository || !this.storage) {
+    if (!this.repositories || !this.storage) {
       throw new Error("Persistent extension storage is not available.");
     }
   }
 
   private requireExtension(id: string): StoredExtension {
-    if (!this.repository) {
+    if (!this.repositories) {
       throw new Error("Extension repository not available.");
     }
-    const extension = this.repository.getExtension(id);
+    const extension = this.repositories.extensions.getExtension(id);
     if (!extension) {
       throw new Error(`Extension ${id} is not installed.`);
     }

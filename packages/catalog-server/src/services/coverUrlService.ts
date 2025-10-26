@@ -1,7 +1,7 @@
-import type { CatalogRepository } from "@jamra/catalog-db";
+import type { MangaRepository } from "@jamra/catalog-db";
 
 export class CoverUrlService {
-  constructor(private readonly repository?: CatalogRepository) {}
+  constructor(private readonly repositories?: { manga: MangaRepository }) {}
 
   /**
    * Sanitize cover URLs by removing duplicates, invalid URLs, and non-HTTP(S) protocols
@@ -40,15 +40,15 @@ export class CoverUrlService {
    * Get stored cover URL order from repository
    */
   getStoredOrder(extensionId: string, mangaId: string): string[] | undefined {
-    return this.repository?.getMangaCoverUrls(extensionId, mangaId);
+    return this.repositories?.manga.getMangaCoverUrls(extensionId, mangaId);
   }
 
   /**
    * Update cover URL order in repository
    */
   updateOrder(extensionId: string, mangaId: string, urls: string[]): void {
-    if (this.repository && urls.length > 0) {
-      this.repository.updateMangaCoverUrls(extensionId, mangaId, urls);
+    if (this.repositories && urls.length > 0) {
+      this.repositories.manga.updateMangaCoverUrls(extensionId, mangaId, urls);
     }
   }
 
@@ -61,7 +61,7 @@ export class CoverUrlService {
     successfulUrl: string,
     attemptedUrls: string[],
   ): void {
-    if (!this.repository) return;
+    if (!this.repositories) return;
 
     const preferred = this.sanitize([successfulUrl, ...attemptedUrls]);
     const storedOrder = this.getStoredOrder(extensionId, mangaId) ?? [];
@@ -81,7 +81,7 @@ export class CoverUrlService {
     failedUrl: string,
     attemptedUrls: string[],
   ): void {
-    if (!this.repository) return;
+    if (!this.repositories) return;
 
     const storedOrder = this.getStoredOrder(extensionId, mangaId) ?? [];
     const filteredStored = storedOrder.filter((url) => url !== failedUrl);

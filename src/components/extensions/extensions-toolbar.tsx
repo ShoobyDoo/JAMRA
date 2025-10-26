@@ -5,7 +5,6 @@ import {
   ActionIcon,
   Group,
   SegmentedControl,
-  Text,
   TextInput,
   Tooltip,
 } from "@mantine/core";

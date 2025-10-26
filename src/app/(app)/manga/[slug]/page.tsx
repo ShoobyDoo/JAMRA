@@ -59,7 +59,7 @@ export default async function MangaPage({ params }: MangaPageProps) {
               alt={details.title}
               fill
               sizes="(max-width: 1024px) 60vw, 320px"
-              className="object-fill"
+              className="object-cover"
               mangaId={mangaId}
               extensionId={data.extensionId}
             />

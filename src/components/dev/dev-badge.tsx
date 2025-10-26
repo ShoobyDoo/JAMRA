@@ -5,6 +5,7 @@ import { HoverCard, ActionIcon } from "@mantine/core";
 import { Code, Copy, Check, ExternalLink } from "lucide-react";
 import { useDevMode } from "@/hooks/use-dev-mode";
 import type { DevInfoItem } from "@/lib/dev-utils";
+import { logger } from "@/lib/logger";
 
 interface DevBadgeProps {
   label: string;
@@ -24,7 +25,12 @@ export function DevBadge({ label, info, position = "left" }: DevBadgeProps) {
       setCopiedItem(itemLabel);
       setTimeout(() => setCopiedItem(null), 2000);
     } catch (error) {
-      console.error("Failed to copy:", error);
+      logger.warn("Failed to copy to clipboard", {
+        component: "DevBadge",
+        action: "copy-to-clipboard",
+        itemLabel,
+        error: error instanceof Error ? error : new Error(String(error)),
+      });
     }
   };
 
@@ -107,7 +113,12 @@ export function InlineDevBadge({ info }: InlineDevBadgeProps) {
       setCopiedItem(itemLabel);
       setTimeout(() => setCopiedItem(null), 2000);
     } catch (error) {
-      console.error("Failed to copy:", error);
+      logger.warn("Failed to copy to clipboard", {
+        component: "DevBadge",
+        action: "copy-to-clipboard",
+        itemLabel,
+        error: error instanceof Error ? error : new Error(String(error)),
+      });
     }
   };
 

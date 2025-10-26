@@ -148,7 +148,7 @@ export interface WorkerResultMap {
   "validate-manga-chapter-count": { valid: boolean; rebuilt: boolean };
   "start-background-sync": void;
   "get-page-path": { path: string | null };
-  "get-metrics": { metrics: PerformanceMetrics };
+  "get-metrics": { metrics: PerformanceMetrics | null };
   "reset-metrics": void;
 }
 

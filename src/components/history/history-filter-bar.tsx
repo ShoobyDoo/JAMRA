@@ -1,7 +1,12 @@
 "use client";
 
-import { Search, SlidersHorizontal } from "lucide-react";
-import { TextInput, Select, Group } from "@mantine/core";
+import {
+  Search,
+  SlidersHorizontal,
+  ListFilter,
+  CalendarDays,
+} from "lucide-react";
+import { TextInput, Select } from "@mantine/core";
 import type { HistoryActionType } from "@/lib/api";
 import type { HistorySortOption } from "@/store/history";
 
@@ -51,27 +56,28 @@ export function HistoryFilterBar({
   };
 
   return (
-    <div className="space-y-4">
-      {/* Search and Filters Row */}
-      <div className="flex flex-col sm:flex-row gap-4">
-        {/* Search */}
-        <TextInput
-          placeholder="Search manga or chapters..."
-          value={searchQuery}
-          onChange={(e) => onSearchChange(e.target.value)}
-          leftSection={<Search className="h-4 w-4" />}
-          className="flex-1 min-w-[200px]"
-        />
+    <div className="flex items-center gap-3 w-full">
+      {/* Search */}
+      <TextInput
+        placeholder="Search manga or chapters..."
+        value={searchQuery}
+        onChange={(e) => onSearchChange(e.target.value)}
+        leftSection={<Search className="h-4 w-4" />}
+        className="flex-1 min-w-[200px]"
+      />
 
+      {/* Filter Group */}
+      <div className="flex items-center gap-2">
         {/* Action Type Filter */}
         <Select
           value={actionType ?? "all"}
           onChange={(value) =>
             onActionTypeChange(
-              value === "all" ? undefined : (value as HistoryActionType),
+              value === "all" ? undefined : (value as HistoryActionType)
             )
           }
           placeholder="All Actions"
+          leftSection={<ListFilter className="h-4 w-4" />}
           data={[
             { value: "all", label: "All Actions" },
             { value: "read", label: "Read" },
@@ -79,7 +85,7 @@ export function HistoryFilterBar({
             { value: "library_remove", label: "Removed from Library" },
             { value: "favorite", label: "Favorited" },
           ]}
-          className="w-full sm:w-[180px]"
+          className="w-[200px]"
           checkIconPosition="right"
         />
 
@@ -96,38 +102,38 @@ export function HistoryFilterBar({
           }
           onChange={handleQuickDateRange}
           placeholder="All Time"
+          leftSection={<CalendarDays className="h-4 w-4" />}
           data={[
             { value: "all", label: "All Time" },
             { value: "today", label: "Today" },
             { value: "week", label: "Last 7 Days" },
             { value: "month", label: "Last 30 Days" },
           ]}
-          className="w-full sm:w-[180px]"
+          className="w-[145px]"
           checkIconPosition="right"
         />
       </div>
 
-      {/* Sort Controls */}
-      <div className="flex items-center">
-        <Group gap="xs">
-          <SlidersHorizontal className="h-4 w-4 text-muted-foreground" />
-          <Select
-            value={sortBy}
-            onChange={(value) => onSortChange(value as HistorySortOption)}
-            placeholder="Sort by"
-            data={[
-              { value: "newest", label: "Newest First" },
-              { value: "oldest", label: "Oldest First" },
-              { value: "manga", label: "By Manga" },
-            ]}
-            className="w-[180px]"
-            checkIconPosition="right"
-          />
+      {/* Sort Group - Pushed to Right */}
+      <div className="flex items-center gap-2 ml-auto">
+        <Select
+          value={sortBy}
+          onChange={(value) => onSortChange(value as HistorySortOption)}
+          placeholder="Sort by"
+          leftSection={<SlidersHorizontal className="h-4 w-4" />}
+          data={[
+            { value: "newest", label: "Newest First" },
+            { value: "oldest", label: "Oldest First" },
+            { value: "manga", label: "By Manga" },
+          ]}
+          className="w-[150px]"
+          checkIconPosition="right"
+        />
 
-          <span className="text-sm text-muted-foreground ml-2">
-            {totalCount} {totalCount === 1 ? "entry" : "entries"}
-          </span>
-        </Group>
+        {/* Entry Count */}
+        <span className="text-sm text-muted-foreground whitespace-nowrap">
+          {totalCount} {totalCount === 1 ? "entry" : "entries"}
+        </span>
       </div>
     </div>
   );

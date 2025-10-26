@@ -53,7 +53,7 @@ export default function HistoryPage() {
   };
 
   const handleActionTypeChange = (
-    actionType: HistoryActionType | undefined,
+    actionType: HistoryActionType | undefined
   ) => {
     setFilters({ actionType });
   };
@@ -117,7 +117,12 @@ export default function HistoryPage() {
 
           <Menu shadow="md" width={200}>
             <Menu.Target>
-              <Button variant="outline" size="sm" className="aspect-square px-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="aspect-square"
+                p={0}
+              >
                 <MoreVertical className="h-4 w-4" />
               </Button>
             </Menu.Target>

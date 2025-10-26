@@ -64,7 +64,7 @@
           "downloadUrl": "./packages/weebcentral-extension/dist/bundle.cjs",
           "checksum": {
             "algorithm": "sha256",
-            "value": "690516e5e8a2f067138e4de88881c598ffd0bfba493f16ae53384add750b75aa"
+            "value": "30b368e7a6b6d795724c407ea64ca35bf305cf976dbfdc9494f3ef41346f5ce6"
           },
           "releaseNotes": "Initial release with search, catalogue, manga details, chapter pages, and filter support. Bundled with cheerio dependencies.",
           "publishedAt": "2025-01-06T00:00:00.000Z"

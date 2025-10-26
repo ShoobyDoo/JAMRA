@@ -8,12 +8,21 @@ import type {
   MangaDetails,
   MangaSummary,
 } from "@jamra/extension-sdk";
-import { CatalogRepository, type CatalogDatabase } from "@jamra/catalog-db";
+import {
+  MangaRepository,
+  ChapterRepository,
+  SettingsRepository,
+  type CatalogDatabase,
+} from "@jamra/catalog-db";
 import { ExtensionHost } from "@jamra/extension-host";
 
 export interface CatalogServiceOptions {
-  repository?: CatalogRepository;
   database?: CatalogDatabase;
+  repositories?: {
+    manga: MangaRepository;
+    chapters: ChapterRepository;
+    settings: SettingsRepository;
+  };
 }
 
 export interface CatalogueSyncOptions {
@@ -82,16 +91,24 @@ function normalizeSlug(value: string): string {
 }
 
 export class CatalogService {
-  private readonly repository?: CatalogRepository;
+  private readonly repositories?: {
+    manga: MangaRepository;
+    chapters: ChapterRepository;
+    settings: SettingsRepository;
+  };
 
   constructor(
     private readonly host: ExtensionHost,
     options: CatalogServiceOptions = {},
   ) {
-    if (options.repository) {
-      this.repository = options.repository;
+    if (options.repositories) {
+      this.repositories = options.repositories;
     } else if (options.database) {
-      this.repository = new CatalogRepository(options.database.db);
+      this.repositories = {
+        manga: new MangaRepository(options.database.db),
+        chapters: new ChapterRepository(options.database.db),
+        settings: new SettingsRepository(options.database.db),
+      };
     }
   }
 
@@ -162,7 +179,7 @@ export class CatalogService {
   ): Promise<MangaSyncResult> {
     const mangaId = await this.resolveMangaId(extensionId, slug);
 
-    if (mangaId === slug && looksLikeSlug(slug) && this.repository) {
+    if (mangaId === slug && looksLikeSlug(slug) && this.repositories) {
       throw new Error(`Manga slug "${slug}" could not be resolved to an ID.`);
     }
 
@@ -179,7 +196,7 @@ export class CatalogService {
     if (
       mangaId === mangaIdOrSlug &&
       looksLikeSlug(mangaIdOrSlug) &&
-      this.repository
+      this.repositories
     ) {
       throw new Error(
         `Manga slug "${mangaIdOrSlug}" could not be resolved to an ID.`,
@@ -191,7 +208,7 @@ export class CatalogService {
       chapterId,
     });
 
-    this.repository?.replaceChapterPages(extensionId, mangaId, pages);
+    this.repositories?.chapters.replaceChapterPages(extensionId, mangaId, pages);
 
     return { pages };
   }
@@ -208,7 +225,7 @@ export class CatalogService {
     if (
       mangaId === mangaIdOrSlug &&
       looksLikeSlug(mangaIdOrSlug) &&
-      this.repository
+      this.repositories
     ) {
       throw new Error(
         `Manga slug "${mangaIdOrSlug}" could not be resolved to an ID.`,
@@ -238,7 +255,7 @@ export class CatalogService {
       mangaId,
     });
 
-    this.repository?.upsertMangaDetails(extensionId, details);
+    this.repositories?.manga.upsertMangaDetails(extensionId, details);
 
     let chaptersFetched = 0;
     let chapters: ChapterSummary[] | undefined = details.chapters;
@@ -250,14 +267,14 @@ export class CatalogService {
     }
 
     if (chapters && chapters.length > 0) {
-      this.repository?.upsertChapters(extensionId, mangaId, chapters);
+      this.repositories?.chapters.upsertChapters(extensionId, mangaId, chapters);
       chaptersFetched = chapters.length;
       details.chapters = chapters;
     } else {
       details.chapters = chapters;
     }
 
-    this.repository?.updateSyncState(extensionId, { full: Date.now() });
+    this.repositories?.settings.setAppSetting(`syncState:${extensionId}`, { full: Date.now() });
 
     return {
       details,
@@ -276,7 +293,7 @@ export class CatalogService {
 
     const slugCandidate = trimmed.toLowerCase();
 
-    const repoMatch = this.repository?.getMangaBySlug(
+    const repoMatch = this.repositories?.manga.getMangaBySlug(
       extensionId,
       slugCandidate,
     );
@@ -301,7 +318,7 @@ export class CatalogService {
         );
 
         if (resolved) {
-          this.repository?.upsertMangaSummaries(extensionId, [resolved]);
+          this.repositories?.manga.upsertMangaSummaries(extensionId, [resolved]);
           return resolved.id;
         }
       }

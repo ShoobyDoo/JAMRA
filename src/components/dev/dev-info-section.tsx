@@ -5,6 +5,7 @@ import { Accordion, ActionIcon, Badge } from "@mantine/core";
 import { Code, Copy, Check, ExternalLink, ChevronDown } from "lucide-react";
 import { useDevMode } from "@/hooks/use-dev-mode";
 import type { DevInfoItem } from "@/lib/dev-utils";
+import { logger } from "@/lib/logger";
 
 interface DevInfoGroup {
   title: string;
@@ -28,7 +29,12 @@ export function DevInfoSection({ groups }: DevInfoSectionProps) {
       setCopiedItem(key);
       setTimeout(() => setCopiedItem(null), 2000);
     } catch (error) {
-      console.error("Failed to copy:", error);
+      logger.warn("Failed to copy to clipboard", {
+        component: "DevInfoSection",
+        action: "copy-to-clipboard",
+        key,
+        error: error instanceof Error ? error : new Error(String(error)),
+      });
     }
   };
 
@@ -50,6 +56,7 @@ export function DevInfoSection({ groups }: DevInfoSectionProps) {
 
       <Accordion
         variant="separated"
+        multiple
         defaultValue={defaultValue}
         chevron={<ChevronDown className="h-4 w-4" />}
         classNames={{

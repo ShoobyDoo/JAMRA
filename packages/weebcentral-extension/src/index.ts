@@ -2,8 +2,9 @@ import type {
   ExtensionModule,
   CatalogueResponse,
   ExtensionFilters,
+  ExtensionLogger,
 } from "@jamra/extension-sdk";
-import { WeebCentralScraper } from "./scraper.js";
+import { WeebCentralScraper} from "./scraper.js";
 import { RateLimiter } from "./rate-limiter.js";
 
 const rateLimiter = new RateLimiter({
@@ -11,7 +12,15 @@ const rateLimiter = new RateLimiter({
   maxConcurrentImages: 10,
 });
 
-const scraper = new WeebCentralScraper(rateLimiter);
+// Scraper will be initialized on first use with logger from context
+let scraper: WeebCentralScraper | null = null;
+
+function getScraper(logger: ExtensionLogger): WeebCentralScraper {
+  if (!scraper) {
+    scraper = new WeebCentralScraper(rateLimiter, logger);
+  }
+  return scraper;
+}
 
 const extension: ExtensionModule = {
   manifest: {
@@ -36,12 +45,13 @@ const extension: ExtensionModule = {
   },
   handlers: {
     async catalogue(context, request) {
-      scraper.setCache(context.cache);
+      const s = getScraper(context.logger);
+      s.setCache(context.cache);
 
       // Check if hot-updates are requested via filters
       const useHotUpdates = request.filters?.useHotUpdates === true;
 
-      console.log("[WeebCentral] Catalogue request:", {
+      context.logger.debug("Catalogue request", {
         page: request.page,
         query: request.query,
         filters: request.filters,
@@ -49,19 +59,17 @@ const extension: ExtensionModule = {
       });
 
       const result = useHotUpdates
-        ? await scraper.getHotUpdates(request.page)
-        : await scraper.searchManga(
+        ? await s.getHotUpdates(request.page)
+        : await s.searchManga(
             request.query || "",
             request.page,
             request.filters,
           );
 
-      console.log(
-        "[WeebCentral] Returning",
-        result.items.length,
-        "items, first:",
-        result.items[0]?.title,
-      );
+      context.logger.debug("Catalogue response", {
+        itemCount: result.items.length,
+        firstItem: result.items[0]?.title,
+      });
 
       const response: CatalogueResponse = {
         items: result.items,
@@ -71,8 +79,9 @@ const extension: ExtensionModule = {
     },
 
     async search(context, request) {
-      scraper.setCache(context.cache);
-      const result = await scraper.searchManga(
+      const s = getScraper(context.logger);
+      s.setCache(context.cache);
+      const result = await s.searchManga(
         request.query || "",
         request.page,
         request.filters,
@@ -85,26 +94,30 @@ const extension: ExtensionModule = {
     },
 
     async fetchMangaDetails(context, request) {
-      scraper.setCache(context.cache);
-      const details = await scraper.getMangaDetails(request.mangaId);
+      const s = getScraper(context.logger);
+      s.setCache(context.cache);
+      const details = await s.getMangaDetails(request.mangaId);
       return details;
     },
 
     async fetchChapters(context, request) {
-      scraper.setCache(context.cache);
-      const details = await scraper.getMangaDetails(request.mangaId);
+      const s = getScraper(context.logger);
+      s.setCache(context.cache);
+      const details = await s.getMangaDetails(request.mangaId);
       return details.chapters || [];
     },
 
     async fetchChapterPages(context, request) {
-      scraper.setCache(context.cache);
-      const pages = await scraper.getChapterPages(request.chapterId);
+      const s = getScraper(context.logger);
+      s.setCache(context.cache);
+      const pages = await s.getChapterPages(request.chapterId);
       return pages;
     },
 
     async fetchChapterPagesChunk(context, request) {
-      scraper.setCache(context.cache);
-      return scraper.getChapterPagesChunk(
+      const s = getScraper(context.logger);
+      s.setCache(context.cache);
+      return s.getChapterPagesChunk(
         request.mangaId,
         request.chapterId,
         request.chunk,

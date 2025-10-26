@@ -1,11 +1,66 @@
 import type Database from "better-sqlite3";
 import type { ExtensionManifest } from "@jamra/extension-sdk";
-import type {
-  StoredExtension,
-  ExtensionListOptions,
-  StoredExtensionSourceMetadata,
-  StoredExtensionUpdateState,
-} from "../catalogRepository.js";
+import type { ExtensionArtifactSignature } from "@jamra/extension-registry";
+
+export interface StoredExtensionSourceMetadata {
+  registryId?: string;
+  manifestUrl?: string;
+  downloadUrl?: string;
+  checksum?: string;
+  signature?: ExtensionArtifactSignature;
+  version?: string;
+}
+
+export interface StoredExtensionUpdateDetails {
+  version: string;
+  downloadUrl: string;
+  checksum?: string;
+  releaseNotes: string;
+  publishedAt?: string;
+  manifestUrl?: string;
+  minHostVersion?: string;
+  minSdkVersion?: string;
+  compatibilityNotes?: string;
+  signature?: ExtensionArtifactSignature;
+  registryId?: string;
+}
+
+export interface StoredExtensionUpdateState {
+  latest?: StoredExtensionUpdateDetails;
+  lastCheckedAt?: number;
+  acknowledgedVersion?: string;
+  acknowledgedAt?: number;
+}
+
+export interface StoredExtension {
+  id: string;
+  name: string;
+  version: string;
+  description?: string;
+  homepage?: string;
+  icon?: string;
+  author: {
+    name: string;
+    url?: string;
+    contact?: string;
+  };
+  languageCodes: ExtensionManifest["languageCodes"];
+  capabilities: ExtensionManifest["capabilities"];
+  manifest: ExtensionManifest;
+  installedAt: number;
+  entryPath?: string;
+  enabled: boolean;
+  settings?: Record<string, unknown>;
+  source?: StoredExtensionSourceMetadata;
+  updateState?: StoredExtensionUpdateState;
+}
+
+export interface ExtensionListOptions {
+  search?: string;
+  status?: "enabled" | "disabled";
+  sort?: "name" | "installedAt" | "author" | "language";
+  order?: "asc" | "desc";
+}
 
 export class ExtensionRepository {
   constructor(private readonly db: Database.Database) {}
