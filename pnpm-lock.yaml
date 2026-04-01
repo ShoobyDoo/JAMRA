@@ -93,6 +93,9 @@ importers:
       '@jamra/contracts':
         specifier: workspace:*
         version: link:packages/contracts
+      '@jamra/extension-sdk':
+        specifier: workspace:*
+        version: link:packages/extension-sdk
       '@tanstack/eslint-plugin-query':
         specifier: ^5.91.2
         version: 5.91.2(eslint@9.39.1(jiti@2.6.1))(typescript@5.9.3)
@@ -220,11 +223,30 @@ importers:
         specifier: ~5.9.3
         version: 5.9.3
 
+  packages/extension-sdk:
+    dependencies:
+      '@jamra/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      cheerio:
+        specifier: ^1.1.2
+        version: 1.1.2
+      domhandler:
+        specifier: ^5.0.3
+        version: 5.0.3
+    devDependencies:
+      typescript:
+        specifier: ~5.9.3
+        version: 5.9.3
+
   packages/server:
     dependencies:
       '@jamra/contracts':
         specifier: workspace:*
         version: link:../contracts
+      '@jamra/extension-sdk':
+        specifier: workspace:*
+        version: link:../extension-sdk
       better-sqlite3:
         specifier: ^12.4.1
         version: 12.4.1

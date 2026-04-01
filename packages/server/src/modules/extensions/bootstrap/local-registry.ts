@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import type { AppContext } from "../../../app/context.js";
-import type { ExtensionManifest } from "../../../sdk/index.js";
+import type { ExtensionManifest } from "@jamra/extension-sdk";
 import type {
   ExtensionLoader,
   ExtensionRecord,

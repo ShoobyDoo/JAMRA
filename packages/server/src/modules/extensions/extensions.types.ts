@@ -3,7 +3,7 @@ import type { AppContext } from "../../app/context.js";
 import type {
   ExtensionManifest,
   ExtensionModule,
-} from "../../sdk/index.js";
+} from "@jamra/extension-sdk";
 
 export interface ExtensionRecord {
   id: string;

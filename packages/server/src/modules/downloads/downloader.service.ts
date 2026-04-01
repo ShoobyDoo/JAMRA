@@ -1,5 +1,5 @@
 import path from "node:path";
-import type { ChapterPayload, PagesResult } from "../../sdk/index.js";
+import type { ChapterPayload, PagesResult } from "@jamra/extension-sdk";
 import { DomainError, ValidationError } from "../../shared/errors.js";
 import type { Logger } from "../../shared/logger.js";
 import type {

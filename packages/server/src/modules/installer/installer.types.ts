@@ -1,4 +1,4 @@
-import type { ExtensionManifest } from "../../sdk/index.js";
+import type { ExtensionManifest } from "@jamra/extension-sdk";
 
 export interface InstallRequest {
   sourceUrl: string;

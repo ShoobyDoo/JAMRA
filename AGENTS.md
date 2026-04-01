@@ -44,7 +44,7 @@
 - **Tauri** handles packaging (see `src-tauri/tauri.conf.json`)
   - `beforeDevCommand`: `pnpm dev` (frontend + server watchers)
   - `beforeBuildCommand`: `pnpm build:app && pnpm bundle:server`
-  - Resources bundled with the app: `build/frontend`, `build/server-bundle`, `build/node-runtime`, `resources/`, `packages/server/src/sdk`
+  - Resources bundled with the app: `build/frontend`, `build/server-bundle`, `build/node-runtime`, `resources/`
 - Packaged builds include a Node.js 24 runtime under `resources/node-runtime` so the host does not need a global Node install.
 - Release artifacts land in `src-tauri/target/release/`
 

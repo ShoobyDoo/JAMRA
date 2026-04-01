@@ -1,5 +1,5 @@
 import { ValidationError } from "../../shared/errors.js";
-import type { ExtensionManifest } from "../../sdk/index.js";
+import type { ExtensionManifest } from "@jamra/extension-sdk";
 import type { PackageValidator } from "./installer.types.js";
 
 export class ExtensionPackageValidator implements PackageValidator {

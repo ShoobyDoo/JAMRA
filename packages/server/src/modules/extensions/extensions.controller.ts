@@ -8,16 +8,14 @@ import {
   normalizeSearchFilters,
   pruneUnsupportedFilters,
   stripUnsupportedRawFilters,
-} from "../../sdk/index.js";
-import type {
-  Chapter,
-  ChapterPayload,
-  MangaDetailsPayload,
-  MangaDetailsResult,
-  MangaSearchResult,
-  PagesResult,
-  SearchPayload,
-} from "../../sdk/index.js";
+  type Chapter,
+  type ChapterPayload,
+  type MangaDetailsPayload,
+  type MangaDetailsResult,
+  type MangaSearchResult,
+  type PagesResult,
+  type SearchPayload,
+} from "@jamra/extension-sdk";
 import type { InstallerService } from "../installer/installer.service.js";
 
 export class ExtensionsController {

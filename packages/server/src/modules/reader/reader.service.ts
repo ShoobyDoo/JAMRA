@@ -5,7 +5,7 @@ import type {
   ChapterPayload,
   MangaDetailsPayload,
   PagesResult,
-} from "../../sdk/index.js";
+} from "@jamra/extension-sdk";
 import type {
   ExtensionRecord,
   ExtensionRegistry,

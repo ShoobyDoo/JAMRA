@@ -4,7 +4,7 @@ import type { Database } from "better-sqlite3";
 import { DomainError } from "../../shared/errors.js";
 import type { ExtensionPackager } from "./installer.types.js";
 import type { ExtensionMetadata } from "./types/repository-schema.types.js";
-import type { ExtensionManifest } from "../../sdk/index.js";
+import type { ExtensionManifest } from "@jamra/extension-sdk";
 
 /**
  * Extension packager for installing compiled extensions

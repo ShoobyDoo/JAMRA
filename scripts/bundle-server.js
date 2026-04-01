@@ -83,6 +83,10 @@ async function bundleServer() {
   console.log("📦 Bundling server for production...\n");
 
   try {
+    // Validate that extensions directory won't be bundled
+    console.log("🔒 Validating extension exclusion...");
+    await validateExtensionsExcluded();
+
     // Clean bundle directory
     console.log("🧹 Cleaning bundle directory...");
     await fs.remove(bundleDir);
@@ -233,6 +237,53 @@ async function pruneBetterSqlite3Artifacts(nodeModulesPath) {
       }
     }
   }
+}
+
+/**
+ * Validates that extensions directory is never bundled in production builds.
+ * Extensions are for local development only and must not ship with the app.
+ */
+async function validateExtensionsExcluded() {
+  const extensionsDir = path.join(rootDir, "resources", "extensions");
+  const tauriConfigPath = path.join(rootDir, "src-tauri", "tauri.conf.json");
+
+  // Check if extensions directory exists (it's okay if it doesn't)
+  const extensionsExist = await fs.pathExists(extensionsDir);
+
+  if (extensionsExist) {
+    // Check if there are any extensions
+    const entries = await fs.readdir(extensionsDir);
+    const hasExtensions = entries.some(
+      (entry) => entry !== ".gitkeep" && entry !== "README.md",
+    );
+
+    if (hasExtensions) {
+      console.log(
+        `  ℹ️  Found ${entries.length - 2} local extension(s) (will be excluded from bundle)`,
+      );
+    }
+  }
+
+  // Validate Tauri config doesn't reference extensions directory
+  const tauriConfig = await fs.readJson(tauriConfigPath);
+  const resources = tauriConfig.bundle?.resources || {};
+
+  for (const [source, _target] of Object.entries(resources)) {
+    const normalizedSource = source.replace(/\\/g, "/");
+    if (
+      normalizedSource.includes("resources/extensions") ||
+      normalizedSource.includes("resources\\extensions")
+    ) {
+      throw new Error(
+        `❌ FATAL: Tauri config references extensions directory!\n` +
+          `   Source: ${source}\n` +
+          `   Extensions are for local development only and must not be bundled.\n` +
+          `   Remove this entry from src-tauri/tauri.conf.json`,
+      );
+    }
+  }
+
+  console.log("  ✓ Extensions directory will not be bundled (development only)");
 }
 
 bundleServer();

@@ -28,7 +28,6 @@
     "icon": ["icons/icon.ico"],
     "resources": {
       "../build/server-bundle": "server-bundle",
-      "../packages/server/src/sdk": "packages/server/src/sdk",
       "../build/node-runtime": "node-runtime"
     },
     "windows": {

@@ -6,7 +6,7 @@ import type {
   ExtensionRuntime,
   LoadedExtensionSource,
 } from "../extensions.types.js";
-import type { ExtensionContext, ExtensionModule } from "../../../sdk/index.js";
+import type { ExtensionContext, ExtensionModule } from "@jamra/extension-sdk";
 import type { HttpClient } from "../../../shared/http/http-client.js";
 import type { Logger } from "../../../shared/logger.js";
 import { ValidationError } from "../../../shared/errors.js";
