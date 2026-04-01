@@ -2,6 +2,10 @@
 
 A feature-rich manga reader desktop application built with Tauri, React, and Express.
 
+<p align="center">
+  <img src="app-screenshot.png" alt="JAMRA Application Screenshot" width="800" />
+</p>
+
 ## Tech Stack
 
 ### Frontend
