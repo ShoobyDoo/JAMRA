@@ -53,7 +53,7 @@ export const handlers = [
   }),
 
   http.put(`${BASE_URL}${API_PATHS.settings}`, async ({ request }) => {
-    const body = (await request.json()) as { key: string; value: unknown; scope?: string };
+    const _body = (await request.json()) as { key: string; value: unknown; scope?: string };
 
     // Return 204 No Content like the real backend
     return new HttpResponse(null, { status: 204 });
@@ -135,7 +135,7 @@ export const handlers = [
 
   // Installer endpoints
   http.post(`${BASE_URL}${API_PATHS.installer}`, async ({ request }) => {
-    const body = (await request.json()) as {
+    const _body = (await request.json()) as {
       repositoryUrl: string;
       branch?: string;
       extensionIds?: string[];

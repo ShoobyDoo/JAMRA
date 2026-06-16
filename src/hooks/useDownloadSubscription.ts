@@ -45,19 +45,19 @@ export const useDownloadSubscription = (downloadId: string | undefined) => {
 export const useDownloadSubscriptions = (
   downloadIds: string[] | undefined,
 ) => {
-  useEffect(() => {
-    if (!downloadIds || downloadIds.length === 0) return;
+  const joinedIds = downloadIds?.join(",") ?? "";
 
-    console.log(
-      `[WebSocket] Subscribing to ${downloadIds.length} downloads`,
-    );
-    downloadIds.forEach((id) => wsClient.subscribeToDownload(id));
+  useEffect(() => {
+    if (!joinedIds) return;
+
+    const ids = joinedIds.split(",");
+
+    console.log(`[WebSocket] Subscribing to ${ids.length} downloads`);
+    ids.forEach((id) => wsClient.subscribeToDownload(id));
 
     return () => {
-      console.log(
-        `[WebSocket] Unsubscribing from ${downloadIds.length} downloads`,
-      );
-      downloadIds.forEach((id) => wsClient.unsubscribeFromDownload(id));
+      console.log(`[WebSocket] Unsubscribing from ${ids.length} downloads`);
+      ids.forEach((id) => wsClient.unsubscribeFromDownload(id));
     };
-  }, [downloadIds?.join(",")]); // Use join to create stable dependency
+  }, [joinedIds]);
 };
