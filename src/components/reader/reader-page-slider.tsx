@@ -49,8 +49,8 @@ export const ReaderPageSlider: React.FC<ReaderPageSliderProps> = ({
     }
   };
 
-  // Clamp label position so it doesn't overflow at edges
-  const labelLeft = Math.max(5, Math.min(filledPct, 95));
+  // Show label inside filled section only when there's enough room
+  const showFilledLabel = filledPct > 10;
 
   return (
     <div
@@ -63,38 +63,34 @@ export const ReaderPageSlider: React.FC<ReaderPageSliderProps> = ({
       aria-label="Page slider"
       tabIndex={disabled ? -1 : 0}
       onKeyDown={handleKeyDown}
-      className={`relative flex h-6 w-full select-none items-center ${
+      className={`relative h-7 w-full select-none overflow-hidden rounded-md ${
         disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer"
       }`}
     >
-      {/* Track */}
-      <div className="relative h-1 w-full overflow-hidden rounded-full bg-white/20">
-        {/* Filled portion */}
-        <div
-          className="absolute left-0 top-0 h-full rounded-full bg-white transition-[width] duration-75"
-          style={{ width: `${filledPct}%` }}
-        />
+      {/* Empty background */}
+      <div className="absolute inset-0 bg-white/10" />
+
+      {/* Filled portion */}
+      <div
+        className="absolute left-0 top-0 h-full bg-white/30 flex items-center px-2.5"
+        style={{ width: `${filledPct}%` }}
+      >
+        {showFilledLabel && (
+          <span className="text-xs font-semibold text-white leading-none whitespace-nowrap">
+            {currentPage + 1}
+          </span>
+        )}
       </div>
 
-      {/* Thumb */}
+      {/* Thumb — full-height grip centered on the fill boundary */}
       <div
-        className={`absolute top-1/2 -translate-x-1/2 -translate-y-1/2 flex h-5 w-5 items-center justify-center rounded-full border border-white/30 bg-white shadow-md transition-transform duration-75 ${
-          active ? "scale-110" : ""
+        className={`absolute top-0 z-10 h-full w-4 -translate-x-1/2 flex items-center justify-center bg-white shadow-md ${
+          active ? "brightness-90" : ""
         }`}
         style={{ left: `${filledPct}%` }}
       >
-        <IconGripVertical size={10} className="text-gray-500" />
+        <IconGripVertical size={11} className="text-gray-400" />
       </div>
-
-      {/* Floating label — shown while dragging */}
-      {active && (
-        <div
-          className="pointer-events-none absolute -top-8 -translate-x-1/2 whitespace-nowrap rounded-md bg-black/80 px-2 py-1 text-xs font-medium text-white"
-          style={{ left: `${labelLeft}%` }}
-        >
-          {currentPage + 1} / {totalPages}
-        </div>
-      )}
     </div>
   );
 };
