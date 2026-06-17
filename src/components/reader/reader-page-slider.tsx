@@ -49,58 +49,56 @@ export const ReaderPageSlider: React.FC<ReaderPageSliderProps> = ({
     }
   };
 
-  // Show labels only when there's enough room
-  const showFilledLabel = filledPct > 10;
-  const showEmptyLabel = hasTotalPages && filledPct < 87;
+  // Clamp the label's own translateX so it never gets clipped by the track edges,
+  // mirroring Mantine's reference floating-label Slider behavior.
+  const labelTranslateX = `clamp(-${filledPct}%, -50%, ${100 - filledPct}%)`;
 
   return (
-    <div
-      ref={ref}
-      role="slider"
-      aria-valuenow={currentPage + 1}
-      aria-valuemin={1}
-      aria-valuemax={totalPages || 1}
-      aria-disabled={disabled}
-      aria-label="Page slider"
-      tabIndex={disabled ? -1 : 0}
-      onKeyDown={handleKeyDown}
-      className={`relative h-7 w-full select-none overflow-hidden rounded-md ${
-        disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer"
-      }`}
-    >
-      {/* Empty background */}
-      <div className="absolute inset-0 bg-white/10" />
-
-      {/* Filled portion */}
+    <div className="relative w-full pt-6">
+      {/* Floating current-page label — follows the thumb, clamped so it's never clipped */}
       <div
-        className="absolute left-0 top-0 h-full bg-white/30 flex items-center px-2.5"
-        style={{ width: `${filledPct}%` }}
+        className="absolute bottom-full left-0 mb-1.5 whitespace-nowrap rounded-md bg-white px-1.5 py-0.5 text-xs font-semibold leading-none text-gray-900 shadow-md"
+        style={{
+          left: `${filledPct}%`,
+          transform: `translateX(${labelTranslateX})`,
+        }}
       >
-        {showFilledLabel && (
-          <span className="text-xs font-semibold text-white leading-none whitespace-nowrap">
-            {currentPage + 1}
-          </span>
-        )}
+        {currentPage + 1}
       </div>
 
-      {/* Thumb — full-height grip centered on the fill boundary */}
       <div
-        className={`absolute top-0 z-10 h-full w-4 -translate-x-1/2 flex items-center justify-center bg-white shadow-md ${
-          active ? "brightness-90" : ""
+        ref={ref}
+        role="slider"
+        aria-valuenow={currentPage + 1}
+        aria-valuemin={1}
+        aria-valuemax={totalPages || 1}
+        aria-disabled={disabled}
+        aria-label="Page slider"
+        tabIndex={disabled ? -1 : 0}
+        onKeyDown={handleKeyDown}
+        className={`relative h-7 w-full select-none rounded-md ${
+          disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer"
         }`}
-        style={{ left: `${filledPct}%` }}
       >
-        <IconGripVertical size={11} className="text-gray-400" />
-      </div>
+        {/* Empty background */}
+        <div className="absolute inset-0 rounded-md bg-white/10" />
 
-      {/* Total pages label in empty section */}
-      {showEmptyLabel && (
-        <div className="absolute right-0 top-0 h-full flex items-center px-2.5 pointer-events-none">
-          <span className="text-xs text-white/40 leading-none whitespace-nowrap">
-            {totalPages}
-          </span>
+        {/* Filled portion */}
+        <div
+          className="absolute left-0 top-0 h-full rounded-md bg-white/30"
+          style={{ width: `${filledPct}%` }}
+        />
+
+        {/* Thumb — full-height grip centered on the fill boundary */}
+        <div
+          className={`absolute top-0 z-10 h-full w-4 -translate-x-1/2 flex items-center justify-center bg-white shadow-md ${
+            active ? "brightness-90" : ""
+          }`}
+          style={{ left: `${filledPct}%` }}
+        >
+          <IconGripVertical size={11} className="text-gray-400" />
         </div>
-      )}
+      </div>
     </div>
   );
 };
