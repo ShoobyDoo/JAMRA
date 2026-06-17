@@ -12,6 +12,7 @@ import {
 import { useReaderSettings } from "../../store/useReaderSettingsStore";
 import { Select, Skeleton, Tooltip } from "@mantine/core";
 import { useMediaQuery } from "@mantine/hooks";
+import { ReaderPageSlider } from "./reader-page-slider";
 
 interface ChapterMeta {
   id: string;
@@ -90,10 +91,6 @@ export const ReaderControls: React.FC<ReaderControlsProps> = ({
   const isVisible = externalShowControls ?? true;
 
   const hasTotalPages = totalPages > 0;
-  const progress =
-    hasTotalPages && totalPages > 1
-      ? (currentPage / (totalPages - 1)) * 100
-      : 0;
   const nextDisabled =
     !hasTotalPages || isChunkPending || currentPage >= totalPages - 1;
   const prevDisabled = !hasTotalPages || isChunkPending || currentPage === 0;
@@ -252,18 +249,11 @@ export const ReaderControls: React.FC<ReaderControlsProps> = ({
 
             <div className="flex flex-1 items-center gap-3">
               <div className="relative flex-1">
-                <input
-                  type="range"
-                  min="0"
-                  max={Math.max(totalPages - 1, 0)}
-                  value={currentPage}
-                  onChange={(e) => onPageSelect(Number(e.target.value))}
+                <ReaderPageSlider
+                  currentPage={currentPage}
+                  totalPages={totalPages}
                   disabled={!hasTotalPages || isChunkPending}
-                  className="h-1 w-full cursor-pointer appearance-none rounded-full bg-white/20 accent-white disabled:cursor-not-allowed disabled:opacity-50"
-                  style={{
-                    background: `linear-gradient(to right, white 0%, white ${progress}%, rgba(255,255,255,0.2) ${progress}%, rgba(255,255,255,0.2) 100%)`,
-                  }}
-                  aria-label="Page slider"
+                  onChange={onPageSelect}
                 />
               </div>
               <div className="flex min-w-[100px] items-center justify-center gap-2 text-sm font-medium text-white">
