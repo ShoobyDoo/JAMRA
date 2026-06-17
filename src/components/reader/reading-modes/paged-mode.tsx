@@ -76,6 +76,8 @@ export const PagedMode: React.FC<PagedModeProps> = (props) => {
       ? effectiveDims.width < effectiveDims.height
       : true;
   const useWidthAlignment = pageFit === "width" || (pageFit === "auto" && isPortraitImage);
+  // Auto-portrait mode lets the image overflow the viewport so the user can scroll
+  const isAutoScrollMode = pageFit === "auto" && isPortraitImage;
 
   const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!containerRef.current) return;
@@ -108,12 +110,12 @@ export const PagedMode: React.FC<PagedModeProps> = (props) => {
       onClick={handleClick}
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
-      className={`relative flex h-full w-full cursor-pointer overflow-hidden justify-center ${
-        useWidthAlignment ? "items-start" : "items-center"
-      } ${READER_BACKGROUNDS[backgroundColor]}`}
+      className={`relative flex h-full w-full cursor-pointer justify-center ${
+        isAutoScrollMode ? "overflow-y-auto overflow-x-hidden" : "overflow-hidden"
+      } ${useWidthAlignment ? "items-start" : "items-center"} ${READER_BACKGROUNDS[backgroundColor]}`}
     >
-      {/* Hot-edge chevron hints */}
-      <div className="absolute inset-0 flex pointer-events-none">
+      {/* Hot-edge chevron hints — hidden in auto-scroll mode (use bottom bar for navigation) */}
+      <div className={`absolute inset-0 flex pointer-events-none ${isAutoScrollMode ? "hidden" : ""}`}>
         <div className="relative flex-1 group">
           <div
             className={`absolute left-0 top-1/2 -translate-y-1/2 pl-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200 ${!isFirstPage || isRTL ? "block" : "hidden"}`}
@@ -145,9 +147,9 @@ export const PagedMode: React.FC<PagedModeProps> = (props) => {
 
       {/* Page image */}
       <div
-        className={`relative z-10 flex h-full w-full justify-center p-2 md:p-4 ${
-          useWidthAlignment ? "items-start" : "items-center"
-        }`}
+        className={`relative z-10 flex w-full justify-center p-2 md:p-4 ${
+          isAutoScrollMode ? "" : "h-full"
+        } ${useWidthAlignment ? "items-start" : "items-center"}`}
       >
         <img
           src={currentPageData.url}
