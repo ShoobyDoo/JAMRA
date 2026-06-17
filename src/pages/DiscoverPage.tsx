@@ -1,14 +1,11 @@
 import {
-  Alert,
   Button,
   Divider,
   Group,
-  Loader,
   MultiSelect,
   Paper,
   Select,
   SegmentedControl,
-  SimpleGrid,
   Text,
   TextInput,
   Title,
@@ -20,6 +17,9 @@ import {
 } from "@tabler/icons-react";
 import React, { useState } from "react";
 import { ExtensionSearchResults } from "../components/discover/ExtensionSearchResults";
+import { EmptyState } from "../components/shared/EmptyState";
+import { MangaCardGrid } from "../components/shared/MangaCardGrid";
+import { PageLoader } from "../components/shared/PageLoader";
 import { UnifiedMangaCard } from "../components/shared/UnifiedMangaCard";
 import {
   useExtensionSearch,
@@ -110,19 +110,13 @@ export const DiscoverPage: React.FC = () => {
         </Text>
 
         {isLoadingExtensions ? (
-          <div className="flex justify-center py-8">
-            <Loader size="md" />
-          </div>
+          <PageLoader />
         ) : extensionOptions.length === 0 ? (
-          <Alert
-            icon={<IconAlertCircle size={18} />}
+          <EmptyState
+            icon={<IconAlertCircle size={28} className="text-yellow-500" />}
             title="No Extensions Installed"
-            color="yellow"
-            className="mx-auto max-w-3xl"
-          >
-            You need to install extensions before you can search for manga.
-            Visit the Extensions page to install one.
-          </Alert>
+            description="You need to install extensions before you can search for manga. Visit the Extensions page to install one."
+          />
         ) : (
           <form onSubmit={handleSubmit} className="mx-auto max-w-4xl">
             <Paper shadow="sm" radius="lg" className="border border-gray-200 p-4">
@@ -233,14 +227,9 @@ export const DiscoverPage: React.FC = () => {
                   ({singleSearchResults?.results.length || 0} results)
                 </Text>
                 {isSingleSearching ? (
-                  <div className="flex justify-center py-12">
-                    <Loader size="lg" />
-                  </div>
+                  <PageLoader />
                 ) : singleSearchResults && singleSearchResults.results.length > 0 ? (
-                  <SimpleGrid
-                    cols={{ base: 2, xs: 3, sm: 4, md: 5, lg: 6 }}
-                    spacing="lg"
-                  >
+                  <MangaCardGrid>
                     {singleSearchResults.results.map((manga) => (
                       <UnifiedMangaCard
                         key={manga.id}
@@ -251,11 +240,9 @@ export const DiscoverPage: React.FC = () => {
                         status={manga.status}
                       />
                     ))}
-                  </SimpleGrid>
+                  </MangaCardGrid>
                 ) : (
-                  <Text className="py-8 text-center text-gray-600">
-                    No results found for "{searchQuery}"
-                  </Text>
+                  <EmptyState title={`No results found for "${searchQuery}"`} />
                 )}
               </div>
             ) : (
