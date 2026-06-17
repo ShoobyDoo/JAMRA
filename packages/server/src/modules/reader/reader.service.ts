@@ -358,12 +358,14 @@ export class ReaderService {
       throw new ValidationError("Extension returned invalid chapter data");
     }
 
+    const sortedChapters = this.sortChaptersAscending(chapters);
+
     this.chapterListCache.set(cacheKey, {
-      chapters,
+      chapters: sortedChapters,
       expiresAt: Date.now() + this.chapterListTtl,
     });
 
-    return chapters;
+    return sortedChapters;
   }
 
   private resolveNavigation(
@@ -392,6 +394,47 @@ export class ReaderService {
       previousChapterId,
       nextChapterId,
     };
+  }
+
+  private sortChaptersAscending(chapters: Chapter[]): Chapter[] {
+    // Create array with original indices for stable sort
+    const indexed = chapters.map((chapter, index) => ({ chapter, index }));
+
+    // Separate chapters with defined chapterNumber from those without
+    const withNumber = indexed.filter(
+      (item) => item.chapter.chapterNumber !== undefined,
+    );
+    const withoutNumber = indexed.filter(
+      (item) => item.chapter.chapterNumber === undefined,
+    );
+
+    // Sort chapters with defined chapterNumber
+    withNumber.sort((a, b) => {
+      const numA = a.chapter.chapterNumber!;
+      const numB = b.chapter.chapterNumber!;
+
+      if (numA !== numB) {
+        return numA - numB;
+      }
+
+      // Tiebreak by volume ascending
+      const volA = a.chapter.volume ?? 0;
+      const volB = b.chapter.volume ?? 0;
+
+      if (volA !== volB) {
+        return volA - volB;
+      }
+
+      // Tiebreak by original index for stability
+      return a.index - b.index;
+    });
+
+    // Combine: chapters with numbers first, then chapters without, maintaining their relative order
+    const sorted = [...withNumber, ...withoutNumber].map(
+      (item) => item.chapter,
+    );
+
+    return sorted;
   }
 
   private getChapterCacheKey(

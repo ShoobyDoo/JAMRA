@@ -408,6 +408,22 @@ fn kill_server() {
 }
 
 fn main() {
+    // On Linux, WebKit2GTK has known protocol errors with some Wayland compositors.
+    // Force X11 backend (via XWayland) and disable WebKit GPU compositing to prevent
+    // "Error 71 (Protocol error) dispatching to Wayland display" crashes.
+    #[cfg(target_os = "linux")]
+    {
+        if std::env::var("GDK_BACKEND").is_err() {
+            // SAFETY: called at program start, before any threads are spawned
+            #[allow(unused_unsafe)]
+            unsafe { std::env::set_var("GDK_BACKEND", "x11") };
+        }
+        if std::env::var("WEBKIT_DISABLE_COMPOSITING_MODE").is_err() {
+            #[allow(unused_unsafe)]
+            unsafe { std::env::set_var("WEBKIT_DISABLE_COMPOSITING_MODE", "1") };
+        }
+    }
+
     tauri::Builder::default()
         .plugin({
             let level = if cfg!(debug_assertions) {
