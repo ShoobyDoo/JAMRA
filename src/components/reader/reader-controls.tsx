@@ -149,16 +149,29 @@ export const ReaderControls: React.FC<ReaderControlsProps> = ({
               }
               size="sm"
               radius="md"
-              className="w-[140px]"
-              classNames={{
-                input: "px-2 py-1 text-xs",
-                dropdown: "text-xs",
-                option: "flex items-center justify-between gap-2 px-2 py-1",
+              className="w-[160px]"
+              styles={{
+                input: {
+                  backgroundColor: "rgba(0,0,0,0.5)",
+                  border: "1px solid rgba(255,255,255,0.2)",
+                  color: "white",
+                  fontSize: "0.75rem",
+                },
+                dropdown: {
+                  backgroundColor: "rgba(15,15,15,0.97)",
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  backdropFilter: "blur(8px)",
+                },
+                option: {
+                  fontSize: "0.75rem",
+                  color: "rgba(255,255,255,0.85)",
+                },
               }}
               disabled={chapters.length === 0}
               searchable
               clearable={false}
               checkIconPosition="right"
+              maxDropdownHeight={320}
               placeholder="Loading chapters..."
             />
           </div>
