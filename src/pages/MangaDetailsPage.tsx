@@ -52,7 +52,7 @@ export const MangaDetailsPage: React.FC = () => {
   const manga = mangaData?.manga;
   const chapters = chaptersData?.chapters || [];
 
-  const libraryItem = libraryData?.items.find(
+  const libraryItem = libraryData?.items?.find(
     (item) => item.mangaId === mangaId && item.extensionId === extensionId,
   );
 

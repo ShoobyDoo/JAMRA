@@ -1,5 +1,3 @@
-import { load, type Cheerio, type CheerioAPI } from "cheerio";
-import type { AnyNode, Element } from "domhandler";
 import type {
   Chapter,
   ExtensionContext,
@@ -9,18 +7,20 @@ import type {
 } from "@jamra/contracts";
 import {
   ChapterListBuilder,
-  type ChapterSource,
   CheerioExtractor,
   HtmlScraperClient,
   PagePipeline,
   SlugResolver,
   normalizeSlug,
-  runLimited,
-  toAbsoluteUrl as resolveAbsoluteUrl,
-  extractSlugFromUrl as resolveSlugFromUrl,
   normalizeStatusValue,
+  toAbsoluteUrl as resolveAbsoluteUrl,
   extractChapterNumber as resolveChapterNumber,
+  extractSlugFromUrl as resolveSlugFromUrl,
+  runLimited,
+  type ChapterSource,
 } from "@jamra/extension-sdk";
+import { load, type Cheerio, type CheerioAPI } from "cheerio";
+import type { AnyNode, Element } from "domhandler";
 
 const BASE_URL = "https://weebcentral.com";
 const DEFAULT_HEADERS = {
@@ -145,7 +145,12 @@ export class WeebCentralClient {
     filters: CatalogSearchFilters,
   ): Promise<Manga[]> {
     const searchParams = buildSearchParams(query, page, filters);
-    const html = await this.scraper.get(SEARCH_PATH, { params: searchParams });
+    // SEARCH_PATH is a WeebCentral HTMX endpoint — it requires this header
+    // to return the HTML fragment with search results.
+    const html = await this.scraper.get(SEARCH_PATH, {
+      params: searchParams,
+      headers: { "HX-Request": "true" },
+    });
     const results = parseSearchResults(html);
     this.context.logger.debug("Parsed search results", {
       query,
@@ -190,7 +195,7 @@ export class WeebCentralClient {
     const normalizedSlug = normalizeSlug(seriesSlug);
     const useRemoteId = slugResolver.isRemoteId(seriesSlug);
     const cacheKey = useRemoteId
-      ? slugResolver.getSlug(seriesSlug) ?? normalizedSlug
+      ? (slugResolver.getSlug(seriesSlug) ?? normalizedSlug)
       : normalizedSlug;
 
     const cached =
@@ -270,7 +275,7 @@ export class WeebCentralClient {
     chapterSlug: string,
   ): Promise<string> {
     const normalizedSeries = slugResolver.isRemoteId(seriesSlug)
-      ? slugResolver.getSlug(seriesSlug) ?? normalizeSlug(seriesSlug)
+      ? (slugResolver.getSlug(seriesSlug) ?? normalizeSlug(seriesSlug))
       : normalizeSlug(seriesSlug);
 
     const normalizedChapter = normalizeSlug(chapterSlug);
@@ -300,13 +305,31 @@ export class WeebCentralClient {
   }
 
   private async lookupRemoteSeriesId(slug: string): Promise<string> {
-    const results = await this.searchCatalog(
-      slug,
-      1,
-      DEFAULT_CATALOG_FILTERS,
-    );
-    const match =
-      results.find((manga) => manga.id === slug) ?? results[0];
+    // Primary: fetch the series page directly by slug.
+    // WeebCentral redirects /series/{slug} → /series/{ULID}/{slug}, so
+    // the canonical <link> in the HTML response contains the remote ULID.
+    try {
+      const html = await this.scraper.get(
+        `${SERIES_PATH}/${encodeURIComponent(slug)}`,
+      );
+      const $ = load(html);
+      const canonical = $('link[rel="canonical"]').attr("href");
+      if (canonical) {
+        const idMatch = SERIES_PATH_REGEX.exec(canonical);
+        if (idMatch?.groups?.id && slugResolver.isRemoteId(idMatch.groups.id)) {
+          slugResolver.register(slug, idMatch.groups.id);
+          return idMatch.groups.id;
+        }
+      }
+    } catch {
+      // fall through to search-based lookup
+    }
+
+    // Fallback: HTMX search — WeebCentral treats dashes as literal characters,
+    // so convert the slug to a space-separated query for better matching.
+    const searchQuery = slug.replace(/-/g, " ");
+    const results = await this.searchCatalog(searchQuery, 1, DEFAULT_CATALOG_FILTERS);
+    const match = results.find((manga) => manga.id === slug) ?? results[0];
     if (!match) {
       throw new Error(`Unable to resolve series slug "${slug}"`);
     }
@@ -399,6 +422,41 @@ const parseSearchResults = (html: string): Manga[] => {
     });
   });
 
+  if (results.length > 0) {
+    return results;
+  }
+
+  // Fallback: WeebCentral may change their article CSS classes.
+  // Parse any series link in the response so slug→remoteId registration still
+  // works even if the card layout shifts.
+  const seen = new Set<string>();
+  $("a[href*='/series/']").each((_: number, element: Element) => {
+    const href = $(element).attr("href");
+    if (!href) return;
+    const identifier = parseSeriesLink(href);
+    if (!identifier || seen.has(identifier.slug)) return;
+    seen.add(identifier.slug);
+
+    slugResolver.register(identifier.slug, identifier.remoteId);
+
+    const title =
+      $(element).find("h2").first().text().trim() ||
+      $(element).attr("data-tip")?.trim() ||
+      identifier.slug.replace(/[-_]+/g, " ");
+
+    results.push({
+      id: identifier.slug,
+      title: title || identifier.slug,
+      description: undefined,
+      coverUrl: buildCoverUrl(identifier.remoteId),
+      authors: [],
+      tags: [],
+      status: "unknown",
+      language: "en",
+      sourceUrl: identifier.sourceUrl,
+    });
+  });
+
   return results;
 };
 
@@ -431,14 +489,12 @@ const parseSeriesDetails = (
 ): ParsedSeriesDetails => {
   const $ = load(html);
   const canonical =
-    $('link[rel="canonical"]').attr("href") ??
-    `${BASE_URL}/series/${remoteId}`;
+    $('link[rel="canonical"]').attr("href") ?? `${BASE_URL}/series/${remoteId}`;
 
   const title =
-    $("h1")
-      .first()
-      .text()
-      .trim() || $("title").first().text().trim() || remoteId;
+    $("h1").first().text().trim() ||
+    $("title").first().text().trim() ||
+    remoteId;
 
   const canonicalSlug =
     resolveSlugFromUrl(canonical, { baseUrl: BASE_URL }) ??
@@ -561,10 +617,7 @@ const extractChapterTitle = (
     .find(".grow span")
     .filter((_: number, span: Element) => dom(span).children().length === 0)
     .map((_: number, span: Element) =>
-      dom(span)
-        .text()
-        .replace(/\s+/g, " ")
-        .trim(),
+      dom(span).text().replace(/\s+/g, " ").trim(),
     )
     .get()
     .find((text: string) => text.length > 0);
@@ -591,10 +644,7 @@ const parseSeriesLink = (href: string): SeriesIdentifier | null => {
   return { remoteId, slug, sourceUrl: url };
 };
 
-const extractTagTexts = (
-  api: CheerioAPI,
-  element: Element,
-): string[] => {
+const extractTagTexts = (api: CheerioAPI, element: Element): string[] => {
   const wrapper = api(element);
   const tagSection = wrapper
     .find("section")
