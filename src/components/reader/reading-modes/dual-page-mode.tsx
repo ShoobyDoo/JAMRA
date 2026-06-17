@@ -2,6 +2,12 @@ import React, { useRef, useEffect, useState } from "react";
 import { useReaderSettings } from "../../../store/useReaderSettingsStore";
 import { IconChevronRight, IconChevronLeft, IconLoader2 } from "@tabler/icons-react";
 import type { useReaderControls } from "../../../hooks/useReaderControls";
+import {
+  READER_BACKGROUNDS,
+  getPageFitStyles,
+  useHotZoneHandlers,
+  ChapterTransitionOverlay,
+} from "./shared";
 
 interface PageData {
   index: number;
@@ -81,15 +87,7 @@ export const DualPageMode: React.FC<DualPageModeProps> = ({
     }
   };
 
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (containerRef.current) {
-      readerControls.updateHotZone(e.clientX, e.clientY, containerRef.current);
-    }
-  };
-
-  const handleMouseLeave = () => {
-    readerControls.clearHotZone();
-  };
+  const { handleMouseMove, handleMouseLeave } = useHotZoneHandlers(readerControls, containerRef);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -160,25 +158,6 @@ export const DualPageMode: React.FC<DualPageModeProps> = ({
     };
   }, [currentPage, totalPages, onPageChange, displayPages.right, isRTL, readerControls]);
 
-  const getImageStyles = (page: PageData | null): React.CSSProperties => {
-    if (!page) return {};
-    switch (pageFit) {
-      case "width": return { width: "100%", height: "auto", maxHeight: "100%", objectFit: "contain" };
-      case "height": return { width: "auto", height: "100%", maxWidth: "100%", objectFit: "contain" };
-      case "original": return { width: page.width ?? "auto", height: page.height ?? "auto", maxWidth: "100%", maxHeight: "100%", objectFit: "contain" };
-      case "custom": return { width: `${customWidth}%`, height: "auto", maxHeight: "100%", objectFit: "contain" };
-      case "auto":
-      default:
-        return { maxWidth: "100%", maxHeight: "100%", width: "auto", height: "auto", objectFit: "contain" };
-    }
-  };
-
-  const bgClasses: Record<string, string> = {
-    black: "bg-black",
-    white: "bg-white",
-    sepia: "bg-[#f4ecd8]",
-    "dark-gray": "bg-gray-900",
-  };
 
   const renderPage = (page: PageData | null, key: string, pageIndex: number) => (
     <div key={key} className="flex-1 flex h-full w-full items-center justify-center p-2 md:p-4 overflow-hidden">
@@ -186,7 +165,7 @@ export const DualPageMode: React.FC<DualPageModeProps> = ({
         <img
           src={page.url}
           alt={`Page ${page.index + 1}`}
-          style={getImageStyles(page)}
+          style={getPageFitStyles(pageFit, customWidth, page)}
           className="pointer-events-none select-none transition-opacity duration-200"
           loading="lazy"
         />
@@ -205,7 +184,7 @@ export const DualPageMode: React.FC<DualPageModeProps> = ({
       onClick={handleClick}
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
-      className={`relative flex h-full w-full cursor-pointer items-center justify-center ${bgClasses[backgroundColor]} ${showDragCursor ? "cursor-grabbing" : ""}`}
+      className={`relative flex h-full w-full cursor-pointer items-center justify-center ${READER_BACKGROUNDS[backgroundColor]} ${showDragCursor ? "cursor-grabbing" : ""}`}
       style={{
         transform: dragOffset !== 0 ? `translateX(${dragOffset * 0.1}px)` : undefined,
         transition: dragOffset === 0 ? "transform 0.2s ease-out" : undefined,
@@ -229,44 +208,14 @@ export const DualPageMode: React.FC<DualPageModeProps> = ({
         </div>
       </div>
 
-      {/* Previous chapter */}
-      {currentPage === 0 && prevChapter && onNavigateToChapter && (
-        <div className={`absolute ${isRTL ? "right-0" : "left-0"} top-0 bottom-0 flex items-center px-6 z-20`}>
-          <button
-            onClick={() => onNavigateToChapter(prevChapter.id)}
-            className="flex flex-col items-center gap-2 rounded-lg bg-black/80 px-4 py-3 text-white transition hover:bg-black/90"
-          >
-            {isRTL ? <IconChevronRight size={24} /> : <IconChevronLeft size={24} />}
-            <span className="text-xs text-center">
-              {prevChapter.title || `Chapter ${prevChapter.number || prevChapter.id}`}
-            </span>
-            <span className="text-xs text-white/60">Previous Chapter</span>
-          </button>
-        </div>
-      )}
-
-      {/* Next chapter */}
-      {currentPage >= totalPages - 1 && (
-        <div className={`absolute ${isRTL ? "left-0" : "right-0"} top-0 bottom-0 flex items-center px-6 z-20`}>
-          {nextChapter && onNavigateToChapter ? (
-            <button
-              onClick={() => onNavigateToChapter(nextChapter.id)}
-              className="flex flex-col items-center gap-2 rounded-lg bg-black/80 px-4 py-3 text-white transition hover:bg-black/90"
-            >
-              {isRTL ? <IconChevronLeft size={24} /> : <IconChevronRight size={24} />}
-              <span className="text-xs text-center">
-                {nextChapter.title || `Chapter ${nextChapter.number || nextChapter.id}`}
-              </span>
-              <span className="text-xs text-white/60">Click to continue</span>
-            </button>
-          ) : (
-            <div className="flex flex-col items-center gap-2 rounded-lg bg-black/80 px-4 py-3 text-white pointer-events-none">
-              <span className="text-sm font-medium">End of Manga</span>
-              <span className="text-xs text-white/60">No more chapters</span>
-            </div>
-          )}
-        </div>
-      )}
+      <ChapterTransitionOverlay
+        prevChapter={prevChapter}
+        nextChapter={nextChapter}
+        currentPage={currentPage}
+        totalPages={totalPages}
+        isRTL={isRTL}
+        onNavigateToChapter={onNavigateToChapter}
+      />
 
       {/* Dual page display */}
       <div
