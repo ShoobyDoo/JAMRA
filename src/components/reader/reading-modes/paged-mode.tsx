@@ -1,4 +1,4 @@
-import React, { useRef } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import { useReaderSettings } from "../../../store/useReaderSettingsStore";
 import { IconChevronRight, IconChevronLeft } from "@tabler/icons-react";
 import type { useReaderControls } from "../../../hooks/useReaderControls";
@@ -52,6 +52,31 @@ export const PagedMode: React.FC<PagedModeProps> = (props) => {
   const isFirstPage = currentPage === 0;
   const isLastPage = currentPage === totalPages - 1;
 
+  // Track natural image dimensions for auto-fit orientation detection
+  const [naturalDims, setNaturalDims] = useState<{ width: number; height: number } | null>(null);
+  useEffect(() => { setNaturalDims(null); }, [currentPage]);
+
+  const handleImgLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
+    const img = e.currentTarget;
+    if (img.naturalWidth && img.naturalHeight) {
+      setNaturalDims({ width: img.naturalWidth, height: img.naturalHeight });
+    }
+  };
+
+  // Prefer server-provided dims; fall back to natural dims from the loaded img
+  const effectiveDims =
+    currentPageData?.width && currentPageData?.height
+      ? currentPageData
+      : (naturalDims ?? undefined);
+
+  // For auto fit: portrait images fill viewport width; landscape/unknown fall back to contain.
+  // Default to portrait (true) so auto-fit is aggressive by default — manga is almost always portrait.
+  const isPortraitImage =
+    effectiveDims?.width && effectiveDims?.height
+      ? effectiveDims.width < effectiveDims.height
+      : true;
+  const useWidthAlignment = pageFit === "width" || (pageFit === "auto" && isPortraitImage);
+
   const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!containerRef.current) return;
     const zone = readerControls.getHotZone(e.clientX, e.clientY, containerRef.current);
@@ -84,7 +109,7 @@ export const PagedMode: React.FC<PagedModeProps> = (props) => {
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
       className={`relative flex h-full w-full cursor-pointer overflow-hidden justify-center ${
-        pageFit === "width" ? "items-start" : "items-center"
+        useWidthAlignment ? "items-start" : "items-center"
       } ${READER_BACKGROUNDS[backgroundColor]}`}
     >
       {/* Hot-edge chevron hints */}
@@ -121,15 +146,16 @@ export const PagedMode: React.FC<PagedModeProps> = (props) => {
       {/* Page image */}
       <div
         className={`relative z-10 flex h-full w-full justify-center p-2 md:p-4 ${
-          pageFit === "width" ? "items-start" : "items-center"
+          useWidthAlignment ? "items-start" : "items-center"
         }`}
       >
         <img
           src={currentPageData.url}
           alt={`Page ${currentPage + 1}`}
-          style={getPageFitStyles(pageFit, customWidth, currentPageData ?? undefined)}
+          style={getPageFitStyles(pageFit, customWidth, effectiveDims ?? (currentPageData ?? undefined))}
           className="pointer-events-none select-none transition-opacity duration-200"
           loading={currentPage === 0 ? "eager" : "lazy"}
+          onLoad={handleImgLoad}
         />
       </div>
     </div>

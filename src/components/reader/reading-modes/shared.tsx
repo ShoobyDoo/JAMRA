@@ -42,7 +42,11 @@ export const getPageFitStyles = (
       return { width: `${customWidth}%`, height: "auto", maxHeight: "100%" };
     case "auto":
     default:
-      // Fit entirely within the container, maintaining aspect ratio
+      // Portrait images: fill viewport width (maximizes content, scales with viewport)
+      // Landscape/square or unknown: contain (full image visible, no clipping)
+      if (dims?.width && dims?.height && dims.width < dims.height) {
+        return { width: "100%", height: "auto" };
+      }
       return { maxWidth: "100%", maxHeight: "100%", width: "auto", height: "auto" };
   }
 };
