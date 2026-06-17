@@ -246,6 +246,7 @@ export const mockReaderChapterData: ReaderChapter = {
   isDownloaded: false,
   nextChapterId: "ch-101",
   previousChapterId: "ch-99",
+  chapters: [],
 };
 
 export const mockReadingProgress: ReadingProgress[] = [

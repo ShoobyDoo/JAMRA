@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { apiClient } from "../../../api/client";
 import { API_BASE_URL, API_PATHS } from "../../../constants/api";
-import type { ReaderChapter } from "../../../types";
+import type { ReaderChapter, ReaderChapterSummary } from "../../../types";
 
 export interface PageImage {
   index: number;
@@ -17,6 +17,7 @@ export interface ChapterMeta {
   previousChapterId: string | null;
   nextChapterId: string | null;
   isDownloaded: boolean;
+  chapters: ReaderChapterSummary[];
 }
 
 export interface SequentialPageLoaderConfig {
@@ -122,6 +123,7 @@ export const useSequentialPageLoader = (
         previousChapterId: chapter.previousChapterId ?? null,
         nextChapterId: chapter.nextChapterId ?? null,
         isDownloaded: chapter.isDownloaded,
+        chapters: chapter.chapters ?? [],
       };
       const pages = chapter.pages.map((page, i) => ({
         index: i,
