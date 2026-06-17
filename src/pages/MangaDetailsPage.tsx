@@ -95,7 +95,11 @@ export const MangaDetailsPage: React.FC = () => {
       return;
     }
 
-    const firstChapter = chapters[0];
+    const firstChapter = [...chapters].sort((a, b) => {
+      if (a.chapterNumber === undefined) return 1;
+      if (b.chapterNumber === undefined) return -1;
+      return a.chapterNumber - b.chapterNumber;
+    })[0];
     navigate(buildRoute.reader(libraryItem.id, firstChapter.id));
   };
 
@@ -241,7 +245,7 @@ export const MangaDetailsPage: React.FC = () => {
                       </Table.Td>
                       <Table.Td>{chapter.title || "Untitled"}</Table.Td>
                       <Table.Td>
-                        {chapter.translatedLanguage || "N/A"}
+                        {chapter.language || "N/A"}
                       </Table.Td>
                       <Table.Td className="text-right">
                         <ActionIcon
