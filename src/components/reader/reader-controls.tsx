@@ -162,15 +162,10 @@ export const ReaderControls: React.FC<ReaderControlsProps> = ({
                 option: {
                   fontSize: "0.75rem",
                   color: "rgba(255,255,255,0.85)",
-                  "&:hover": {
-                    backgroundColor: "rgba(255,255,255,0.1)",
-                    color: "white",
-                  },
-                  "&[data-combobox-selected]": {
-                    backgroundColor: "rgba(255,255,255,0.15)",
-                    color: "white",
-                  },
                 },
+              }}
+              classNames={{
+                option: "hover:!bg-white/10 hover:!text-white data-[combobox-selected]:!bg-white/15 data-[combobox-selected]:!text-white",
               }}
               disabled={chapters.length === 0}
               searchable
