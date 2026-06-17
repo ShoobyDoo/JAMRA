@@ -242,16 +242,8 @@ export const ReaderControls: React.FC<ReaderControlsProps> = ({
               <IconChevronLeft size={20} />
             </button>
 
-            <div className="flex flex-1 items-center gap-3">
-              <div className="relative flex-1">
-                <ReaderPageSlider
-                  currentPage={currentPage}
-                  totalPages={totalPages}
-                  disabled={!hasTotalPages || isChunkPending}
-                  onChange={onPageSelect}
-                />
-              </div>
-              <div className="flex min-w-[100px] items-center justify-center gap-2 text-sm font-medium text-white">
+            <div className="flex flex-1 flex-col items-center gap-1">
+              <div className="flex items-center justify-center gap-2 text-sm font-medium text-white">
                 <IconBook size={14} className="text-white/60" />
                 <span className="inline-flex items-center gap-1">
                   {currentPage + 1}
@@ -262,6 +254,14 @@ export const ReaderControls: React.FC<ReaderControlsProps> = ({
                     <Skeleton height={10} width={24} radius="xl" />
                   )}
                 </span>
+              </div>
+              <div className="relative w-full">
+                <ReaderPageSlider
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  disabled={!hasTotalPages || isChunkPending}
+                  onChange={onPageSelect}
+                />
               </div>
               {chunkErrorMessage ? (
                 <span className="text-xs text-red-400">{chunkErrorMessage}</span>
