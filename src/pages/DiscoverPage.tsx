@@ -113,7 +113,12 @@ export const DiscoverPage: React.FC = () => {
           <PageLoader />
         ) : extensionOptions.length === 0 ? (
           <EmptyState
-            icon={<IconAlertCircle size={28} className="text-yellow-500" />}
+            icon={
+              <IconAlertCircle
+                size={28}
+                style={{ color: "var(--mantine-color-yellow-6)" }}
+              />
+            }
             title="No Extensions Installed"
             description="You need to install extensions before you can search for manga. Visit the Extensions page to install one."
           />

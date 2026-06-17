@@ -18,10 +18,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
   return (
     <Stack align="center" justify="center" gap="xs" className="w-full py-12">
       {icon ?? (
-        <IconMoodEmpty
-          size={48}
-          className="text-gray-400 dark:text-[var(--mantine-color-dimmed)]"
-        />
+        <IconMoodEmpty size={48} style={{ color: "var(--mantine-color-dimmed)" }} />
       )}
       <Title order={5} className="text-center">
         {title}
