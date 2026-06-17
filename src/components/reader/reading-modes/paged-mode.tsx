@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useRef } from "react";
 import { useReaderSettings } from "../../../store/useReaderSettingsStore";
 import { IconChevronRight, IconChevronLeft } from "@tabler/icons-react";
 import type { useReaderControls } from "../../../hooks/useReaderControls";
@@ -46,28 +46,11 @@ export const PagedMode: React.FC<PagedModeProps> = (props) => {
   const { pageFit, backgroundColor, readingMode, customWidth } =
     useReaderSettings();
   const containerRef = useRef<HTMLDivElement>(null);
-  const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
 
   const currentPageData = pages[currentPage];
   const isRTL = readingMode === "paged-rtl";
   const isFirstPage = currentPage === 0;
   const isLastPage = currentPage === totalPages - 1;
-
-  useEffect(() => {
-    // Only used if dimensions are strictly needed elsewhere, but we removed manual aspect ratio logic.
-    const updateDimensions = () => {
-      if (containerRef.current) {
-        setDimensions({
-          width: containerRef.current.clientWidth,
-          height: containerRef.current.clientHeight,
-        });
-      }
-    };
-
-    updateDimensions();
-    window.addEventListener("resize", updateDimensions);
-    return () => window.removeEventListener("resize", updateDimensions);
-  }, []);
 
   const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!containerRef.current) return;
