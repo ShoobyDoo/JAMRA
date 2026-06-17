@@ -3,6 +3,11 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { useReaderSettings } from "../../../store/useReaderSettingsStore";
 import { IconCircleCheck, IconLoader2 } from "@tabler/icons-react";
 import type { useReaderControls } from "../../../hooks/useReaderControls";
+import {
+  READER_BACKGROUNDS,
+  useHotZoneHandlers,
+  ChapterTransitionOverlay,
+} from "./shared";
 
 interface VerticalModeProps {
   pages: Array<{
@@ -40,6 +45,7 @@ export const VerticalMode: React.FC<VerticalModeProps> = ({
   totalPages,
   onPageChange,
   nextChapter,
+  prevChapter,
   readerControls,
   onPrevPage,
   onNextPage,
@@ -120,24 +126,9 @@ export const VerticalMode: React.FC<VerticalModeProps> = ({
     }
   };
 
-  const bgClasses: Record<string, string> = {
-    black: "bg-black",
-    white: "bg-white",
-    sepia: "bg-[#f4ecd8]",
-    "dark-gray": "bg-gray-900",
-  };
-
   const imageWidthValue = getImageWidth();
 
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (containerRef.current) {
-      readerControls.updateHotZone(e.clientX, e.clientY, containerRef.current);
-    }
-  };
-
-  const handleMouseLeave = () => {
-    readerControls.clearHotZone();
-  };
+  const { handleMouseMove, handleMouseLeave } = useHotZoneHandlers(readerControls, containerRef);
 
   const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!containerRef.current) return;
@@ -168,9 +159,18 @@ export const VerticalMode: React.FC<VerticalModeProps> = ({
   const virtualItems = virtualizer.getVirtualItems();
 
   return (
+    <div className="relative h-full w-full">
+      <ChapterTransitionOverlay
+        prevChapter={prevChapter}
+        nextChapter={nextChapter}
+        currentPage={currentPage}
+        totalPages={totalPages}
+        isRTL={false}
+        onNavigateToChapter={onNavigateToChapter}
+      />
     <div
       ref={containerRef}
-      className={`relative h-full w-full overflow-y-auto touch-pan-y ${bgClasses[backgroundColor]}`}
+      className={`h-full w-full overflow-y-auto touch-pan-y ${READER_BACKGROUNDS[backgroundColor]}`}
       style={{
         scrollBehavior: "auto",
         overscrollBehavior: "contain",
@@ -255,7 +255,10 @@ export const VerticalMode: React.FC<VerticalModeProps> = ({
 
               {nextChapter && onNavigateToChapter && (
                 <button
-                  onClick={() => onNavigateToChapter(nextChapter.id)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onNavigateToChapter(nextChapter.id);
+                  }}
                   className="mt-2 rounded-lg bg-white/10 border border-white/20 px-6 py-3 text-sm font-medium text-white transition hover:bg-white/20"
                 >
                   Next Chapter
@@ -265,6 +268,7 @@ export const VerticalMode: React.FC<VerticalModeProps> = ({
           </div>
         )}
       </div>
+    </div>
     </div>
   );
 };
