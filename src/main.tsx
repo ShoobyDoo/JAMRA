@@ -1,4 +1,4 @@
-import { createTheme, MantineProvider } from "@mantine/core";
+import { MantineProvider } from "@mantine/core";
 import { Notifications } from "@mantine/notifications";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
@@ -15,18 +15,12 @@ import "@mantine/notifications/styles.css";
 
 import App from "./App.tsx";
 import { queryClient } from "./lib/query-client.ts";
-
-const theme = createTheme({
-  fontFamily: "Space Grotesk, sans-serif",
-  headings: {
-    fontFamily: "Space Grotesk, sans-serif",
-  },
-});
+import { theme } from "./theme.ts";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
-      <MantineProvider theme={theme}>
+      <MantineProvider theme={theme} defaultColorScheme="auto">
         <Notifications position="top-right" zIndex={1000} />
         <App />
       </MantineProvider>
