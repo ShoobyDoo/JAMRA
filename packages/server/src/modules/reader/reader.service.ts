@@ -18,6 +18,7 @@ import type { LibraryItem } from "../library/library.types.js";
 import type { ProgressRepository } from "../library/progress.repository.js";
 import type {
   ReaderChapter,
+  ReaderChapterSummary,
   ReaderPage,
   ReaderPageSource,
   RemotePageSource,
@@ -131,6 +132,11 @@ export class ReaderService {
       isDownloaded: downloadReady,
       nextChapterId: navigation.nextChapterId,
       previousChapterId: navigation.previousChapterId,
+      chapters: chapters.map(c => ({
+        id: c.id,
+        number: c.chapterNumber?.toString(),
+        title: c.title,
+      })),
     };
 
     this.chapterCache.set(cacheKey, {

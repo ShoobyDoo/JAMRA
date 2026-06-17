@@ -6,6 +6,7 @@ export interface ReaderChapter {
   isDownloaded: boolean;
   nextChapterId?: string;
   previousChapterId?: string;
+  chapters: ReaderChapterSummary[];
 }
 
 export interface ReaderPage {
@@ -32,3 +33,9 @@ export interface RemotePageSource {
 }
 
 export type ReaderPageSource = DownloadedPageSource | RemotePageSource;
+
+export interface ReaderChapterSummary {
+  id: string;
+  number?: string;
+  title?: string;
+}

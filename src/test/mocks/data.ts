@@ -14,7 +14,7 @@ import type {
   LibraryItem,
   LibraryStats,
   MangaDetails,
-  ReaderChapterData,
+  ReaderChapter,
   ReadingProgress,
   Setting,
 } from "../../types";
@@ -234,16 +234,15 @@ export const mockChapters: ChapterDetails[] = [
   },
 ];
 
-export const mockReaderChapterData: ReaderChapterData = {
-  chapterId: "ch-100",
-  chapterNumber: "100",
-  chapterTitle: "Chapter 100",
+export const mockReaderChapterData: ReaderChapter = {
+  id: "ch-100",
+  number: "100",
+  title: "Chapter 100",
   pages: [
-    "https://example.com/pages/1.jpg",
-    "https://example.com/pages/2.jpg",
-    "https://example.com/pages/3.jpg",
+    { number: 1, url: "https://example.com/pages/1.jpg" },
+    { number: 2, url: "https://example.com/pages/2.jpg" },
+    { number: 3, url: "https://example.com/pages/3.jpg" },
   ],
-  totalPages: 3,
   isDownloaded: false,
   nextChapterId: "ch-101",
   previousChapterId: "ch-99",

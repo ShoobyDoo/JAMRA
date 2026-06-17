@@ -1,1 +1,1 @@
-{"root":["./resources/extensions/dummy.ts"],"version":"5.9.3"}
+{"root":["./resources/extensions/dummy.ts","./resources/extensions/weebcentral/src/client.ts","./resources/extensions/weebcentral/src/index.ts"],"version":"5.9.3"}
