@@ -94,12 +94,6 @@ const exitFullscreen = (doc: FullscreenCapableDocument): Promise<void> => {
   }
 };
 
-interface ChapterMeta {
-  id: string;
-  title?: string;
-  number?: string;
-}
-
 interface MangaReaderProps {
   libraryId: string;
   mangaTitle: string;
@@ -210,24 +204,15 @@ export const MangaReader: React.FC<MangaReaderProps> = ({
 
   const viewportRef = useRef<HTMLDivElement>(null);
 
-  const { nextChapter, prevChapter, chapterList } = useMemo(() => {
+  const { nextChapter, prevChapter } = useMemo(() => {
     const prev = chapterMeta?.previousChapterId
       ? { id: chapterMeta.previousChapterId }
       : null;
     const next = chapterMeta?.nextChapterId
       ? { id: chapterMeta.nextChapterId }
       : null;
-    const current: ChapterMeta = {
-      id: chapterId,
-      title: chapterMeta?.title,
-      number: chapterMeta?.number,
-    };
-    const list: ChapterMeta[] = [];
-    if (prev) list.push(prev);
-    list.push(current);
-    if (next) list.push(next);
-    return { nextChapter: next, prevChapter: prev, chapterList: list };
-  }, [chapterId, chapterMeta]);
+    return { nextChapter: next, prevChapter: prev };
+  }, [chapterMeta]);
 
   const goToPage = useCallback(
     async (pageIndex: number) => {
@@ -386,7 +371,7 @@ export const MangaReader: React.FC<MangaReaderProps> = ({
 
       <ReaderControls
         mangaTitle={mangaTitle}
-        chapters={chapterList}
+        chapters={chapterMeta?.chapters ?? []}
         currentChapterId={chapterId}
         onChapterSelect={handleNavigateToChapter}
         currentPage={currentPage}
