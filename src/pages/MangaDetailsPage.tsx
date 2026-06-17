@@ -1,6 +1,5 @@
 import {
   ActionIcon,
-  Alert,
   AspectRatio,
   Badge,
   Button,
@@ -14,7 +13,6 @@ import {
   Title,
 } from "@mantine/core";
 import {
-  IconAlertCircle,
   IconBook,
   IconBookmark,
   IconBookmarkFilled,
@@ -23,6 +21,8 @@ import {
 import { notifications } from "@mantine/notifications";
 import React from "react";
 import { useNavigate, useParams } from "react-router";
+import { ErrorState } from "../components/shared/ErrorState";
+import { PageLoader } from "../components/shared/PageLoader";
 import {
   useExtensionChapters,
   useExtensionManga,
@@ -120,23 +120,16 @@ export const MangaDetailsPage: React.FC = () => {
   };
 
   if (isLoadingManga) {
-    return (
-      <div className="flex justify-center py-12">
-        <Loader size="lg" />
-      </div>
-    );
+    return <PageLoader />;
   }
 
   if (!manga) {
     return (
       <div className="mx-auto max-w-6xl px-4">
-        <Alert
-          icon={<IconAlertCircle size={18} />}
+        <ErrorState
           title="Manga Not Found"
-          color="red"
-        >
-          Unable to load manga details. Please try again.
-        </Alert>
+          message="Unable to load manga details. Please try again."
+        />
       </div>
     );
   }

@@ -6,62 +6,53 @@ import {
   Button,
   Card,
   Badge,
-  Loader,
-  Alert,
   Image,
   Progress,
   ActionIcon,
 } from "@mantine/core";
-import { IconBook, IconAlertCircle, IconPlayerPlay } from "@tabler/icons-react";
+import { IconBook, IconPlayerPlay } from "@tabler/icons-react";
 import { useNavigate } from "react-router";
 import { useRecentReadingActivity } from "../../hooks/queries/useReadingActivityQueries";
 import { formatRelativeTime } from "../../lib/date";
 import { buildRoute, ROUTES } from "../../routes/routes.config";
+import { EmptyState } from "../shared/EmptyState";
+import { ErrorState } from "../shared/ErrorState";
+import { PageLoader } from "../shared/PageLoader";
 
 export const ReadingActivityView: React.FC = () => {
   const navigate = useNavigate();
-  const { data: activities, isLoading, isError, error } = useRecentReadingActivity({ limit: 50 });
+  const { data: activities, isLoading, isError, error } = useRecentReadingActivity({
+    limit: 50,
+  });
 
   if (isLoading) {
-    return (
-      <Stack align="center" justify="center" className="py-12">
-        <Loader size="lg" />
-        <Text c="dimmed">Loading reading activity...</Text>
-      </Stack>
-    );
+    return <PageLoader message="Loading reading activity..." />;
   }
 
   if (isError) {
     return (
-      <Alert
-        icon={<IconAlertCircle />}
+      <ErrorState
         title="Error loading reading activity"
-        color="red"
-        className="max-w-2xl mx-auto"
-      >
-        {error instanceof Error ? error.message : "Failed to load reading activity"}
-      </Alert>
+        message={
+          error instanceof Error ? error.message : "Failed to load reading activity"
+        }
+        className="mx-auto max-w-2xl"
+      />
     );
   }
 
   if (!activities || activities.length === 0) {
     return (
-      <Stack align="center" justify="center" className="py-12">
-        <IconBook size={64} className="text-gray-400" />
-        <Text size="lg" c="dimmed">
-          No reading activity yet
-        </Text>
-        <Text size="sm" c="dimmed">
-          Start reading some manga to see your history here
-        </Text>
-        <Button
-          variant="light"
-          onClick={() => navigate(ROUTES.DISCOVER)}
-          className="mt-4"
-        >
-          Discover Manga
-        </Button>
-      </Stack>
+      <EmptyState
+        icon={<IconBook size={48} className="text-gray-400" />}
+        title="No reading activity yet"
+        description="Start reading some manga to see your history here"
+        action={
+          <Button variant="light" onClick={() => navigate(ROUTES.DISCOVER)}>
+            Discover Manga
+          </Button>
+        }
+      />
     );
   }
 

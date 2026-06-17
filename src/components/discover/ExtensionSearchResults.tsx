@@ -1,7 +1,9 @@
-import { Loader, SimpleGrid, Text, Title } from "@mantine/core";
+import { Text, Title } from "@mantine/core";
 import React from "react";
 import { useExtensionSearch } from "../../hooks/queries/useExtensionsQueries";
 import type { ExtensionSearchResult } from "../../types";
+import { MangaCardGrid } from "../shared/MangaCardGrid";
+import { PageLoader } from "../shared/PageLoader";
 import { UnifiedMangaCard } from "../shared/UnifiedMangaCard";
 
 interface ExtensionSearchResultsProps {
@@ -31,14 +33,10 @@ export const ExtensionSearchResults: React.FC<ExtensionSearchResultsProps> = ({
         <Title order={3} className="mb-4">
           {extensionName}
         </Title>
-        <div className="flex justify-center py-8">
-          <Loader size="md" />
-        </div>
+        <PageLoader />
       </div>
     ) : (
-      <div className="flex justify-center py-8">
-        <Loader size="md" />
-      </div>
+      <PageLoader />
     );
   }
 
@@ -58,7 +56,7 @@ export const ExtensionSearchResults: React.FC<ExtensionSearchResultsProps> = ({
           </Title>
         </div>
       )}
-      <SimpleGrid cols={{ base: 2, xs: 3, sm: 4, md: 5, lg: 6 }} spacing="lg">
+      <MangaCardGrid>
         {results.map((manga: ExtensionSearchResult) => (
           <UnifiedMangaCard
             key={manga.id}
@@ -70,7 +68,7 @@ export const ExtensionSearchResults: React.FC<ExtensionSearchResultsProps> = ({
             status={manga.status}
           />
         ))}
-      </SimpleGrid>
+      </MangaCardGrid>
     </div>
   );
 };
