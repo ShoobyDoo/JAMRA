@@ -8,6 +8,7 @@ import {
   useHotZoneHandlers,
   ChapterTransitionOverlay,
 } from "./shared";
+import type { ChapterRef } from "./shared";
 
 interface PageData {
   index: number;
@@ -21,16 +22,8 @@ interface DualPageModeProps {
   currentPage: number;
   totalPages: number;
   onPageChange: (pageIndex: number) => void;
-  nextChapter?: {
-    id: string;
-    title?: string;
-    number?: string;
-  } | null;
-  prevChapter?: {
-    id: string;
-    title?: string;
-    number?: string;
-  } | null;
+  nextChapter?: ChapterRef | null;
+  prevChapter?: ChapterRef | null;
   mangaId?: string;
   mangaSlug?: string;
   readerControls: ReturnType<typeof useReaderControls>;

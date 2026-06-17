@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useCallback } from "react";
 import {
   IconChevronLeft,
   IconChevronRight,
@@ -74,15 +74,15 @@ export const useHotZoneHandlers = (
   readerControls: ReturnType<typeof useReaderControls>,
   containerRef: React.RefObject<HTMLDivElement | null>,
 ) => {
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     if (containerRef.current) {
       readerControls.updateHotZone(e.clientX, e.clientY, containerRef.current);
     }
-  };
+  }, [readerControls, containerRef]);
 
-  const handleMouseLeave = () => {
+  const handleMouseLeave = useCallback(() => {
     readerControls.clearHotZone();
-  };
+  }, [readerControls]);
 
   return { handleMouseMove, handleMouseLeave };
 };
