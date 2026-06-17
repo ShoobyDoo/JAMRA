@@ -83,7 +83,9 @@ export const PagedMode: React.FC<PagedModeProps> = (props) => {
       onClick={handleClick}
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
-      className={`relative flex h-full w-full cursor-pointer items-center justify-center ${READER_BACKGROUNDS[backgroundColor]}`}
+      className={`relative flex h-full w-full cursor-pointer overflow-hidden justify-center ${
+        pageFit === "width" ? "items-start" : "items-center"
+      } ${READER_BACKGROUNDS[backgroundColor]}`}
     >
       {/* Hot-edge chevron hints */}
       <div className="absolute inset-0 flex pointer-events-none">
@@ -118,7 +120,9 @@ export const PagedMode: React.FC<PagedModeProps> = (props) => {
 
       {/* Page image */}
       <div
-        className="relative z-10 flex h-full w-full items-center justify-center p-2 md:p-4"
+        className={`relative z-10 flex h-full w-full justify-center p-2 md:p-4 ${
+          pageFit === "width" ? "items-start" : "items-center"
+        }`}
       >
         <img
           src={currentPageData.url}
