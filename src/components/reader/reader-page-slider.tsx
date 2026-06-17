@@ -49,8 +49,9 @@ export const ReaderPageSlider: React.FC<ReaderPageSliderProps> = ({
     }
   };
 
-  // Show label inside filled section only when there's enough room
+  // Show labels only when there's enough room
   const showFilledLabel = filledPct > 10;
+  const showEmptyLabel = hasTotalPages && filledPct < 87;
 
   return (
     <div
@@ -91,6 +92,15 @@ export const ReaderPageSlider: React.FC<ReaderPageSliderProps> = ({
       >
         <IconGripVertical size={11} className="text-gray-400" />
       </div>
+
+      {/* Total pages label in empty section */}
+      {showEmptyLabel && (
+        <div className="absolute right-0 top-0 h-full flex items-center px-2.5 pointer-events-none">
+          <span className="text-xs text-white/40 leading-none whitespace-nowrap">
+            {totalPages}
+          </span>
+        </div>
+      )}
     </div>
   );
 };

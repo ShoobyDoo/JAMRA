@@ -27,22 +27,23 @@ export const getPageFitStyles = (
 ): React.CSSProperties => {
   switch (pageFit) {
     case "width":
-      return { width: "100%", height: "auto", maxHeight: "100%", objectFit: "contain" };
+      // Fill container width; height is unconstrained so overflow is clipped by container
+      return { width: "100%", height: "auto" };
     case "height":
-      return { width: "auto", height: "100%", maxWidth: "100%", objectFit: "contain" };
+      return { width: "auto", height: "100%", maxWidth: "100%" };
     case "original":
       return {
         width: dims?.width ?? "auto",
         height: dims?.height ?? "auto",
         maxWidth: "100%",
         maxHeight: "100%",
-        objectFit: "contain",
       };
     case "custom":
-      return { width: `${customWidth}%`, height: "auto", maxHeight: "100%", objectFit: "contain" };
+      return { width: `${customWidth}%`, height: "auto", maxHeight: "100%" };
     case "auto":
     default:
-      return { maxWidth: "100%", maxHeight: "100%", width: "auto", height: "auto", objectFit: "contain" };
+      // Fit entirely within the container, maintaining aspect ratio
+      return { maxWidth: "100%", maxHeight: "100%", width: "auto", height: "auto" };
   }
 };
 
