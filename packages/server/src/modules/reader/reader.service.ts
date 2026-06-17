@@ -417,9 +417,9 @@ export class ReaderService {
         return numA - numB;
       }
 
-      // Tiebreak by volume ascending
-      const volA = a.chapter.volume ?? 0;
-      const volB = b.chapter.volume ?? 0;
+      // Tiebreak by volume ascending; undefined volume sorts after any numbered volume
+      const volA = a.chapter.volume ?? Infinity;
+      const volB = b.chapter.volume ?? Infinity;
 
       if (volA !== volB) {
         return volA - volB;
