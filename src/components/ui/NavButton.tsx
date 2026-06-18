@@ -12,13 +12,15 @@ export const NavButton: React.FC<INavLink> = ({ to, label, icon: NavIcon }) => {
     <NavLink
       key={to}
       to={to}
-      className={({ isActive }) =>
-        `flex aspect-square w-full flex-col items-center justify-center gap-1.5 rounded-lg transition-colors ${
-          isActive
-            ? "bg-blue-50 text-blue-700"
-            : "text-gray-700 hover:bg-gray-100"
-        }`
-      }
+      className="flex aspect-square w-full flex-col items-center justify-center gap-1.5 rounded-lg transition-colors hover:bg-[var(--mantine-color-default-hover)]"
+      style={({ isActive }) => ({
+        backgroundColor: isActive
+          ? "var(--mantine-primary-color-light)"
+          : undefined,
+        color: isActive
+          ? "var(--mantine-primary-color-light-color)"
+          : "var(--mantine-color-text)",
+      })}
       aria-label={label}
     >
       <NavIcon size={24} stroke={1.5} />

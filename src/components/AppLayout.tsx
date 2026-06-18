@@ -25,7 +25,11 @@ export const AppLayout: React.FC = () => {
       </AppShell.Navbar>
       <AppShell.Main className="flex h-full min-h-0 min-w-0 overflow-hidden">
         <div
-          className={`h-full min-h-0 flex-1 overflow-x-hidden overflow-y-auto rounded-tl-lg border-t border-l border-gray-200 ${LAYOUT.MAIN_PADDING}`}
+          className={`h-full min-h-0 flex-1 overflow-x-hidden overflow-y-auto rounded-tl-lg border-t border-l ${LAYOUT.MAIN_PADDING}`}
+          style={{
+            borderColor: "var(--mantine-color-default-border)",
+            backgroundColor: "var(--mantine-color-body)",
+          }}
         >
           <Outlet />
         </div>

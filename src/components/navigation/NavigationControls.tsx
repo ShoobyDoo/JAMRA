@@ -40,7 +40,8 @@ export const NavigationControls: React.FC = () => {
         onClick={handleBack}
         disabled={!canGoBack}
         aria-label="Go back"
-        className="text-gray-700 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed"
+        className="hover:bg-[var(--mantine-color-default-hover)] disabled:opacity-40 disabled:cursor-not-allowed"
+        style={{ color: "var(--mantine-color-text)" }}
       >
         <IconArrowLeft size={18} stroke={1.5} />
       </ActionIcon>
@@ -51,7 +52,8 @@ export const NavigationControls: React.FC = () => {
         size="md"
         onClick={handleForward}
         aria-label="Go forward"
-        className="text-gray-700 hover:bg-gray-100"
+        className="hover:bg-[var(--mantine-color-default-hover)]"
+        style={{ color: "var(--mantine-color-text)" }}
       >
         <IconArrowRight size={18} stroke={1.5} />
       </ActionIcon>
@@ -62,7 +64,8 @@ export const NavigationControls: React.FC = () => {
         size="md"
         onClick={handleRefresh}
         aria-label="Refresh page"
-        className="text-gray-700 hover:bg-gray-100"
+        className="hover:bg-[var(--mantine-color-default-hover)]"
+        style={{ color: "var(--mantine-color-text)" }}
       >
         <IconRefresh size={18} stroke={1.5} />
       </ActionIcon>

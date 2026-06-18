@@ -74,27 +74,40 @@ export const ReadingActivityView: React.FC = () => {
       <Stack gap="xs">
         {activities.map((activity, index) => {
           const { libraryItem, progress } = activity;
+          // Clamp the displayed page number so a stale/incremented backend
+          // value (e.g. pageNumber bumped past the last page on completion)
+          // never renders as "PAGE 51 OF 50".
+          const clampedPageNumber = progress.totalPages
+            ? Math.min(progress.pageNumber, progress.totalPages)
+            : progress.pageNumber;
+          // Clamp percent to 100 and force exactly 100 when complete, since
+          // the raw ratio can exceed 100% for the same reason as above.
           const progressPercent = progress.totalPages
-            ? Math.round((progress.pageNumber / progress.totalPages) * 100)
+            ? progress.completed
+              ? 100
+              : Math.min(
+                  100,
+                  Math.round((progress.pageNumber / progress.totalPages) * 100),
+                )
             : 0;
 
           return (
             <Card
               key={`${progress.id}-${index}`}
-              padding="md"
+              padding="xs"
               radius="md"
               withBorder
               className="hover:shadow-md transition-shadow cursor-pointer"
               onClick={() => handleResume(libraryItem.id, progress.chapterId)}
             >
-              <Group wrap="nowrap" gap="md">
+              <Group wrap="nowrap" gap="sm">
                 {/* Cover Image */}
                 <div className="relative flex-shrink-0">
                   <Image
                     src={libraryItem.coverUrl || "/placeholder.png"}
                     alt={libraryItem.title}
-                    width={80}
-                    height={120}
+                    width={56}
+                    height={80}
                     radius="sm"
                     className="object-cover"
                     fallbackSrc="/placeholder.png"
@@ -112,10 +125,10 @@ export const ReadingActivityView: React.FC = () => {
                 </div>
 
                 {/* Content */}
-                <Stack gap="xs" className="flex-1 min-w-0">
+                <Stack gap={4} className="flex-1 min-w-0">
                   <Group justify="space-between" wrap="nowrap">
                     <Text
-                      size="md"
+                      size="sm"
                       fw={600}
                       lineClamp={1}
                       className="flex-1 min-w-0"
@@ -132,7 +145,7 @@ export const ReadingActivityView: React.FC = () => {
                       Chapter {progress.chapterNumber || "?"}
                     </Badge>
                     <Badge variant="dot" size="sm" color="gray">
-                      Page {progress.pageNumber}
+                      Page {clampedPageNumber}
                       {progress.totalPages && ` of ${progress.totalPages}`}
                     </Badge>
                     {libraryItem.status && (
@@ -154,7 +167,7 @@ export const ReadingActivityView: React.FC = () => {
 
                   {/* Progress Bar */}
                   {progress.totalPages && (
-                    <Stack gap={4}>
+                    <Stack gap={2}>
                       <Progress
                         value={progressPercent}
                         size="sm"
@@ -170,7 +183,7 @@ export const ReadingActivityView: React.FC = () => {
 
                 {/* Action Button */}
                 <ActionIcon
-                  size="lg"
+                  size="md"
                   variant="light"
                   color="blue"
                   aria-label="Resume reading"
@@ -180,7 +193,7 @@ export const ReadingActivityView: React.FC = () => {
                     handleResume(libraryItem.id, progress.chapterId);
                   }}
                 >
-                  <IconPlayerPlay size={20} />
+                  <IconPlayerPlay size={18} />
                 </ActionIcon>
               </Group>
             </Card>

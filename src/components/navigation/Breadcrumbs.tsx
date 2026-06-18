@@ -4,6 +4,7 @@ import { Breadcrumbs as MantineBreadcrumbs } from "@mantine/core";
 import { IconChevronRight } from "@tabler/icons-react";
 import { ROUTE_LABELS } from "../../constants/routes";
 import { useLibraryItem } from "../../hooks/queries/useLibraryQueries";
+import { useExtensionManga } from "../../hooks/queries/useExtensionsQueries";
 import { buildRoute } from "../../routes/routes.config";
 
 interface BreadcrumbSegment {
@@ -14,14 +15,6 @@ interface BreadcrumbSegment {
 const prettify = (value: string | undefined, fallback: string): string => {
   if (!value) return fallback;
   return value.replace(/-/g, " ");
-};
-
-const slugify = (value: string): string => {
-  return value
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "");
 };
 
 export const Breadcrumbs: React.FC = () => {
@@ -35,6 +28,24 @@ export const Breadcrumbs: React.FC = () => {
     return segments[readerIndex + 1];
   }, [location.pathname]);
   const { data: readerLibraryItem } = useLibraryItem(readerLibraryId);
+
+  // Resolve real manga title for /manga/:extensionId/:mangaId breadcrumbs
+  // from the TanStack Query cache, instead of slugifying the route param.
+  const mangaRouteParams = React.useMemo(() => {
+    const segments = location.pathname.split("/").filter(Boolean);
+    const mangaIndex = segments.indexOf("manga");
+    if (mangaIndex === -1) {
+      return undefined;
+    }
+    return {
+      extensionId: segments[mangaIndex + 1],
+      mangaId: segments[mangaIndex + 2],
+    };
+  }, [location.pathname]);
+  const { data: mangaDetails } = useExtensionManga(
+    mangaRouteParams?.extensionId,
+    mangaRouteParams?.mangaId,
+  );
 
   const segments = React.useMemo(() => {
     const pathSegments = location.pathname.split("/").filter(Boolean);
@@ -63,9 +74,8 @@ export const Breadcrumbs: React.FC = () => {
           path: "/discover",
         });
 
-        const mangaId = pathSegments[index + 2] || pathSegments[index + 1];
         breadcrumbs.push({
-          label: prettify(mangaId, "Manga"),
+          label: mangaDetails?.manga.title ?? "Details",
           path: null,
         });
         skipNext = 2;
@@ -82,9 +92,7 @@ export const Breadcrumbs: React.FC = () => {
           : null;
 
         breadcrumbs.push({
-          label: readerLibraryItem
-            ? slugify(readerLibraryItem.title)
-            : "Selected manga",
+          label: readerLibraryItem?.title ?? "Selected manga",
           path: mangaDetailsPath,
         });
 
@@ -113,32 +121,38 @@ export const Breadcrumbs: React.FC = () => {
     }
 
     return breadcrumbs;
-  }, [location.pathname, readerLibraryItem]);
+  }, [location.pathname, readerLibraryItem, mangaDetails]);
 
   return (
     <MantineBreadcrumbs
       separator={
-        <IconChevronRight size={14} stroke={1.5} className="text-gray-400" />
+        <IconChevronRight
+          size={14}
+          stroke={1.5}
+          style={{ color: "var(--mantine-color-dimmed)" }}
+        />
       }
       classNames={{
-        root: "text-gray-700",
         separator: "mx-1",
         breadcrumb: "text-sm pb-0.5",
       }}
+      style={{ color: "var(--mantine-color-text)" }}
     >
       {segments.map((segment, index) =>
         segment.path ? (
           <Link
             key={index}
             to={segment.path}
-            className="max-w-[200px] truncate no-underline text-gray-600 transition-colors hover:text-blue-600 hover:underline"
+            className="max-w-[200px] truncate no-underline transition-colors hover:underline hover:text-[var(--mantine-primary-color-filled)]"
+            style={{ color: "var(--mantine-color-dimmed)" }}
           >
             {segment.label}
           </Link>
         ) : (
           <span
             key={index}
-            className="max-w-[200px] truncate font-semibold text-gray-900"
+            className="max-w-[200px] truncate font-semibold"
+            style={{ color: "var(--mantine-color-text)" }}
           >
             {segment.label}
           </span>
