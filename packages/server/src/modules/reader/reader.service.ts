@@ -18,7 +18,6 @@ import type { LibraryItem } from "../library/library.types.js";
 import type { ProgressRepository } from "../library/progress.repository.js";
 import type {
   ReaderChapter,
-  ReaderChapterSummary,
   ReaderPage,
   ReaderPageSource,
   RemotePageSource,

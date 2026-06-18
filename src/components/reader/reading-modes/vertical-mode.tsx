@@ -3,13 +3,13 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { useReaderSettings } from "../../../store/useReaderSettingsStore";
 import { IconCircleCheck, IconLoader2 } from "@tabler/icons-react";
 import type { useReaderControls } from "../../../hooks/useReaderControls";
+import { ChapterTransitionOverlay } from "./shared";
 import {
   READER_BACKGROUNDS,
   getPageFitStyles,
   useHotZoneHandlers,
-  ChapterTransitionOverlay,
-} from "./shared";
-import type { ChapterRef } from "./shared";
+} from "./shared-utils";
+import type { ChapterRef } from "./shared-utils";
 
 interface VerticalModeProps {
   pages: Array<{
