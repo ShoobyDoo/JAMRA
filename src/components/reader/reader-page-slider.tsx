@@ -1,4 +1,4 @@
-import React, { useCallback } from "react";
+import React, { useCallback, useLayoutEffect, useRef, useState } from "react";
 import { useMove } from "@mantine/hooks";
 import { IconGripVertical } from "@tabler/icons-react";
 
@@ -32,6 +32,46 @@ export const ReaderPageSlider: React.FC<ReaderPageSliderProps> = ({
 
   const { ref, active } = useMove(handleMove);
 
+  // Pixel-based clamp for the floating label so it never overhangs the track
+  // edges. `filledPct` is a percentage of the TRACK width, while the label's
+  // own width is a different unit entirely — mixing the two in a single
+  // percent-based clamp (as before) is dimensionally invalid and silently
+  // no-ops at the right extreme. Measuring actual widths in pixels sidesteps
+  // the unit mismatch.
+  const trackRef = useRef<HTMLDivElement>(null);
+  const labelRef = useRef<HTMLDivElement>(null);
+  const [trackWidth, setTrackWidth] = useState(0);
+  const [labelWidth, setLabelWidth] = useState(0);
+
+  useLayoutEffect(() => {
+    const trackEl = trackRef.current;
+    const labelEl = labelRef.current;
+    if (!trackEl || !labelEl) return;
+
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        if (entry.target === trackEl) {
+          setTrackWidth(entry.contentRect.width);
+        } else if (entry.target === labelEl) {
+          setLabelWidth(entry.contentRect.width);
+        }
+      }
+    });
+
+    observer.observe(trackEl);
+    observer.observe(labelEl);
+    setTrackWidth(trackEl.getBoundingClientRect().width);
+    setLabelWidth(labelEl.getBoundingClientRect().width);
+
+    return () => observer.disconnect();
+  }, [currentPage]);
+
+  const thumbPx = (filledPct / 100) * trackWidth;
+  const labelLeftPx = Math.max(
+    0,
+    Math.min(thumbPx - labelWidth / 2, trackWidth - labelWidth),
+  );
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (disabled) return;
     if (e.key === "ArrowRight" || e.key === "ArrowUp") {
@@ -49,25 +89,26 @@ export const ReaderPageSlider: React.FC<ReaderPageSliderProps> = ({
     }
   };
 
-  // Clamp the label's own translateX so it never gets clipped by the track edges,
-  // mirroring Mantine's reference floating-label Slider behavior.
-  const labelTranslateX = `clamp(-${filledPct}%, -50%, ${100 - filledPct}%)`;
-
   return (
     <div className="relative w-full pt-6">
-      {/* Floating current-page label — follows the thumb, clamped so it's never clipped */}
+      {/* Floating current-page label — follows the thumb, clamped in pixels
+          (derived from measured track/label widths) so it's never clipped */}
       <div
-        className="absolute bottom-full left-0 mb-1.5 whitespace-nowrap rounded-md bg-white px-1.5 py-0.5 text-xs font-semibold leading-none text-gray-900 shadow-md"
+        ref={labelRef}
+        className="absolute bottom-full mb-1.5 whitespace-nowrap rounded-md bg-white px-1.5 py-0.5 text-xs font-semibold leading-none text-gray-900 shadow-md"
         style={{
-          left: `${filledPct}%`,
-          transform: `translateX(${labelTranslateX})`,
+          left: labelWidth ? `${labelLeftPx}px` : `${filledPct}%`,
+          transform: labelWidth ? "none" : "translateX(-50%)",
         }}
       >
         {currentPage + 1}
       </div>
 
       <div
-        ref={ref}
+        ref={(node) => {
+          ref(node);
+          trackRef.current = node;
+        }}
         role="slider"
         aria-valuenow={currentPage + 1}
         aria-valuemin={1}
