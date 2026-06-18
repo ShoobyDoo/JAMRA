@@ -1,10 +1,11 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useReaderSettings } from "../../../store/useReaderSettingsStore";
 import { IconCircleCheck, IconLoader2 } from "@tabler/icons-react";
 import type { useReaderControls } from "../../../hooks/useReaderControls";
 import {
   READER_BACKGROUNDS,
+  getPageFitStyles,
   useHotZoneHandlers,
   ChapterTransitionOverlay,
 } from "./shared";
@@ -49,8 +50,26 @@ export const VerticalMode: React.FC<VerticalModeProps> = ({
 
   const containerRef = useRef<HTMLDivElement>(null);
   const currentPageRef = useRef(currentPage);
-  const skipScrollRef = useRef(false);
-  const [isScrolling, setIsScrolling] = useState(false);
+  // True while a programmatic/corrective scroll (scrollToIndex) is in flight.
+  // Guards the scroll handler so its own corrective scrolls don't re-trigger
+  // page detection, which would otherwise feed back into more corrective
+  // scrolls and cause visible jumps.
+  const programmaticScrollRef = useRef(false);
+  // "Is the user actively scrolling" — read/written only in the hot
+  // scroll-event path, so it must be a ref rather than React state (state
+  // would force a re-render on every scroll event). Detection itself runs
+  // live (RAF-throttled) regardless of this flag, so the page indicator
+  // tracks the visible page while scrolling instead of only after it stops;
+  // the flag is retained for any scroll-state-dependent behavior (e.g.
+  // suppressing hover/hot-zone effects while in motion).
+  const isScrollingRef = useRef(false);
+  // Pending requestAnimationFrame handle used to throttle page detection to
+  // at most once per frame instead of once per scroll event.
+  const detectionRafRef = useRef<number | null>(null);
+  // Debounce timer that marks scrolling as "settled" ~150ms after the last
+  // scroll event. Also used to know when a programmatic scroll has settled,
+  // since the corrective scrollToIndex itself fires scroll events.
+  const scrollTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
     currentPageRef.current = currentPage;
@@ -66,12 +85,11 @@ export const VerticalMode: React.FC<VerticalModeProps> = ({
     overscan: 3,
   });
 
-  useEffect(() => {
-    if (skipScrollRef.current) {
-      skipScrollRef.current = false;
-      return;
-    }
-
+  // Detect the page that is currently aligned to the top of the viewport.
+  // Uses "start" alignment to match scrollToIndex's "start" alignment below —
+  // using the same alignment for detection and correction is what prevents
+  // the two from fighting each other.
+  const detectCurrentPage = () => {
     const virtualItems = virtualizer.getVirtualItems();
     if (virtualItems.length === 0) return;
 
@@ -79,47 +97,54 @@ export const VerticalMode: React.FC<VerticalModeProps> = ({
     if (!container) return;
 
     const scrollTop = container.scrollTop;
-    const viewportHeight = container.clientHeight;
-    const viewportCenter = scrollTop + viewportHeight / 2;
 
     let closestIndex = virtualItems[0].index;
-    let closestDistance = Math.abs(virtualItems[0].start - viewportCenter);
+    let closestDistance = Math.abs(virtualItems[0].start - scrollTop);
 
     for (const item of virtualItems) {
-      const itemCenter = item.start + item.size / 2;
-      const distance = Math.abs(itemCenter - viewportCenter);
+      const distance = Math.abs(item.start - scrollTop);
       if (distance < closestDistance) {
         closestDistance = distance;
         closestIndex = item.index;
       }
     }
 
-    if (currentPageRef.current !== closestIndex && !isScrolling) {
+    if (currentPageRef.current !== closestIndex) {
       currentPageRef.current = closestIndex;
       onPageChange(closestIndex);
     }
-  }, [virtualizer, onPageChange, isScrolling]);
-
-  useEffect(() => {
-    if (skipScrollRef.current) {
-      skipScrollRef.current = false;
-      return;
-    }
-    virtualizer.scrollToIndex(currentPage, { align: "start", behavior: "auto" });
-  }, [currentPage, virtualizer]);
-
-  const getImageWidth = () => {
-    switch (pageFit) {
-      case "width": return "100%";
-      case "height":
-      case "auto":
-      case "original": return "auto";
-      case "custom": return `${customWidth}%`;
-      default: return "100%";
-    }
   };
 
-  const imageWidthValue = getImageWidth();
+  useEffect(() => {
+    // Skip page-change-driven scroll corrections while a programmatic scroll
+    // we just initiated is still settling — currentPage changes that
+    // originate from our own detection logic shouldn't trigger another
+    // scrollToIndex call.
+    if (programmaticScrollRef.current) return;
+
+    programmaticScrollRef.current = true;
+    virtualizer.scrollToIndex(currentPage, { align: "start", behavior: "auto" });
+
+    // The corrective scroll fires its own scroll event(s) synchronously/near
+    // -synchronously. Clear the guard on the next animation frame, after the
+    // browser has had a chance to dispatch the resulting scroll event(s), so
+    // the scroll handler's RAF-throttled detection sees the guard set during
+    // that window and ignores it.
+    requestAnimationFrame(() => {
+      programmaticScrollRef.current = false;
+    });
+  }, [currentPage, virtualizer]);
+
+  useEffect(() => {
+    return () => {
+      if (scrollTimeoutRef.current !== null) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+      if (detectionRafRef.current !== null) {
+        cancelAnimationFrame(detectionRafRef.current);
+      }
+    };
+  }, []);
 
   const { handleMouseMove, handleMouseLeave } = useHotZoneHandlers(readerControls, containerRef);
 
@@ -139,14 +164,31 @@ export const VerticalMode: React.FC<VerticalModeProps> = ({
   };
 
   const handleScroll = () => {
-    readerControls.hideControls();
-    setIsScrolling(true);
+    // Ignore scroll events caused by our own corrective scrollToIndex calls —
+    // otherwise detection re-fires onPageChange mid-correction, which can
+    // schedule another corrective scroll and produce visible jitter/jumps.
+    if (programmaticScrollRef.current) return;
 
-    const timeout = setTimeout(() => {
-      setIsScrolling(false);
+    readerControls.hideControls();
+    isScrollingRef.current = true;
+
+    if (scrollTimeoutRef.current !== null) {
+      clearTimeout(scrollTimeoutRef.current);
+    }
+    scrollTimeoutRef.current = window.setTimeout(() => {
+      isScrollingRef.current = false;
+      scrollTimeoutRef.current = null;
     }, 150);
 
-    return () => clearTimeout(timeout);
+    // Throttle page detection to once per animation frame instead of once
+    // per scroll event.
+    if (detectionRafRef.current !== null) {
+      cancelAnimationFrame(detectionRafRef.current);
+    }
+    detectionRafRef.current = requestAnimationFrame(() => {
+      detectionRafRef.current = null;
+      detectCurrentPage();
+    });
   };
 
   const virtualItems = virtualizer.getVirtualItems();
@@ -186,6 +228,7 @@ export const VerticalMode: React.FC<VerticalModeProps> = ({
           const page = pages[pageIndex];
           const eagerLoad = pageIndex <= currentPage + 2;
           const placeholderHeight = page?.height ?? DEFAULT_PLACEHOLDER_HEIGHT;
+          const fitStyles = getPageFitStyles(pageFit, customWidth, page ?? undefined);
 
           return (
             <div
@@ -197,7 +240,6 @@ export const VerticalMode: React.FC<VerticalModeProps> = ({
                 left: 0,
                 width: "100%",
                 transform: `translateY(${virtualRow.start}px)`,
-                marginBottom: pageIndex < totalPages - 1 ? gapSize : 0,
               }}
               className="flex w-full items-center justify-center"
             >
@@ -206,9 +248,7 @@ export const VerticalMode: React.FC<VerticalModeProps> = ({
                   src={page.url}
                   alt={`Page ${page.index + 1}`}
                   style={{
-                    width: imageWidthValue,
-                    height: "auto",
-                    maxWidth: "100%",
+                    ...fitStyles,
                     display: "block",
                   }}
                   className="select-none"
@@ -217,7 +257,7 @@ export const VerticalMode: React.FC<VerticalModeProps> = ({
               ) : (
                 <div
                   className="w-full max-w-full select-none flex items-center justify-center"
-                  style={{ height: placeholderHeight, width: imageWidthValue, maxWidth: "100%" }}
+                  style={{ height: placeholderHeight, ...fitStyles }}
                 >
                   <div className="flex flex-col items-center gap-3 rounded-lg border border-white/10 bg-black/50 backdrop-blur-sm px-6 py-4">
                     <IconLoader2 size={24} className="animate-spin text-white/70" />
