@@ -2,11 +2,7 @@ import { ActionIcon, Badge, Select, Text } from "@mantine/core";
 import { IconHeart, IconHeartFilled } from "@tabler/icons-react";
 import React from "react";
 import { useNavigate } from "react-router";
-import {
-  formatLibraryStatus,
-  LIBRARY_STATUS_COLORS,
-  LIBRARY_STATUS_LABELS,
-} from "../../constants/library";
+import { LIBRARY_STATUS_LABELS } from "../../constants/library";
 import {
   useToggleFavorite,
   useUpdateLibraryItem,
@@ -106,13 +102,6 @@ export const LibraryCard: React.FC<LibraryCardProps> = ({ item }) => {
         >
           {item.extensionId}
         </Badge>
-        <Badge
-          size="xs"
-          color={LIBRARY_STATUS_COLORS[item.status]}
-          variant="filled"
-        >
-          {formatLibraryStatus(item.status)}
-        </Badge>
         {item.favorite && (
           <Badge size="xs" color="red" variant="light">
             Favorite
@@ -131,7 +120,6 @@ export const LibraryCard: React.FC<LibraryCardProps> = ({ item }) => {
       extensionId={item.extensionId}
       title={item.title}
       coverUrl={item.coverUrl}
-      status={formatLibraryStatus(item.status)}
       extensionName={item.extensionId}
       headerActions={headerActions}
       footerContent={footerContent}

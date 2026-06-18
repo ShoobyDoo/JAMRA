@@ -45,7 +45,8 @@ export const HomePage: React.FC = () => {
           <Anchor
             component="button"
             onClick={handleViewAllContinueReading}
-            className="text-blue-600 hover:underline"
+            c="brand"
+            className="hover:underline"
           >
             View All
           </Anchor>
@@ -115,7 +116,7 @@ export const HomePage: React.FC = () => {
           </MangaCardGrid>
         ) : (
           <EmptyState
-            icon={<IconBook size={28} className="text-gray-400" />}
+            icon={<IconBook size={28} style={{ color: "var(--mantine-color-dimmed)" }} />}
             title="No recent progress"
             description="Start reading any manga to see it appear here."
           />

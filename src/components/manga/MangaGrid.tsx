@@ -18,7 +18,7 @@ export const MangaGrid: React.FC<MangaGridProps> = ({
   onSelect,
 }) => {
   if (results.length === 0) {
-    return <Text className="text-gray-600">No manga found</Text>;
+    return <Text c="dimmed">No manga found</Text>;
   }
 
   return (
