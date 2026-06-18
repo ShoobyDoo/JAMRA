@@ -78,6 +78,11 @@ export const UnifiedMangaCard: React.FC<UnifiedMangaCardProps> = ({
     }
   };
 
+  const clampedProgressPercent =
+    progressPercent !== undefined
+      ? Math.min(100, Math.max(0, progressPercent))
+      : undefined;
+
   return (
     <Card
       padding={0}
@@ -164,7 +169,8 @@ export const UnifiedMangaCard: React.FC<UnifiedMangaCardProps> = ({
       </div>
 
       {/* Bottom Section: Progress (conditional) */}
-      {(footerContent || (showProgress && progressPercent !== undefined)) && (
+      {(footerContent ||
+        (showProgress && clampedProgressPercent !== undefined)) && (
         <div className="absolute inset-x-0 bottom-0 z-1 bg-[linear-gradient(to_top,rgba(0,0,0,0.95)_0%,rgba(0,0,0,0.85)_20%,rgba(0,0,0,0.65)_40%,rgba(0,0,0,0.4)_60%,rgba(0,0,0,0.15)_80%,transparent_100%)] p-3 text-white">
           {footerContent ?? (
             <>
@@ -178,12 +184,12 @@ export const UnifiedMangaCard: React.FC<UnifiedMangaCardProps> = ({
                   Chapter {currentChapter}
                 </Text>
               )}
-              <div className="mb-2 flex items-center justify-between text-xs tracking-wide text-white uppercase drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
+              <div className="mb-2 flex items-center justify-between text-xs tracking-wide text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
                 <span>Progress</span>
-                <span>{progressPercent}%</span>
+                <span>{clampedProgressPercent}%</span>
               </div>
               <Progress
-                value={progressPercent ?? 0}
+                value={clampedProgressPercent ?? 0}
                 size="sm"
                 radius="xl"
                 color="blue"

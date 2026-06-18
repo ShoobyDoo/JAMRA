@@ -1,9 +1,14 @@
-import { Alert, Anchor, Text, Title } from "@mantine/core";
-import { IconAlertCircle, IconBook } from "@tabler/icons-react";
+import { Anchor, Progress, Text, Title } from "@mantine/core";
+import { IconBook } from "@tabler/icons-react";
 import React from "react";
 import { useNavigate } from "react-router";
-import { ContinueReadingCard } from "../components/home/ContinueReadingCard";
+import { EmptyState } from "../components/shared/EmptyState";
+import { ErrorState } from "../components/shared/ErrorState";
+import { MangaCardGrid } from "../components/shared/MangaCardGrid";
+import { PageLoader } from "../components/shared/PageLoader";
+import { UnifiedMangaCard } from "../components/shared/UnifiedMangaCard";
 import { useContinueReadingEntries } from "../hooks/queries/useHomeQueries";
+import { formatRelativeTime } from "../lib/date";
 import type { ContinueReadingEntry } from "../types";
 import { buildRoute, ROUTES } from "../routes/routes.config";
 
@@ -40,53 +45,81 @@ export const HomePage: React.FC = () => {
           <Anchor
             component="button"
             onClick={handleViewAllContinueReading}
-            className="text-blue-600 hover:underline"
+            c="brand"
+            className="hover:underline"
           >
             View All
           </Anchor>
         </div>
 
         {isError && (
-          <Alert
-            color="red"
-            icon={<IconAlertCircle size={16} />}
-            className="mb-4"
-            withCloseButton
-            onClose={() => refetch()}
+          <ErrorState
             title="Unable to load progress"
-          >
-            {error instanceof Error ? error.message : "Unexpected error"}
-          </Alert>
+            message={error instanceof Error ? error.message : "Unexpected error"}
+            onRetry={() => refetch()}
+            className="mb-4"
+          />
         )}
 
         {isPending ? (
-          <div className="grid grid-cols-[repeat(auto-fit,minmax(176px,192px))] justify-items-center gap-3">
-            {Array.from({ length: 4 }).map((_, index) => (
-              <div
-                key={`continue-reading-skeleton-${index}`}
-                className="h-72 w-44 animate-pulse rounded-2xl bg-gray-200/50"
-              />
-            ))}
-          </div>
+          <PageLoader message="Loading your progress..." />
         ) : hasEntries ? (
-          <div className="grid grid-cols-[repeat(auto-fit,minmax(176px,192px))] justify-items-center gap-3">
-            {continueReadingEntries?.map((entry) => (
-              <ContinueReadingCard
-                key={entry.libraryId}
-                entry={entry}
-                onContinue={handleContinueReading}
-                onOpenDetails={handleOpenMangaDetails}
-              />
-            ))}
-          </div>
+          <MangaCardGrid>
+            {continueReadingEntries?.map((entry) => {
+              const progressLabel =
+                entry.totalPages
+                  ? `${entry.pageNumber}/${entry.totalPages}`
+                  : "Resume";
+              const relativeUpdatedAt = formatRelativeTime(
+                entry.lastReadAt ?? entry.updatedAt,
+              );
+
+              return (
+                <UnifiedMangaCard
+                  key={entry.libraryId}
+                  id={entry.mangaId}
+                  extensionId={entry.extensionId}
+                  title={entry.title}
+                  coverUrl={entry.coverUrl}
+                  onCardClick={() => handleContinueReading(entry)}
+                  onDetailsClick={() => handleOpenMangaDetails(entry)}
+                  footerContent={
+                    <>
+                      <Text
+                        size="xs"
+                        c="white"
+                        fw={500}
+                        className="mb-2 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]"
+                      >
+                        {entry.chapterNumber
+                          ? `Chapter ${entry.chapterNumber}`
+                          : "Resume"}
+                      </Text>
+                      <div className="mb-2 flex items-center justify-between text-xs tracking-wide text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
+                        <span>Progress</span>
+                        <span>{progressLabel}</span>
+                      </div>
+                      <Progress
+                        value={entry.progressPercent ?? 0}
+                        size="sm"
+                        radius="xl"
+                        color="blue"
+                      />
+                      <div className="mt-2 text-xs text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
+                        Updated {relativeUpdatedAt}
+                      </div>
+                    </>
+                  }
+                />
+              );
+            })}
+          </MangaCardGrid>
         ) : (
-          <div className="rounded-lg border border-dashed border-gray-200 p-6 text-center">
-            <IconBook size={28} className="mx-auto mb-2 text-gray-400" />
-            <Title order={5}>No recent progress</Title>
-            <Text size="sm" c="dimmed">
-              Start reading any manga to see it appear here.
-            </Text>
-          </div>
+          <EmptyState
+            icon={<IconBook size={28} style={{ color: "var(--mantine-color-dimmed)" }} />}
+            title="No recent progress"
+            description="Start reading any manga to see it appear here."
+          />
         )}
       </section>
     </div>

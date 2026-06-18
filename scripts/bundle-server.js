@@ -116,6 +116,7 @@ async function bundleServer() {
       }
 
       await fs.copy(sourcePath, targetPath, {
+        dereference: true,
         filter: (src) => {
           // Skip unnecessary files to reduce bundle size
           const relativePath = path.relative(sourcePath, src);

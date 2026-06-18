@@ -1,0 +1,40 @@
+{
+  "id": "weebcentral",
+  "name": "WeebCentral",
+  "version": "1.0.0",
+  "description": "WeebCentral catalog with search, metadata, and chapter streaming support.",
+  "author": "JAMRA Team",
+  "language": "en",
+  "entry": "src/index.ts",
+  "icon": "assets/icon.png",
+  "website": "https://weebcentral.com/",
+  "tags": ["english", "aggregate", "manga"],
+  "capabilities": {
+    "filters": {
+      "language": false,
+      "contentRating": false,
+      "status": false,
+      "includeTags": false,
+      "excludeTags": false
+    }
+  },
+  "settingsSchema": {
+    "version": 1,
+    "fields": [
+      {
+        "key": "image.cdnHost",
+        "label": "Image CDN Host",
+        "description": "Override the CDN host used for image loading.",
+        "type": "string",
+        "default": "cdn.weebcentral.com"
+      },
+      {
+        "key": "requests.concurrency",
+        "label": "Concurrent Page Requests",
+        "description": "Maximum number of simultaneous image requests per chapter.",
+        "type": "number",
+        "default": 4
+      }
+    ]
+  }
+}
