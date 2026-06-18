@@ -91,6 +91,8 @@ export interface MangaDetails {
   coverUrl?: string;
   tags?: string[];
   chapters?: ExtensionChapter[];
+  authors?: string[];
+  status?: "ongoing" | "completed" | "hiatus" | "cancelled" | "unknown";
 }
 
 export interface MangaDetailsResponse {
