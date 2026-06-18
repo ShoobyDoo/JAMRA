@@ -22,6 +22,25 @@ export const DiscoverPage: React.FC = () => {
   const [allSourcesQuery, setAllSourcesQuery] = useState(initialQuery);
   const [debouncedAllSourcesQuery] = useDebouncedValue(allSourcesQuery, 350);
 
+  // Re-sync allSourcesQuery whenever a new header search arrives, even when
+  // DiscoverPage is already mounted (the route has no dynamic segment, so
+  // React Router does not remount on query-string-only navigations). This is
+  // a render-phase state adjustment (not inside an effect) per the React
+  // pattern for "adjusting state when a prop/param changes" — using state
+  // (not a ref) to track the last-synced param, since refs can't be read or
+  // written during render.
+  const [lastSyncedQuery, setLastSyncedQuery] = useState(
+    searchAllParam === "1" ? queryParam : null,
+  );
+  if (
+    searchAllParam === "1" &&
+    queryParam &&
+    queryParam !== lastSyncedQuery
+  ) {
+    setLastSyncedQuery(queryParam);
+    setAllSourcesQuery(decodeURIComponent(queryParam));
+  }
+
   const { data: extensionsData, isLoading: isLoadingExtensions } =
     useExtensionsList();
 
@@ -32,11 +51,16 @@ export const DiscoverPage: React.FC = () => {
   // Set active tab to "All sources" when searchAll=1 and sync query params
   useEffect(() => {
     if (searchAllParam === "1") {
-      const next = new URLSearchParams(searchParams);
-      next.set("tab", ALL_SOURCES_TAB);
-      setSearchParams(next);
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.set("tab", ALL_SOURCES_TAB);
+          return next;
+        },
+        { replace: true },
+      );
     }
-  }, [searchAllParam, searchParams, setSearchParams]);
+  }, [searchAllParam, setSearchParams]);
 
   const handleTabChange = (value: string | null) => {
     if (!value) return;
