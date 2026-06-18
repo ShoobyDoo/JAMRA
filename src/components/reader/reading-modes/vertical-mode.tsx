@@ -55,21 +55,25 @@ export const VerticalMode: React.FC<VerticalModeProps> = ({
   // page detection, which would otherwise feed back into more corrective
   // scrolls and cause visible jumps.
   const programmaticScrollRef = useRef(false);
-  // "Is the user actively scrolling" — read/written only in the hot
-  // scroll-event path, so it must be a ref rather than React state (state
-  // would force a re-render on every scroll event). Detection itself runs
-  // live (RAF-throttled) regardless of this flag, so the page indicator
-  // tracks the visible page while scrolling instead of only after it stops;
-  // the flag is retained for any scroll-state-dependent behavior (e.g.
-  // suppressing hover/hot-zone effects while in motion).
-  const isScrollingRef = useRef(false);
+  // Set to true immediately before detectCurrentPage calls onPageChange, and
+  // read (then cleared) by the corrective scrollToIndex effect below. This is
+  // what distinguishes the two reasons currentPage can change:
+  //   1. The user scrolled naturally, detection noticed a new closest page,
+  //      and called onPageChange to keep the parent's currentPage in sync.
+  //      In this case the user's own scroll position IS already correct —
+  //      no corrective scrollToIndex should run, or it will yank the
+  //      viewport against the user's active scroll motion (the bug this
+  //      flag fixes).
+  //   2. Something external (page slider, keyboard nav, chapter-load initial
+  //      position, etc.) changed currentPage directly. In this case the
+  //      viewport has NOT moved yet and DOES need a corrective scrollToIndex
+  //      to catch up.
+  // Without this flag, the corrective effect can't tell those apart — it
+  // only knows currentPage changed, not why.
+  const detectionOriginatedChangeRef = useRef(false);
   // Pending requestAnimationFrame handle used to throttle page detection to
   // at most once per frame instead of once per scroll event.
   const detectionRafRef = useRef<number | null>(null);
-  // Debounce timer that marks scrolling as "settled" ~150ms after the last
-  // scroll event. Also used to know when a programmatic scroll has settled,
-  // since the corrective scrollToIndex itself fires scroll events.
-  const scrollTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
     currentPageRef.current = currentPage;
@@ -111,6 +115,10 @@ export const VerticalMode: React.FC<VerticalModeProps> = ({
 
     if (currentPageRef.current !== closestIndex) {
       currentPageRef.current = closestIndex;
+      // Mark this onPageChange call as detection-originated so the
+      // corrective effect below knows not to scrollToIndex in response —
+      // the user's own scroll position already IS the correct position.
+      detectionOriginatedChangeRef.current = true;
       onPageChange(closestIndex);
     }
   };
@@ -121,6 +129,15 @@ export const VerticalMode: React.FC<VerticalModeProps> = ({
     // originate from our own detection logic shouldn't trigger another
     // scrollToIndex call.
     if (programmaticScrollRef.current) return;
+
+    // Skip corrections for currentPage changes that originated from our own
+    // scroll-detection logic (the user naturally scrolled to this page —
+    // nothing to correct). Only run scrollToIndex for externally-triggered
+    // changes (page slider, keyboard nav, chapter-load initial position).
+    if (detectionOriginatedChangeRef.current) {
+      detectionOriginatedChangeRef.current = false;
+      return;
+    }
 
     programmaticScrollRef.current = true;
     virtualizer.scrollToIndex(currentPage, { align: "start", behavior: "auto" });
@@ -137,9 +154,6 @@ export const VerticalMode: React.FC<VerticalModeProps> = ({
 
   useEffect(() => {
     return () => {
-      if (scrollTimeoutRef.current !== null) {
-        clearTimeout(scrollTimeoutRef.current);
-      }
       if (detectionRafRef.current !== null) {
         cancelAnimationFrame(detectionRafRef.current);
       }
@@ -170,15 +184,6 @@ export const VerticalMode: React.FC<VerticalModeProps> = ({
     if (programmaticScrollRef.current) return;
 
     readerControls.hideControls();
-    isScrollingRef.current = true;
-
-    if (scrollTimeoutRef.current !== null) {
-      clearTimeout(scrollTimeoutRef.current);
-    }
-    scrollTimeoutRef.current = window.setTimeout(() => {
-      isScrollingRef.current = false;
-      scrollTimeoutRef.current = null;
-    }, 150);
 
     // Throttle page detection to once per animation frame instead of once
     // per scroll event.
