@@ -1,7 +1,7 @@
 import { Tabs, Text, TextInput, Title } from "@mantine/core";
 import { useDebouncedValue } from "@mantine/hooks";
 import { IconAlertCircle, IconSearch } from "@tabler/icons-react";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useSearchParams } from "react-router";
 import { ExtensionBrowsePanel } from "../components/discover/ExtensionBrowsePanel";
 import { EmptyState } from "../components/shared/EmptyState";
@@ -12,7 +12,14 @@ const ALL_SOURCES_TAB = "all";
 
 export const DiscoverPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const [allSourcesQuery, setAllSourcesQuery] = useState("");
+
+  // Initialize query from URL params if searchAll=1
+  const queryParam = searchParams.get("q");
+  const searchAllParam = searchParams.get("searchAll");
+  const initialQuery =
+    searchAllParam === "1" && queryParam ? decodeURIComponent(queryParam) : "";
+
+  const [allSourcesQuery, setAllSourcesQuery] = useState(initialQuery);
   const [debouncedAllSourcesQuery] = useDebouncedValue(allSourcesQuery, 350);
 
   const { data: extensionsData, isLoading: isLoadingExtensions } =
@@ -21,6 +28,15 @@ export const DiscoverPage: React.FC = () => {
   const extensions = extensionsData?.extensions ?? [];
 
   const activeTab = searchParams.get("tab") || ALL_SOURCES_TAB;
+
+  // Set active tab to "All sources" when searchAll=1 and sync query params
+  useEffect(() => {
+    if (searchAllParam === "1") {
+      const next = new URLSearchParams(searchParams);
+      next.set("tab", ALL_SOURCES_TAB);
+      setSearchParams(next);
+    }
+  }, [searchAllParam, searchParams, setSearchParams]);
 
   const handleTabChange = (value: string | null) => {
     if (!value) return;
