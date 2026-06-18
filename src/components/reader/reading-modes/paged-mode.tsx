@@ -1,15 +1,17 @@
-import React, { useRef, useState, useEffect } from "react";
+import React, { useRef, useState } from "react";
 import { useReaderSettings } from "../../../store/useReaderSettingsStore";
 import { IconChevronRight, IconChevronLeft } from "@tabler/icons-react";
 import type { useReaderControls } from "../../../hooks/useReaderControls";
 import {
-  READER_BACKGROUNDS,
-  getPageFitStyles,
   PageLoadingPlaceholder,
-  useHotZoneHandlers,
   ChapterTransitionOverlay,
 } from "./shared";
-import type { ChapterRef } from "./shared";
+import {
+  READER_BACKGROUNDS,
+  getPageFitStyles,
+  useHotZoneHandlers,
+} from "./shared-utils";
+import type { ChapterRef } from "./shared-utils";
 
 interface PagedModeProps {
   pages: Array<{
@@ -54,7 +56,14 @@ export const PagedMode: React.FC<PagedModeProps> = (props) => {
 
   // Track natural image dimensions for auto-fit orientation detection
   const [naturalDims, setNaturalDims] = useState<{ width: number; height: number } | null>(null);
-  useEffect(() => { setNaturalDims(null); }, [currentPage]);
+  // Render-phase state adjustment: reset naturalDims when currentPage changes,
+  // rather than in an effect (avoids cascading renders per react-hooks/set-state-in-effect).
+  // See DiscoverPage.tsx for the same pattern.
+  const [lastPageForNaturalDims, setLastPageForNaturalDims] = useState(currentPage);
+  if (currentPage !== lastPageForNaturalDims) {
+    setLastPageForNaturalDims(currentPage);
+    setNaturalDims(null);
+  }
 
   const handleImgLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
     const img = e.currentTarget;

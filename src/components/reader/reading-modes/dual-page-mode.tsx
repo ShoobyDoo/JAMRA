@@ -2,13 +2,13 @@ import React, { useRef, useEffect, useState } from "react";
 import { useReaderSettings } from "../../../store/useReaderSettingsStore";
 import { IconChevronRight, IconChevronLeft, IconLoader2 } from "@tabler/icons-react";
 import type { useReaderControls } from "../../../hooks/useReaderControls";
+import { ChapterTransitionOverlay } from "./shared";
 import {
   READER_BACKGROUNDS,
   getPageFitStyles,
   useHotZoneHandlers,
-  ChapterTransitionOverlay,
-} from "./shared";
-import type { ChapterRef } from "./shared";
+} from "./shared-utils";
+import type { ChapterRef } from "./shared-utils";
 
 interface PageData {
   index: number;
