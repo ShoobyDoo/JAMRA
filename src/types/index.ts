@@ -91,6 +91,8 @@ export interface MangaDetails {
   coverUrl?: string;
   tags?: string[];
   chapters?: ExtensionChapter[];
+  authors?: string[];
+  status?: "ongoing" | "completed" | "hiatus" | "cancelled" | "unknown";
 }
 
 export interface MangaDetailsResponse {
@@ -144,6 +146,12 @@ export interface ReaderPageDescriptor {
   url: string;
 }
 
+export interface ReaderChapterSummary {
+  id: string;
+  number?: string;
+  title?: string;
+}
+
 export interface ReaderChapter {
   id: string;
   number?: string;
@@ -152,6 +160,7 @@ export interface ReaderChapter {
   isDownloaded: boolean;
   previousChapterId: string | null;
   nextChapterId: string | null;
+  chapters: ReaderChapterSummary[];
 }
 
 /**

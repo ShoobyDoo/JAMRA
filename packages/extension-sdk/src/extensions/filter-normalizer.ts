@@ -170,7 +170,7 @@ export const detectUnsupportedFilters = (
       return;
     }
     if (supported !== true) {
-      unsupported.push(key);
+      unsupported.push(key as string);
     }
   };
 

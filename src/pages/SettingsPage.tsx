@@ -7,6 +7,7 @@ import {
   Switch,
   Text,
   Title,
+  useMantineColorScheme,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { invoke } from "@tauri-apps/api/core";
@@ -187,11 +188,21 @@ const SettingSelect: React.FC<SettingSelectProps> = ({
   ] as string;
   const { data: setting, isLoading } = useSetting<string>(settingKey);
   const updateSetting = useUpdateSetting();
+  const { setColorScheme } = useMantineColorScheme();
 
   const value = setting?.value ?? defaultValue;
 
   const handleChange = (newValue: string | null) => {
     if (!newValue) return;
+
+    // Apply the Mantine color scheme immediately for instant visual feedback
+    // when the user changes the Theme setting, ahead of persistence.
+    if (
+      settingKey === SETTING_KEYS.APP.THEME &&
+      (newValue === "light" || newValue === "dark" || newValue === "auto")
+    ) {
+      setColorScheme(newValue);
+    }
 
     updateSetting.mutate(
       {

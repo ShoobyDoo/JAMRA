@@ -1,9 +1,11 @@
 import { CloseButton, Input } from "@mantine/core";
 import { IconSearch } from "@tabler/icons-react";
 import React, { useState } from "react";
+import { useNavigate } from "react-router";
 
 export const SearchBar: React.FC = () => {
   const [query, setQuery] = useState<string>("");
+  const navigate = useNavigate();
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     setQuery(e.currentTarget.value);
@@ -13,8 +15,17 @@ export const SearchBar: React.FC = () => {
     setQuery("");
   };
 
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (query.trim()) {
+      navigate(
+        `/discover?q=${encodeURIComponent(query)}&searchAll=1`,
+      );
+    }
+  };
+
   return (
-    <div>
+    <form onSubmit={handleSubmit}>
       <Input
         placeholder="Search manga..."
         radius="md"
@@ -32,6 +43,6 @@ export const SearchBar: React.FC = () => {
         }
         rightSectionPointerEvents="all"
       />
-    </div>
+    </form>
   );
 };

@@ -6,62 +6,53 @@ import {
   Button,
   Card,
   Badge,
-  Loader,
-  Alert,
   Image,
   Progress,
   ActionIcon,
 } from "@mantine/core";
-import { IconBook, IconAlertCircle, IconPlayerPlay } from "@tabler/icons-react";
+import { IconBook, IconPlayerPlay } from "@tabler/icons-react";
 import { useNavigate } from "react-router";
 import { useRecentReadingActivity } from "../../hooks/queries/useReadingActivityQueries";
 import { formatRelativeTime } from "../../lib/date";
 import { buildRoute, ROUTES } from "../../routes/routes.config";
+import { EmptyState } from "../shared/EmptyState";
+import { ErrorState } from "../shared/ErrorState";
+import { PageLoader } from "../shared/PageLoader";
 
 export const ReadingActivityView: React.FC = () => {
   const navigate = useNavigate();
-  const { data: activities, isLoading, isError, error } = useRecentReadingActivity({ limit: 50 });
+  const { data: activities, isLoading, isError, error } = useRecentReadingActivity({
+    limit: 50,
+  });
 
   if (isLoading) {
-    return (
-      <Stack align="center" justify="center" className="py-12">
-        <Loader size="lg" />
-        <Text c="dimmed">Loading reading activity...</Text>
-      </Stack>
-    );
+    return <PageLoader message="Loading reading activity..." />;
   }
 
   if (isError) {
     return (
-      <Alert
-        icon={<IconAlertCircle />}
+      <ErrorState
         title="Error loading reading activity"
-        color="red"
-        className="max-w-2xl mx-auto"
-      >
-        {error instanceof Error ? error.message : "Failed to load reading activity"}
-      </Alert>
+        message={
+          error instanceof Error ? error.message : "Failed to load reading activity"
+        }
+        className="mx-auto max-w-2xl"
+      />
     );
   }
 
   if (!activities || activities.length === 0) {
     return (
-      <Stack align="center" justify="center" className="py-12">
-        <IconBook size={64} className="text-gray-400" />
-        <Text size="lg" c="dimmed">
-          No reading activity yet
-        </Text>
-        <Text size="sm" c="dimmed">
-          Start reading some manga to see your history here
-        </Text>
-        <Button
-          variant="light"
-          onClick={() => navigate(ROUTES.DISCOVER)}
-          className="mt-4"
-        >
-          Discover Manga
-        </Button>
-      </Stack>
+      <EmptyState
+        icon={<IconBook size={48} className="text-gray-400" />}
+        title="No reading activity yet"
+        description="Start reading some manga to see your history here"
+        action={
+          <Button variant="light" onClick={() => navigate(ROUTES.DISCOVER)}>
+            Discover Manga
+          </Button>
+        }
+      />
     );
   }
 
@@ -83,27 +74,40 @@ export const ReadingActivityView: React.FC = () => {
       <Stack gap="xs">
         {activities.map((activity, index) => {
           const { libraryItem, progress } = activity;
+          // Clamp the displayed page number so a stale/incremented backend
+          // value (e.g. pageNumber bumped past the last page on completion)
+          // never renders as "PAGE 51 OF 50".
+          const clampedPageNumber = progress.totalPages
+            ? Math.min(progress.pageNumber, progress.totalPages)
+            : progress.pageNumber;
+          // Clamp percent to 100 and force exactly 100 when complete, since
+          // the raw ratio can exceed 100% for the same reason as above.
           const progressPercent = progress.totalPages
-            ? Math.round((progress.pageNumber / progress.totalPages) * 100)
+            ? progress.completed
+              ? 100
+              : Math.min(
+                  100,
+                  Math.round((progress.pageNumber / progress.totalPages) * 100),
+                )
             : 0;
 
           return (
             <Card
               key={`${progress.id}-${index}`}
-              padding="md"
+              padding="xs"
               radius="md"
               withBorder
               className="hover:shadow-md transition-shadow cursor-pointer"
               onClick={() => handleResume(libraryItem.id, progress.chapterId)}
             >
-              <Group wrap="nowrap" gap="md">
+              <Group wrap="nowrap" gap="sm">
                 {/* Cover Image */}
                 <div className="relative flex-shrink-0">
                   <Image
                     src={libraryItem.coverUrl || "/placeholder.png"}
                     alt={libraryItem.title}
-                    width={80}
-                    height={120}
+                    width={56}
+                    height={80}
                     radius="sm"
                     className="object-cover"
                     fallbackSrc="/placeholder.png"
@@ -121,10 +125,10 @@ export const ReadingActivityView: React.FC = () => {
                 </div>
 
                 {/* Content */}
-                <Stack gap="xs" className="flex-1 min-w-0">
+                <Stack gap={4} className="flex-1 min-w-0">
                   <Group justify="space-between" wrap="nowrap">
                     <Text
-                      size="md"
+                      size="sm"
                       fw={600}
                       lineClamp={1}
                       className="flex-1 min-w-0"
@@ -141,7 +145,7 @@ export const ReadingActivityView: React.FC = () => {
                       Chapter {progress.chapterNumber || "?"}
                     </Badge>
                     <Badge variant="dot" size="sm" color="gray">
-                      Page {progress.pageNumber}
+                      Page {clampedPageNumber}
                       {progress.totalPages && ` of ${progress.totalPages}`}
                     </Badge>
                     {libraryItem.status && (
@@ -163,7 +167,7 @@ export const ReadingActivityView: React.FC = () => {
 
                   {/* Progress Bar */}
                   {progress.totalPages && (
-                    <Stack gap={4}>
+                    <Stack gap={2}>
                       <Progress
                         value={progressPercent}
                         size="sm"
@@ -179,7 +183,7 @@ export const ReadingActivityView: React.FC = () => {
 
                 {/* Action Button */}
                 <ActionIcon
-                  size="lg"
+                  size="md"
                   variant="light"
                   color="blue"
                   aria-label="Resume reading"
@@ -189,7 +193,7 @@ export const ReadingActivityView: React.FC = () => {
                     handleResume(libraryItem.id, progress.chapterId);
                   }}
                 >
-                  <IconPlayerPlay size={20} />
+                  <IconPlayerPlay size={18} />
                 </ActionIcon>
               </Group>
             </Card>

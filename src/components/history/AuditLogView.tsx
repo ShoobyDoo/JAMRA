@@ -3,7 +3,6 @@ import {
   Badge,
   Card,
   Group,
-  Loader,
   Stack,
   Text,
   ThemeIcon,
@@ -23,6 +22,8 @@ import { useDownloadQueue } from "../../hooks/queries/useDownloadQueries";
 import { useLibraryList } from "../../hooks/queries/useLibraryQueries";
 import { useReadingActivity } from "../../hooks/queries/useReadingActivityQueries";
 import { formatRelativeTime } from "../../lib/date";
+import { EmptyState } from "../shared/EmptyState";
+import { PageLoader } from "../shared/PageLoader";
 
 type AuditEvent = {
   id: string;
@@ -125,25 +126,16 @@ export const AuditLogView: React.FC = () => {
   }, [libraryData, downloadData, readingData]);
 
   if (isLoading) {
-    return (
-      <Stack align="center" justify="center" className="py-12">
-        <Loader size="lg" />
-        <Text c="dimmed">Loading audit log...</Text>
-      </Stack>
-    );
+    return <PageLoader message="Loading audit log..." />;
   }
 
   if (auditEvents.length === 0) {
     return (
-      <Stack align="center" justify="center" className="py-12">
-        <IconClock size={64} className="text-gray-400" />
-        <Text size="lg" c="dimmed">
-          No activity recorded yet
-        </Text>
-        <Text size="sm" c="dimmed">
-          Your app activity will appear here
-        </Text>
-      </Stack>
+      <EmptyState
+        icon={<IconClock size={48} className="text-gray-400" />}
+        title="No activity recorded yet"
+        description="Your app activity will appear here"
+      />
     );
   }
 

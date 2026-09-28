@@ -116,7 +116,6 @@ export class ExtensionCompiler {
     }
 
     // For now, compile only the entrypoint
-    // TODO: In the future, we could support importing other files
     return this.compile(entrypointCode, entrypoint, extensionId);
   }
 

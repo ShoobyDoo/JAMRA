@@ -60,7 +60,7 @@ export const LibraryPage: React.FC = () => {
           Library
         </Title>
         {stats && (
-          <Text size="sm" className="text-gray-600">
+          <Text size="sm" c="dimmed">
             {stats.total} manga in your library
           </Text>
         )}

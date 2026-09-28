@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { apiClient } from "../../api/client";
 import { API_PATHS } from "../../constants/api";
 import type {
@@ -16,6 +16,8 @@ type SearchFilters = {
   [key: string]: string | number | boolean | undefined;
 };
 
+const EXTENSION_SEARCH_PAGE_SIZE = 24;
+
 export const extensionKeys = {
   all: ["extensions"] as const,
   list: ["extensions", "list"] as const,
@@ -29,6 +31,8 @@ export const extensionKeys = {
       filters.query,
       filters.page,
     ] as const,
+  searchInfinite: (extensionId: string, query: string) =>
+    ["extensions", "search-infinite", extensionId, query] as const,
   manga: (extensionId: string, mangaId: string) =>
     ["extensions", "manga", extensionId, mangaId] as const,
   chapters: (extensionId: string, mangaId: string) =>
@@ -79,6 +83,32 @@ export const useExtensionSearch = (
         API_PATHS.extensionSearch(extensionId!),
         { params: filters },
       ),
+    enabled: Boolean(extensionId && filters !== undefined),
+  });
+};
+
+export const useExtensionSearchInfinite = (
+  extensionId?: string,
+  filters?: { query: string },
+) => {
+  return useInfiniteQuery({
+    queryKey: extensionId
+      ? extensionKeys.searchInfinite(extensionId, filters?.query ?? "")
+      : ["extensions", "search-infinite"],
+    queryFn: ({ pageParam }) =>
+      apiClient.get<ExtensionSearchResponse>(
+        API_PATHS.extensionSearch(extensionId!),
+        {
+          params: {
+            query: filters?.query ?? "",
+            page: pageParam,
+            count: EXTENSION_SEARCH_PAGE_SIZE,
+          },
+        },
+      ),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage, allPages) =>
+      lastPage.hasMore ? allPages.length + 1 : undefined,
     enabled: Boolean(extensionId && filters !== undefined),
   });
 };

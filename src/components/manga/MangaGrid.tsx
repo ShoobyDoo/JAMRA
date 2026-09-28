@@ -1,7 +1,8 @@
-import { SimpleGrid, Text } from "@mantine/core";
+import { Text } from "@mantine/core";
 import React from "react";
 import type { ExtensionSearchResult } from "../../types";
-import { MangaCard } from "./MangaCard";
+import { MangaCardGrid } from "../shared/MangaCardGrid";
+import { UnifiedMangaCard } from "../shared/UnifiedMangaCard";
 
 interface MangaGridProps {
   results: ExtensionSearchResult[];
@@ -17,20 +18,24 @@ export const MangaGrid: React.FC<MangaGridProps> = ({
   onSelect,
 }) => {
   if (results.length === 0) {
-    return <Text className="text-gray-600">No manga found</Text>;
+    return <Text c="dimmed">No manga found</Text>;
   }
 
   return (
-    <SimpleGrid cols={{ base: 1, sm: 2, md: 3, lg: 4 }} spacing="lg">
+    <MangaCardGrid>
       {results.map((result) => (
-        <MangaCard
+        <UnifiedMangaCard
           key={`${extensionId}-${result.id}`}
+          id={result.id}
           extensionId={extensionId}
+          title={result.title}
+          coverUrl={result.coverUrl}
           extensionName={extensionName}
-          result={result}
-          onSelect={onSelect}
+          status={result.status}
+          onDetailsClick={onSelect ? () => onSelect(result) : undefined}
+          onCardClick={onSelect ? () => onSelect(result) : undefined}
         />
       ))}
-    </SimpleGrid>
+    </MangaCardGrid>
   );
 };

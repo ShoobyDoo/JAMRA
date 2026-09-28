@@ -47,14 +47,16 @@ const createPortableZip = async () => {
   archive.pipe(output);
 
   // Add executable
-  const exePath = path.join(artifactsDir, "jamra.exe");
+  const isWindows = process.platform === "win32";
+  const exeName = isWindows ? "jamra.exe" : "jamra";
+  const exePath = path.join(artifactsDir, exeName);
   if (!(await fs.pathExists(exePath))) {
     throw new Error(
-      `jamra.exe not found at ${exePath}. Run build first: pnpm tauri build --no-bundle`,
+      `${exeName} not found at ${exePath}. Run build first: pnpm tauri build --no-bundle`,
     );
   }
-  console.log("  Adding jamra.exe...");
-  archive.file(exePath, { name: "JAMRA/jamra.exe" });
+  console.log(`  Adding ${exeName}...`);
+  archive.file(exePath, { name: `JAMRA/${exeName}`, mode: 0o755 });
 
   // Add server bundle
   const serverBundlePath = path.join(artifactsDir, "server-bundle");
@@ -110,12 +112,12 @@ SYSTEM REQUIREMENTS
 HOW TO USE
 ----------
 1. Extract this ZIP to a folder of your choice
-2. Double-click jamra.exe to launch the application
+2. Double-click ${exeName} to launch the application
 
 PORTABLE MODE
 -------------
 This portable package contains:
-- jamra.exe (main application)
+- ${exeName} (main application)
 - server-bundle/ (Node.js server files)
 - resources/ (application resources)
 - packages/ (SDK files)
@@ -127,9 +129,9 @@ All data will be stored in:
 TROUBLESHOOTING
 ---------------
 If the application doesn't start:
-1. Check that jamra.exe is not blocked: Right-click > Properties > Unblock
-2. Confirm node-runtime/node.exe exists inside this folder
-3. Run jamra.exe from Command Prompt to see error messages
+1. Check that ${exeName} is not blocked: Right-click > Properties > Unblock
+2. Confirm node-runtime/node${isWindows ? '.exe' : ''} exists inside this folder
+3. Run ${exeName} from Command Prompt to see error messages
 
 For support, visit: https://github.com/yourusername/jamra
 

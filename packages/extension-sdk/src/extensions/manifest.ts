@@ -42,7 +42,8 @@ export const defineExtensionManifest = (
 
   const manifest = { ...(raw as Record<string, unknown>) };
   for (const field of REQUIRED_MANIFEST_FIELDS) {
-    if (typeof manifest[field] !== "string" || !manifest[field]) {
+    const key = field as string;
+    if (typeof manifest[key] !== "string" || !manifest[key]) {
       throw new Error(`Extension manifest requires a valid ${String(field)}`);
     }
   }

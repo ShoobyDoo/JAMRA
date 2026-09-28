@@ -9,7 +9,7 @@ const reactHooksRules = reactHooks.configs["recommended-latest"].rules ?? {};
 const reactRefreshConfig = reactRefresh.configs.vite;
 
 export default defineConfig([
-  globalIgnores(["dist", "server/dist"]),
+  globalIgnores(["dist", "server/dist", "src-tauri/target"]),
   {
     files: ["**/*.{ts,tsx}"],
     extends: [js.configs.recommended, tseslint.configs.recommended],
@@ -35,6 +35,12 @@ export default defineConfig([
           caughtErrorsIgnorePattern: "^_",
         },
       ],
+    },
+  },
+  {
+    files: ["src/test/**/*.{ts,tsx}", "**/*.test.{ts,tsx}", "**/*.spec.{ts,tsx}"],
+    rules: {
+      "react-refresh/only-export-components": "off",
     },
   },
 ]);
